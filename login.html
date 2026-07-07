@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff Login | The Leeward Group</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" type="image/png" href="Logo/PVMC-logo.png">
+</head>
+<body class="auth-page">
+  <div class="auth-shell">
+    <div class="auth-card">
+      <div class="auth-card__brand">
+        <div class="brand-mark">
+          <div class="brand-mark__icon">TLG</div>
+          <div>
+            <div class="brand-title">The Leeward Group</div>
+            <div class="brand-subtitle">Internal staff portal</div>
+          </div>
+        </div>
+      </div>
+
+      <h1>Welcome back</h1>
+      <p>Sign in to access project updates, field support tools, and internal operations.</p>
+
+      <form id="loginForm" class="auth-form">
+        <label class="auth-field">
+          <span>Username</span>
+          <input id="username" name="username" type="text" placeholder="Enter your username" required>
+        </label>
+
+        <label class="auth-field">
+          <span>Password</span>
+          <input id="password" name="password" type="password" placeholder="Enter your password" required>
+        </label>
+
+        <button class="auth-button" type="submit">Sign in</button>
+
+        <div class="auth-options">
+          <label class="checkbox-row">
+            <input id="rememberMe" type="checkbox">
+            <span>Remember this device</span>
+          </label>
+          <a href="#" class="auth-link">Need help?</a>
+        </div>
+
+        <p id="loginMessage" class="auth-message" role="status"></p>
+      </form>
+
+      <div class="auth-footer">
+        <p class="auth-inline-copy">New accounts are created by IT administrators only.</p>
+      </div>
+    </div>
+
+    <div class="auth-panel">
+      <div class="auth-panel__badge">Built for field operations</div>
+      <h2>Keep projects, crews, and support tools aligned.</h2>
+      <ul>
+        <li>Fast access to site readiness and support workflows</li>
+        <li>Simple navigation for daily field operations</li>
+        <li>Secure, focused access for internal staff</li>
+      </ul>
+    </div>
+  </div>
+
+  <script src="supabase-config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-auth.js"></script>
+  <script src="auth-guard.js"></script>
+  <script src="login.js"></script>
+</body>
+</html>

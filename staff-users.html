@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff Users | The Leeward Group</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body.staff-directory-page {
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #071220 0%, #13263d 100%);
+      color: #f5f7fb;
+    }
+
+    .directory-shell {
+      display: flex;
+      min-height: 100vh;
+      width: 100%;
+      padding: 1.25rem;
+      gap: 1rem;
+      box-sizing: border-box;
+    }
+
+    .directory-panel {
+      background: rgba(7, 18, 32, 0.84);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 20px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+      overflow: hidden;
+    }
+
+    .directory-panel--list {
+      width: 36%;
+      min-width: 320px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .directory-panel--details {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .directory-panel__header {
+      padding: 1.2rem 1.2rem 0.9rem;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .directory-panel__header h1 {
+      margin: 0 0 0.3rem;
+      font-size: 1.35rem;
+    }
+
+    .directory-panel__header p {
+      margin: 0;
+      color: #aeb9ca;
+      font-size: 0.95rem;
+    }
+
+    .directory-search {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      padding: 1rem 1.2rem;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .directory-search input {
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 10px;
+      padding: 0.7rem 0.85rem;
+      background: rgba(255,255,255,0.06);
+      color: #fff;
+    }
+
+    .directory-list {
+      padding: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .directory-user {
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px;
+      padding: 0.8rem;
+      background: rgba(255,255,255,0.04);
+      text-align: left;
+      color: inherit;
+      cursor: pointer;
+      transition: border-color 0.2s ease, transform 0.2s ease;
+    }
+
+    .directory-user:hover,
+    .directory-user.is-active {
+      border-color: #6aa7ff;
+      transform: translateY(-1px);
+    }
+
+    .directory-user__name {
+      font-weight: 600;
+      margin-bottom: 0.2rem;
+    }
+
+    .directory-user__meta {
+      color: #aeb9ca;
+      font-size: 0.9rem;
+    }
+
+    .directory-user__badge {
+      display: inline-block;
+      margin-top: 0.45rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      background: rgba(106, 167, 255, 0.15);
+      color: #8fc2ff;
+    }
+
+    .directory-user__badge.is-inactive {
+      background: rgba(255, 116, 116, 0.16);
+      color: #ffb1b1;
+    }
+
+    .directory-details {
+      padding: 1.2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      flex: 1;
+    }
+
+    .directory-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 250px;
+      color: #aeb9ca;
+      border: 1px dashed rgba(255,255,255,0.18);
+      border-radius: 16px;
+      padding: 1rem;
+      text-align: center;
+    }
+
+    .directory-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .directory-form__row {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .directory-form label {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      color: #dbe4f0;
+      font-size: 0.95rem;
+    }
+
+    .directory-form input,
+    .directory-form select {
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 10px;
+      padding: 0.75rem 0.85rem;
+      background: rgba(255,255,255,0.06);
+      color: #fff;
+    }
+
+    .directory-actions {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 900px) {
+      .directory-shell {
+        flex-direction: column;
+      }
+
+      .directory-panel--list {
+        width: 100%;
+        min-width: 0;
+        max-height: 45vh;
+      }
+    }
+  </style>
+</head>
+<body class="auth-page staff-directory-page">
+  <div class="directory-shell">
+    <section class="directory-panel directory-panel--list">
+      <div class="directory-panel__header">
+        <h1>Staff directory</h1>
+        <p>IT administrators can manage full account settings.</p>
+      </div>
+
+      <label class="directory-search">
+        <span>Search users</span>
+        <input id="userSearch" type="search" placeholder="Search by name or username">
+      </label>
+
+      <div id="userList" class="directory-list"></div>
+    </section>
+
+    <section class="directory-panel directory-panel--details">
+      <div class="directory-details">
+        <div id="directoryEmptyState" class="directory-empty">Select a user to edit full account settings.</div>
+
+        <form id="userDetailsForm" class="directory-form" style="display: none;">
+          <input type="hidden" id="selectedUserId">
+
+          <div class="directory-form__row">
+            <label>
+              Full name
+              <input id="fullName" type="text" required>
+            </label>
+            <label>
+              Username
+              <input id="username" type="text" required>
+            </label>
+          </div>
+
+          <div class="directory-form__row">
+            <label>
+              Group
+              <input id="group" type="text" placeholder="Operations">
+            </label>
+            <label>
+              Status
+              <select id="status">
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+          </div>
+
+          <label>
+            New password
+            <input id="password" type="password" placeholder="Leave blank to keep current password">
+          </label>
+
+          <div class="directory-actions">
+            <button class="auth-button auth-button--secondary" type="submit">Save changes</button>
+            <button class="auth-button auth-button--secondary" id="toggleActiveBtn" type="button">Deactivate</button>
+            <a class="auth-link" href="dashboard.html">Back to dashboard</a>
+          </div>
+
+          <p id="directoryMessage" class="auth-message" role="status"></p>
+        </form>
+      </div>
+    </section>
+  </div>
+
+  <script src="supabase-config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-auth.js"></script>
+  <script src="auth-guard.js"></script>
+  <script src="staff-users.js"></script>
+</body>
+</html>

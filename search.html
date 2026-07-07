@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Software Updates - Church Tech</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">
+                <span class="logo-text">PVMC</span>
+            </div>
+            <button class="menu-btn" id="menuBtn">☰</button>
+        </div>
+        <div class="header-center">
+            <span class="logo-text">Search Software Updates</span>
+        </div>
+        <div class="header-right">
+            <input type="text" class="search-bar" id="searchInput" placeholder="Search for software updates...">
+        </div>
+    </header>
+    
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">Navigation</div>
+        <nav class="sidebar-nav">
+            <a href="update.home.html" class="nav-item">
+                <span class="home-nav-icon"></span>
+                <span class="nav-text">Home</span>
+            </a>
+            <a href="submit.html" class="nav-item">
+                <span class="add-nav-icon"></span>
+                <span class="nav-text">Submit Update</span>
+            </a>
+            <a href="search.html" class="nav-item active">
+                <span class="search-nav-icon"></span>
+                <span class="nav-text">Search Updates</span>
+            </a>
+
+            <a href="update.table.html" class="nav-item">
+                <span class="table-nav-icon"></span>
+                <span class="nav-text">Software Update Chart</span>
+            </a>
+
+        </nav>
+        <div class="sidebar-footer">
+            PVMC Tech Department
+            <br>
+            V3.10.1
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
+
+        <!-- <section class="index-banner-new-update">
+            <div>
+                <div class="hero-title">New Feature!</div>
+                <p class="hero-subtitle"><strong>🎉 V4 is now live!</strong> You can now share every logged update with your team. Some members will receive automatic emails when a new update is published. <a href="v4.update.html" style="text-decoration: underline;">Click here</a> to learn more and see what’s new in V4!</p>
+            </div> 
+        </section> --> 
+
+        <div class="card">
+            <h2 class="card-title">Filter by Category</h2>
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+                <button class="btn-doc filter-btn active" data-category="all" onclick="filterByCategory('all')">All</button>
+                <button class="btn-doc filter-btn" data-category="Audio/Video" onclick="filterByCategory('Audio/Video')">Audio/Video</button>
+                <button class="btn-doc filter-btn" data-category="Presentation" onclick="filterByCategory('Presentation')">Presentation</button>
+                <button class="btn-doc filter-btn" data-category="Streaming" onclick="filterByCategory('Streaming')">Streaming</button>
+                <button class="btn-doc filter-btn" data-category="Control" onclick="filterByCategory('Control')">Control</button>
+                <button class="btn-doc filter-btn" data-category="Other" onclick="filterByCategory('Other')">Other</button>
+            </div>
+        </div>
+
+        <div id="loadingMessage" class="card" style="text-align: center; padding: 2rem;">
+            <p style="color: var(--text-light); font-size: 1.1rem;">Loading software updates...</p>
+        </div>
+
+        <div id="resultsContainer" style="display: none;">
+            <div class="card">
+                <h2 class="card-title">Results (<span id="resultCount">0</span>)</h2>
+                <div id="results"></div>
+            </div>
+        </div>
+
+        <div id="noResults" class="card" style="display: none; text-align: center; padding: 2rem;">
+            <p style="color: var(--text-light); font-size: 1.1rem;">No updates found. Try a different search term.</p>
+        </div>
+    </main>
+
+    <script>
+        let allUpdates = [];
+        let currentCategory = 'all';
+
+        // Load data on page load
+        window.addEventListener('load', loadUpdates);
+
+        async function loadUpdates() {
+            try {
+                // Replace with your Google Apps Script Web App URL
+                const scriptURL = 'https://script.google.com/macros/s/AKfycbzQK_ajqjD5CoFKfodbPfhC2OXquU3F4ew-GQ4ZoBQyL8n-VWkqyD9DWtyUW4v37Zau/exec?action=getAll';
+                
+                const response = await fetch(scriptURL);
+                const data = await response.json();
+                
+                allUpdates = data.data || [];
+                displayResults(allUpdates);
+                
+                document.getElementById('loadingMessage').style.display = 'none';
+                document.getElementById('resultsContainer').style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error loading updates:', error);
+                document.getElementById('loadingMessage').innerHTML = '<p style="color: var(--danger-color);">Error loading updates. Please refresh the page.</p>';
+            }
+        }
+
+        // Search functionality
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', function(e) {
+                const searchTerm = e.target.value.toLowerCase();
+                performSearch(searchTerm);
+            });
+        }
+
+        function performSearch(searchTerm) {
+            let filtered = allUpdates;
+            
+            // Filter by category first
+            if (currentCategory !== 'all') {
+                filtered = filtered.filter(update => update.category === currentCategory);
+            }
+            
+            // Then filter by search term
+            if (searchTerm) {
+                filtered = filtered.filter(update => 
+                    update.softwareName.toLowerCase().includes(searchTerm) ||
+                    update.version.toLowerCase().includes(searchTerm) ||
+                    update.updatedBy.toLowerCase().includes(searchTerm) ||
+                    update.notes.toLowerCase().includes(searchTerm) ||
+                    (update.issues && update.issues.toLowerCase().includes(searchTerm))
+                );
+            }
+            
+            displayResults(filtered);
+        }
+
+        function filterByCategory(category) {
+            currentCategory = category;
+            
+            // Update active button
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.dataset.category === category) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            // Perform search with current search term (if search bar exists)
+            const searchInput = document.getElementById('searchInput');
+            const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+            performSearch(searchTerm);
+        }
+
+        function displayResults(updates) {
+            const resultsDiv = document.getElementById('results');
+            const resultCount = document.getElementById('resultCount');
+            const noResults = document.getElementById('noResults');
+            const resultsContainer = document.getElementById('resultsContainer');
+            
+            if (updates.length === 0) {
+                resultsContainer.style.display = 'none';
+                noResults.style.display = 'block';
+                return;
+            }
+            
+            resultsContainer.style.display = 'block';
+            noResults.style.display = 'none';
+            resultCount.textContent = updates.length;
+            
+            // Sort by date (newest first)
+            updates.sort((a, b) => new Date(b.updateDate) - new Date(a.updateDate));
+            
+            resultsDiv.innerHTML = updates.map(update => `
+                <div class="video-item" style="margin-bottom: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
+                        <div>
+                            <h3 style="font-size: 1.2rem; color: var(--primary-color); margin-bottom: 0.25rem;">${update.softwareName}</h3>
+                            <p style="color: var(--text-light); font-size: 0.9rem;">Version: ${update.version}</p>
+                        </div>
+                        <span style="background: ${getCategoryColor(update.category)}; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem;">${update.category}</span>
+                    </div>
+                    
+                    <div style="background: var(--white); padding: 1rem; border-radius: 6px; margin-bottom: 0.75rem;">
+                        <p style="margin-bottom: 0.5rem;"><strong>Update Date:</strong> ${formatDate(update.updateDate)}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Updated By:</strong> ${update.updatedBy}</p>
+                        <p style="margin-bottom: 0.5rem;"><strong>Notes:</strong></p>
+                        <p style="color: var(--text-dark); line-height: 1.6;">${update.notes}</p>
+                        ${update.issues ? `
+                            <p style="margin-top: 0.75rem; margin-bottom: 0.5rem;"><strong>Issues Resolved:</strong></p>
+                            <p style="color: var(--text-dark); line-height: 1.6;">${update.issues}</p>
+                        ` : ''}
+                    </div>
+                    
+                    <p style="font-size: 0.8rem; color: var(--text-light); font-style: italic;">
+                        Submitted: ${formatDateTime(update.timestamp)}
+                    </p>
+                </div>
+            `).join('');
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        }
+
+        function formatDateTime(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('en-US', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function getCategoryColor(category) {
+            const colors = {
+                'Audio/Video': '#eb9234',    
+                'Presentation': '#34eb64',   
+                'Streaming': '#9e5560',      
+                'Control': '#6e46e8',        
+                'Other': '#e84646'           
+            };
+            return colors[category] || '#757575';
+        }
+    </script>
+
+    <style>
+        .filter-btn {
+            flex: 0 1 auto;
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            opacity: 0.7;
+            transition: all 0.3s;
+        }
+
+        .filter-btn.active {
+            opacity: 1;
+            background-color: var(--secondary-color) !important;
+            transform: scale(1.05);
+        }
+
+        .filter-btn:hover {
+            opacity: 0.9;
+        }
+    </style>
+    <script src="script.js"></script>
+  <script src="auth-guard.js"></script>
+</body>
+</html>

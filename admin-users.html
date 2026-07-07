@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IT User Management | The Leeward Group</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="auth-page">
+  <div class="auth-shell">
+    <div class="auth-card">
+      <div class="auth-card__brand">
+        <div class="brand-mark">
+          <div class="brand-mark__icon">IT</div>
+          <div>
+            <div class="brand-title">IT user management</div>
+            <div class="brand-subtitle">Restricted admin access</div>
+          </div>
+        </div>
+      </div>
+
+      <h1>Create a staff account</h1>
+      <p>Only IT administrators can add new users to the portal.</p>
+      <p id="adminAccessNote" class="auth-message">Your access is being verified against the Supabase staff_users table.</p>
+
+      <form id="adminUserForm" class="auth-form">
+        <label class="auth-field">
+          <span>Full name</span>
+          <input id="adminFullName" type="text" required>
+        </label>
+
+        <label class="auth-field">
+          <span>Username</span>
+          <input id="adminUsername" type="text" required>
+        </label>
+
+        <label class="auth-field">
+          <span>Password</span>
+          <input id="adminPassword" type="password" required>
+        </label>
+
+        <label class="auth-field">
+          <span>Group</span>
+          <select id="adminGroup">
+            <option value="Operations">Operations</option>
+            <option value="Field">Field</option>
+            <option value="IT">IT</option>
+            <option value="Admin">Admin</option>
+          </select>
+        </label>
+
+        <button class="auth-button auth-button--secondary" type="submit">Create user</button>
+        <p id="adminMessage" class="auth-message" role="status"></p>
+      </form>
+
+      <div class="auth-footer">
+        <a href="dashboard.html" class="auth-link">Back to dashboard</a>
+      </div>
+    </div>
+
+    <div class="auth-panel">
+      <div class="auth-panel__badge">IT-only</div>
+      <h2>Keep account access controlled and auditable.</h2>
+      <ul>
+        <li>Only approved IT staff can create new portal users</li>
+        <li>Users are grouped by role for faster access control</li>
+        <li>New accounts are written directly to the Supabase staff_users table</li>
+      </ul>
+    </div>
+  </div>
+
+  <script src="supabase-config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-auth.js"></script>
+  <script src="auth-guard.js"></script>
+  <script src="admin-users.js"></script>
+</body>
+</html>

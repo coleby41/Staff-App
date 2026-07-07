@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Leeward Group | Operations Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" href="Logo/PVMC-logo.png">
+</head>
+<body>
+    <header class="header">
+        <div class="header-left">
+            <div class="brand-mark">
+                <div class="brand-mark__icon" id="brandInitials">ST</div>
+                <div>
+                    <div class="brand-title">The Leeward Group</div>
+                    <div class="brand-subtitle">Staff Portal</div>
+                </div>
+            </div>
+            <button class="menu-btn" id="menuBtn" aria-label="Toggle navigation">☰</button>
+        </div>
+        <div class="header-right">
+            <span class="header-user-pill" id="headerUserPill">Staff</span>
+            <button class="auth-button auth-button--secondary header-signout" id="signOutButton" type="button">Sign out</button>
+        </div>
+    </header>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">Quick access</div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item active">
+                <span class="home-nav-icon"></span>
+                <span class="nav-text">Dashboard</span>
+            </a>
+
+            <div class="nav-item-group" id="adminNavGroup" style="display:none;">
+                <a href="admin-users.html" class="nav-item nav-parent" onclick="toggleSubnav(event, this)">
+                    <span class="docs-nav-icon"></span>
+                    <span class="nav-text">IT Tools</span>
+                    <span class="nav-arrow"></span>
+                </a>
+                <div class="subnav">
+                    <a href="admin-users.html" class="subnav-item">
+                        <span class="nav-text">Create account</span>
+                    </a>
+                    <a href="staff-users.html" class="subnav-item">
+                        <span class="nav-text">Staff users</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="nav-item-group">
+                <a href="docs.html" class="nav-item nav-parent" onclick="toggleSubnav(event, this)">
+                    <span class="docs-nav-icon"></span>
+                    <span class="nav-text">Company docs</span>
+                    <span class="nav-arrow"></span>
+                </a>
+                <div class="subnav">
+                    <a href="#" class="subnav-item"><span class="nav-text">New Project Onboarding</span></a>
+                    <a href="#" class="subnav-item"><span class="nav-text">Excel Workbook Templates</span></a>
+                    <a href="#" class="subnav-item"><span class="nav-text">Form Templates</span></a>
+                </div>
+            </div>
+            <a href="https://www.theleewardgroup.us/" class="nav-item" target="_blank">
+                <span class="website-nav-icon"></span>
+                <span class="nav-text">Company site</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="sidebar-brand">LeeWard Group</div>
+            <div class="version">Version 3.10.1</div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <h1 id="welcomeHeading">Welcome, Staff</h1>
+        <section class="hero-section hero-section--construction">
+            <div>
+                <p class="eyebrow">The LeeWard Group Staff Portal</p>
+                <h1>Supporting our team with the tools, resources, and information needed every day.</h1>
+            </div>
+        </section>
+
+        <section class="glass-container">
+            <div>
+                <p class="eyebrow">The Leeward Group Staff Portal</p>
+                <h1>Supporting our team with the tools, resources, and information needed every day.</h1>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+    <script src="supabase-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-auth.js"></script>
+    <script src="auth-guard.js"></script>
+    <script>
+        document.getElementById('signOutButton').addEventListener('click', function () {
+            window.signOutUser();
+        });
+
+        const userPill = document.getElementById('headerUserPill');
+        const welcomeHeading = document.getElementById('welcomeHeading');
+        const adminNavGroup = document.getElementById('adminNavGroup');
+        const brandInitials = document.getElementById('brandInitials');
+
+        function updateStaffName(profile) {
+            if (!profile) return;
+            const name = profile.full_name || profile.username || 'Staff';
+            if (userPill) userPill.textContent = name;
+            if (welcomeHeading) welcomeHeading.textContent = `Welcome, ${name}`;
+            if (brandInitials) {
+                const words = String(name).trim().split(/\s+/).filter(Boolean);
+                const initials = words.length >= 2
+                    ? `${words[0][0] || ''}${words[words.length - 1][0] || ''}`.toUpperCase()
+                    : `${words[0]?.slice(0, 2).toUpperCase() || 'ST'}`;
+                brandInitials.textContent = initials;
+            }
+        }
+
+        function updateNavAccess(profile) {
+            const shouldShowAdminNav = window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, 'IT') : false;
+            if (adminNavGroup) adminNavGroup.style.display = shouldShowAdminNav ? 'block' : 'none';
+        }
+
+        const storedProfile = localStorage.getItem('staffProfile');
+        if (storedProfile) {
+            try {
+                const parsedProfile = JSON.parse(storedProfile);
+                updateStaffName(parsedProfile);
+                updateNavAccess(parsedProfile);
+            } catch (error) {
+                console.warn('Unable to parse stored profile:', error);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', function () {
+            const profile = window.currentSupabaseProfile || null;
+            if (profile) {
+                updateStaffName(profile);
+                updateNavAccess(profile);
+            }
+        });
+    </script>
+</body>
+</html>

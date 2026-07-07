@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - Page Not Found</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            background-color: #fcfcfc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .error-container {
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .error-card {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 40px 30px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .error-code {
+            font-size: 8rem;
+            font-weight: bold;
+            color: #1e293b;
+            line-height: 1;
+            margin-bottom: 20px;
+            animation: fadeIn 0.6s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .error-title {
+            font-size: 1.75rem;
+            color: #1e293b;
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+
+        .error-message {
+            font-size: 1.1rem;
+            color: #334155;
+            margin-bottom: 30px;
+        }
+
+        .verse-container {
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            padding: 20px;
+            border-radius: 6px;
+            border-left: 4px solid #ff2a00;
+            margin: 30px 0;
+            animation: fadeIn 1s ease-in;
+        }
+
+        .verse {
+            font-style: italic;
+            color: #334155;
+            font-size: 1rem;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+
+        .verse-reference {
+            font-size: 0.9rem;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .error-code {
+                font-size: 5rem;
+            }
+
+            .error-title {
+                font-size: 1.5rem;
+            }
+
+            .error-message {
+                font-size: 1rem;
+            }
+
+            .error-card {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+<header class="header">
+        <div class="header-left">
+            <div class="logo">
+                <span class="logo-text">PVMC</span>
+            </div>
+        </div>
+        <div class="header-center">
+            <span class="logo-text">404</span>
+        </div>
+    </header>
+<body>
+    <div class="error-container">
+        <div class="error-card">
+            <div class="icon">🕊️</div>
+            <div class="error-code">404</div>
+            <h1 class="error-title">Page Not Found</h1>
+            <p class="error-message">The page you're looking for seems to have wandered off. Don't worry, we will help you find your way back.</p>
+            <div class="announcement-item">
+                <div class="verse">
+                    "Serve wholeheartedly, as if you were serving the Lord, not people."
+                </div>
+                <div class="verse-reference">— Ephesians 6:7</div>
+            </div>
+            <br>
+            <a href="index.html" class="popup-button">Return to Dashboard</a>
+        </div>
+    </div>
+  <script src="auth-guard.js"></script>
+</body>
+</html>
