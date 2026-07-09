@@ -8,6 +8,7 @@ const usernameInput = document.getElementById('username');
 const groupInput = document.getElementById('group');
 const statusSelect = document.getElementById('status');
 const passwordInput = document.getElementById('password');
+const accountNotesInput = document.getElementById('accountNotes');
 const toggleActiveBtn = document.getElementById('toggleActiveBtn');
 const directoryMessage = document.getElementById('directoryMessage');
 
@@ -43,7 +44,9 @@ function getStoredProfile() {
 async function hashPassword(password) {
   const passwordBuffer = new TextEncoder().encode(password);
   const hashBuffer = await window.crypto.subtle.digest('SHA-256', passwordBuffer);
-  return Array.from(new Uint8Array(hashBuffer)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 function renderUserList(users) {
@@ -84,6 +87,9 @@ function showDetailsForm(user) {
   if (groupInput) groupInput.value = Array.isArray(user.workgroup) ? user.workgroup[0] || '' : user.workgroup || '';
   if (statusSelect) statusSelect.value = user.active === false ? 'inactive' : 'active';
   if (passwordInput) passwordInput.value = '';
+  if (accountNotesInput) {
+  accountNotesInput.value = user.account_notes || '';
+}
   if (toggleActiveBtn) {
     toggleActiveBtn.textContent = user.active === false ? 'Reactivate' : 'Deactivate';
   }
@@ -97,9 +103,13 @@ function applySearch(term) {
   renderUserList(filteredUsers);
 }
 
-async function loadStaffUsers() {
-  const profile = getStoredProfile() || window.currentSupabaseProfile || null;
-  const isAllowed = window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, 'IT') : false;
+const isAllowed =
+    window.isSupabaseUserInGroup
+    ? (
+        window.isSupabaseUserInGroup(profile, "IT") ||
+        window.isSupabaseUserInGroup(profile, "Super Admin")
+      )
+    : false;
 
   if (!isAllowed) {
     setMessage(directoryMessage, 'Access denied. Only IT users can view all staff accounts.', 'error');
@@ -135,7 +145,6 @@ async function loadStaffUsers() {
     showDetailsForm(null);
     setMessage(directoryMessage, 'No staff users found in Supabase.', 'success');
   }
-}
 
 async function updateSelectedUser(updates) {
   if (!selectedUserId) return false;
@@ -169,10 +178,11 @@ userDetailsForm.addEventListener('submit', async function (event) {
   event.preventDefault();
 
   const updates = {
-    full_name: fullNameInput.value.trim(),
-    username: usernameInput.value.trim(),
-    workgroup: [groupInput.value.trim() || 'Operations']
-  };
+  full_name: fullNameInput.value.trim(),
+  username: usernameInput.value.trim(),
+  workgroup: [groupInput.value.trim() || 'Operations'],
+  account_notes: accountNotesInput ? accountNotesInput.value.trim() : ''
+};
 
   if (statusSelect.value === 'inactive') {
     updates.active = false;

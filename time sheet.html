@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Leeward Group | Operations Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" href="Logo/PVMC-logo.png">
+    <style>
+        /* Scoped styles for the weekly submittal UI — merge into styles.css if you prefer */
+        .draft-wrap { margin-bottom: 14px; border: 1px solid var(--border-color, #e2e2e2); border-radius: 8px; overflow: hidden; }
+        .draft-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+        .draft-table th, .draft-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border-color, #eee); }
+        .draft-total { padding: 8px 10px; font-weight: 600; text-align: right; background: var(--surface-2, #f7f7f7); }
+        .locked-note { font-size: 0.85em; opacity: 0.75; margin-top: 6px; }
+        .window-msg { font-size: 0.9em; padding: 10px 12px; background: var(--surface-2, #f7f7f7); border-radius: 6px; margin-top: 6px; }
+        .announcement-item { padding: 12px; border: 1px solid var(--border-color, #e2e2e2); border-radius: 8px; margin-bottom: 10px; }
+        .announcement-item:last-child { margin-bottom: 0; }
+        .announcement-item h3 { margin: 0 0 4px; font-size: 1em; }
+        .announcement-item p { margin: 0 0 6px; white-space: pre-wrap; }
+        .announcement-item .announcement-date { font-size: 0.8em; opacity: 0.65; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-left">
+            <div class="brand-mark">
+                <div class="brand-mark__icon" id="brandInitials">ST</div>
+                <div>
+                    <div class="brand-title">The Leeward Group</div>
+                    <div class="brand-subtitle">Staff Portal</div>
+                </div>
+            </div>
+            <button class="menu-btn" id="menuBtn" aria-label="Toggle navigation">☰</button>
+        </div>
+        <div class="header-right">
+            <span class="header-user-pill" id="headerUserPill">Staff</span>
+            <button class="auth-button auth-button--secondary header-signout" id="signOutButton" type="button">Sign out</button>
+        </div>
+    </header>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">Quick access</div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <span class="home-nav-icon"></span>
+                <span class="nav-text">Dashboard</span>
+            </a>
+
+            <div class="nav-item-group" id="adminNavGroup" style="display:none;">
+                <a href="admin-users.html" class="nav-item nav-parent" onclick="toggleSubnav(event, this)">
+                    <span class="docs-nav-icon"></span>
+                    <span class="nav-text">IT Tools</span>
+                    <span class="nav-arrow"></span>
+                </a>
+                <div class="subnav">
+                    <a href="admin-users.html" class="subnav-item">
+                        <span class="nav-text">Create account</span>
+                    </a>
+                    <a href="staff-users.html" class="subnav-item">
+                        <span class="nav-text">Staff users</span>
+                    </a>
+                </div>
+            </div>
+
+            <a href="payroll-tools.html" class="nav-item" id="payrollToolsNavItem" style="display:none;">
+                <span class="docs-nav-icon"></span>
+                <span class="nav-text">Payroll Tools</span>
+            </a>
+
+            <div class="nav-item-group">
+                <a href="docs.html" class="nav-item nav-parent" onclick="toggleSubnav(event, this)">
+                    <span class="docs-nav-icon"></span>
+                    <span class="nav-text">Company docs</span>
+                    <span class="nav-arrow"></span>
+                </a>
+                <div class="subnav">
+                    <a href="#" class="subnav-item"><span class="nav-text">New Project Onboarding</span></a>
+                    <a href="#" class="subnav-item"><span class="nav-text">Excel Workbook Templates</span></a>
+                    <a href="#" class="subnav-item"><span class="nav-text">Form Templates</span></a>
+                </div>
+            </div>
+            <a href="https://www.theleewardgroup.us/" class="nav-item" target="_blank">
+                <span class="website-nav-icon"></span>
+                <span class="nav-text">Company site</span>
+            </a>
+
+             <a href="https://www.theleewardgroup.us/" class="nav-item active" target="_blank">
+                <span class="website-nav-icon"></span>
+                <span class="nav-text">Personal Finance</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="sidebar-brand">LeeWard Group</div>
+            <div class="version">Version 3.10.1</div>
+        </div>
+    </aside>
+
+
+  <main class="main-content">
+    <section class="hero-section">
+      <div>
+        <p class="eyebrow">Staff Portal</p>
+        <h1>Personal Finance</h1>
+        <p>Manage your personal financial records and documents.</p>
+      </div>
+    </section>
+
+    <div id="announcementsWrap" style="display:none;margin-bottom:16px;">
+      <div class="card" id="announcementsCard">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Announcements</h2>
+            <p class="card-subtitle">Messages from Accounting</p>
+          </div>
+        </div>
+        <div id="announcementsList"></div>
+      </div>
+    </div>
+
+    <div class="metrics-grid">
+      <div class="metric-card"><span class="metric-value" id="metricHours">0.0</span><span class="metric-label">Hours this week</span></div>
+      <div class="metric-card"><span class="metric-value" id="metricPending">0</span><span class="metric-label">Entries pending approval</span></div>
+      <div class="metric-card"><span class="metric-value" id="metricDocs">0</span><span class="metric-label">Documents on file</span></div>
+    </div>
+
+    <div class="content-grid">
+      <div class="left-column">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title" id="timesheetTitle">Weekly Timesheet</h2>
+              <p class="card-subtitle">Add your hours, then submit the week for approval</p>
+            </div>
+            <span class="chip">Weekly log</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Date</th><th>Project</th><th>Hours</th><th>Status</th><th id="colUser" style="display:none;">Staff</th><th></th></tr>
+              </thead>
+              <tbody id="timesheetBody"></tbody>
+            </table>
+          </div>
+          <div id="timesheetEmpty" class="empty-state" style="display:none;">No entries yet.</div>
+
+          <div id="addEntryBlock">
+            <div class="draft-wrap" id="draftWrap" style="display:none;">
+              <table class="draft-table">
+                <thead>
+                  <tr><th>Date</th><th>Project</th><th>Hours</th><th>Category</th><th></th></tr>
+                </thead>
+                <tbody id="draftBody"></tbody>
+              </table>
+              <div class="draft-total">Week total: <span id="draftTotal">0.0</span> hrs</div>
+            </div>
+
+            <div class="entry-form" id="entryForm">
+              <input type="date" id="fDate">
+              <input type="text" id="fProject" placeholder="Project / job name">
+              <input type="number" step="0.25" min="0" id="fHours" placeholder="Hours">
+              <select id="fCategory">
+                <option value="regular">Regular</option>
+                <option value="overtime">Overtime</option>
+                <option value="pto">PTO</option>
+              </select>
+              <textarea id="fNotes" placeholder="Notes (optional)"></textarea>
+              <button class="btn secondary full" onclick="addRow()">Add row</button>
+            </div>
+            <p id="entryMsg" class="msg"></p>
+
+            <button class="btn full" id="submitWeekBtn" onclick="submitWeekForApproval()" style="display:none;" disabled>Submit week for approval</button>
+            <p id="submissionWindowMsg" class="window-msg" style="display:none;"></p>
+            <p id="submitMsg" class="msg"></p>
+          </div>
+
+          <div id="submittedBanner" class="empty-state" style="display:none;">
+            Submitted — awaiting accounting approval.
+            <div class="locked-note">This locks until the next payroll Thursday, when a new submission window opens automatically.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="right-column">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">My Documents</h2>
+              <p class="card-subtitle">Pay stubs, forms, and files</p>
+            </div>
+          </div>
+          <div class="doc-list" id="docList"></div>
+          <div id="docEmpty" class="empty-state" style="display:none;">No documents uploaded yet.</div>
+          <div class="upload-row">
+            <select id="docCategory">
+              <option value="pay_stub">Pay stub</option>
+              <option value="tax_form">Tax form</option>
+              <option value="other">Other</option>
+            </select>
+            <input type="file" id="docFile">
+          </div>
+          <button class="btn secondary" style="margin-top:10px;width:100%;" onclick="uploadDoc()">Upload</button>
+          <p id="docMsg" class="msg"></p>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="script.js"></script>
+    <script src="supabase-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-auth.js"></script>
+    <script src="auth-guard.js"></script>
+<script>
+// ---- UI only — no backend calls. Hook these functions up to your data source. ----
+
+let view = 'mine'; // 'mine' | 'team'
+let draftRows = []; // rows staged locally before the weekly submit
+
+// ---- Biweekly payroll submission schedule ----
+// TODO: move PAYROLL_ANCHOR_KEY and the "submitted period" flag to a shared Supabase settings/entries
+// table. Right now they're in localStorage, so they're per-browser, not shared across staff or devices.
+// NOTE: the anchor date itself is now set from payroll-tools.html (Accounting only). This page only
+// reads it to know when the submission window is open.
+const PAYROLL_ANCHOR_KEY = 'payrollAnchorDate';   // accounting-set date, e.g. "2026-07-09"
+const SUBMITTED_PERIOD_KEY = 'timesheetSubmittedPeriod';
+const DRAFT_STORAGE_KEY = 'timesheetDraftRows';
+const msPerDay = 86400000;
+
+// ---- Announcements from Accounting (Supabase) ----
+// Uses window.supabaseClient, exposed globally by supabase-auth.js.
+// Reads the same `announcements` table that payroll-tools.html writes to.
+
+async function getAnnouncements() {
+  if (!window.supabaseClient) { console.error('Supabase client not ready yet'); return []; }
+  const { data, error } = await window.supabaseClient
+    .from('announcements')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) { console.error('Failed to load announcements:', error); return []; }
+  return data;
+}
+
+// Renders the announcements card. Call on load and whenever announcements might have changed.
+async function renderAnnouncements() {
+  const items = await getAnnouncements();
+  const wrap = document.getElementById('announcementsWrap');
+  const container = document.getElementById('announcementsList');
+  if (!items || items.length === 0) { wrap.style.display = 'none'; return; }
+
+  wrap.style.display = 'block';
+  container.innerHTML = '';
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'announcement-item';
+    div.innerHTML = `
+      <h3>${escapeHtml(item.title)}</h3>
+      <p>${escapeHtml(item.message)}</p>
+      <div class="announcement-date">${new Date(item.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function stripTime(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+
+function getPayrollAnchor() {
+  const stored = localStorage.getItem(PAYROLL_ANCHOR_KEY);
+  return stored ? stripTime(new Date(stored + 'T00:00:00')) : null;
+}
+
+function isPayrollThursday(date, anchor) {
+  if (!anchor) return false;
+  const diffDays = Math.round((stripTime(date) - anchor) / msPerDay);
+  return diffDays >= 0 && diffDays % 14 === 0;
+}
+
+// Most recent payroll Thursday on or before `date` — used as the id for "which period is this"
+function getCurrentPeriodId(anchor, date) {
+  const diffDays = Math.floor((stripTime(date) - anchor) / msPerDay);
+  const cycles = Math.floor(diffDays / 14);
+  const periodStart = new Date(anchor.getTime() + cycles * 14 * msPerDay);
+  return periodStart.toISOString().slice(0, 10);
+}
+
+function getNextPayrollThursday(anchor, date) {
+  const diffDays = Math.round((stripTime(date) - anchor) / msPerDay);
+  if (diffDays <= 0) return anchor;
+  const cyclesPassed = Math.ceil(diffDays / 14);
+  return new Date(anchor.getTime() + cyclesPassed * 14 * msPerDay);
+}
+
+function formatDate(d) {
+  return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+}
+
+function saveDraftToStorage() { localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draftRows)); }
+function loadDraftFromStorage() {
+  const stored = localStorage.getItem(DRAFT_STORAGE_KEY);
+  draftRows = stored ? JSON.parse(stored) : [];
+}
+
+// Shows/hides the Submit button vs. the "next submission opens..." message
+function updateSubmitAvailability() {
+  const anchor = getPayrollAnchor();
+  const submitBtn = document.getElementById('submitWeekBtn');
+  const windowMsg = document.getElementById('submissionWindowMsg');
+  const today = new Date();
+
+  if (!anchor) {
+    submitBtn.style.display = 'none';
+    windowMsg.textContent = 'Submission schedule not set yet — contact accounting.';
+    windowMsg.style.display = 'block';
+    return;
+  }
+
+  if (isPayrollThursday(today, anchor)) {
+    windowMsg.style.display = 'none';
+    submitBtn.style.display = 'block';
+    submitBtn.disabled = draftRows.length === 0;
+  } else {
+    submitBtn.style.display = 'none';
+    windowMsg.textContent = `Next submission opens ${formatDate(getNextPayrollThursday(anchor, today))}.`;
+    windowMsg.style.display = 'block';
+  }
+}
+
+// Checks whether the current period was already submitted (locked) or a new period has started
+// (auto-unlock). Run this on page load.
+function checkSubmissionLock() {
+  const anchor = getPayrollAnchor();
+  if (!anchor) { updateSubmitAvailability(); return; }
+  const today = new Date();
+  if (stripTime(today) < anchor) { updateSubmitAvailability(); return; } // before the first period
+
+  const currentPeriodId = getCurrentPeriodId(anchor, today);
+  const submittedPeriodId = localStorage.getItem(SUBMITTED_PERIOD_KEY);
+
+  if (submittedPeriodId === currentPeriodId) {
+    showSubmittedState();
+  } else {
+    resetWeeklySubmission(); // new period since last submission — unlock automatically
+  }
+}
+
+function showSubmittedState() {
+  document.getElementById('entryForm').style.display = 'none';
+  document.getElementById('draftWrap').style.display = 'none';
+  document.getElementById('submitWeekBtn').style.display = 'none';
+  document.getElementById('submissionWindowMsg').style.display = 'none';
+  document.getElementById('submittedBanner').style.display = 'block';
+}
+
+function setView(v) {
+  view = v;
+  document.getElementById('btnMine').classList.toggle('active', v === 'mine');
+  document.getElementById('btnTeam').classList.toggle('active', v === 'team');
+  document.getElementById('colUser').style.display = v === 'team' ? '' : 'none';
+  document.getElementById('addEntryBlock').style.display = v === 'mine' ? 'block' : 'none';
+  // TODO: reload timesheet/document data for the selected view
+}
+
+// Show the Team View toggle only for admins — set this from your auth/user data
+function setIsAdmin(isAdmin) {
+  document.getElementById('viewToggle').style.display = isAdmin ? 'inline-flex' : 'none';
+}
+
+function setUserLabel(name) {
+  document.getElementById('userPill').textContent = name || '—';
+}
+
+function signOut() {
+  // TODO: wire to the auth sign-out
+}
+
+// Stage a row locally — nothing is submitted yet
+function addRow() {
+  const work_date = document.getElementById('fDate').value;
+  const project = document.getElementById('fProject').value.trim();
+  const hours = parseFloat(document.getElementById('fHours').value);
+  const category = document.getElementById('fCategory').value;
+  const notes = document.getElementById('fNotes').value.trim();
+  const msg = document.getElementById('entryMsg');
+  if (!work_date || !project || !hours) { msg.textContent = 'Date, project, and hours are required.'; msg.className = 'msg error'; return; }
+
+  draftRows.push({ work_date, project, hours, category, notes });
+
+  document.getElementById('fDate').value = '';
+  document.getElementById('fProject').value = '';
+  document.getElementById('fHours').value = '';
+  document.getElementById('fNotes').value = '';
+  msg.textContent = '';
+  saveDraftToStorage();
+  renderDraft();
+}
+
+function removeRow(index) {
+  draftRows.splice(index, 1);
+  saveDraftToStorage();
+  renderDraft();
+}
+
+function renderDraft() {
+  const wrap = document.getElementById('draftWrap');
+  const body = document.getElementById('draftBody');
+  const total = document.getElementById('draftTotal');
+
+  wrap.style.display = draftRows.length ? 'block' : 'none';
+  body.innerHTML = '';
+  let sum = 0;
+  draftRows.forEach((row, i) => {
+    sum += row.hours;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${row.work_date}</td>
+      <td>${escapeHtml(row.project)}</td>
+      <td>${row.hours}</td>
+      <td>${row.category}</td>
+      <td><button class="btn small danger" onclick="removeRow(${i})">Remove</button></td>
+    `;
+    body.appendChild(tr);
+  });
+  total.textContent = sum.toFixed(1);
+  updateSubmitAvailability();
+}
+
+// Submits all staged rows as one batch, only allowed on an actual payroll Thursday
+function submitWeekForApproval() {
+  const msg = document.getElementById('submitMsg');
+  const anchor = getPayrollAnchor();
+  const today = new Date();
+
+  if (draftRows.length === 0) { msg.textContent = 'Add at least one row first.'; msg.className = 'msg error'; return; }
+  if (!anchor || !isPayrollThursday(today, anchor)) { msg.textContent = 'Submissions only open on the scheduled payroll Thursday.'; msg.className = 'msg error'; return; }
+
+  // TODO: send draftRows to your data source in one batch, each with status: 'pending'
+  // e.g. await window.supabaseClient.from('timesheet_entries').insert(draftRows.map(r => ({ ...r, status: 'pending' })));
+
+  localStorage.setItem(SUBMITTED_PERIOD_KEY, getCurrentPeriodId(anchor, today));
+  localStorage.removeItem(DRAFT_STORAGE_KEY);
+  draftRows = [];
+  msg.textContent = '';
+  showSubmittedState();
+  // TODO: refresh renderTimesheet() from your data source so the new pending rows show up in the table above
+}
+
+// Unlocks the form for a fresh period. Called automatically once the current payroll period
+// no longer matches the one that was last submitted — no admin action required.
+function resetWeeklySubmission() {
+  document.getElementById('entryForm').style.display = 'block';
+  document.getElementById('submittedBanner').style.display = 'none';
+  loadDraftFromStorage();
+  renderDraft();
+}
+
+function setStatus(id, status) {
+  // TODO: update entry `id` to `status` ('approved' | 'rejected') in your data source
+}
+
+function uploadDoc() {
+  const fileInput = document.getElementById('docFile');
+  const category = document.getElementById('docCategory').value;
+  const msg = document.getElementById('docMsg');
+  const file = fileInput.files[0];
+  if (!file) { msg.textContent = 'Choose a file first.'; msg.className = 'msg error'; return; }
+  // TODO: upload `file` (with `category`) to your data source
+  msg.textContent = '';
+}
+
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str ?? '';
+  return d.innerHTML;
+}
+
+// Example row renderer for reference — call with your fetched data:
+// renderTimesheet([{ id, work_date, project, hours, status, staff_name }])
+function renderTimesheet(rows) {
+  const body = document.getElementById('timesheetBody');
+  const empty = document.getElementById('timesheetEmpty');
+  body.innerHTML = '';
+  if (!rows || rows.length === 0) { empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    const canModerate = view === 'team' && row.status === 'pending';
+    tr.innerHTML = `
+      <td>${row.work_date}</td>
+      <td>${escapeHtml(row.project)}</td>
+      <td>${row.hours}</td>
+      <td><span class="status-pill ${row.status}">${row.status}</span></td>
+      <td style="display:${view === 'team' ? '' : 'none'};">${escapeHtml(row.staff_name || '—')}</td>
+      <td>${canModerate ? `<button class="btn small" onclick="setStatus('${row.id}','approved')">Approve</button> <button class="btn small danger" onclick="setStatus('${row.id}','rejected')">Reject</button>` : ''}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+// Example renderer for reference — call with your fetched data:
+// renderDocuments([{ id, file_name, file_url, category, uploaded_at }])
+function renderDocuments(docs) {
+  const list = document.getElementById('docList');
+  const empty = document.getElementById('docEmpty');
+  list.innerHTML = '';
+  if (!docs || docs.length === 0) { empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  docs.forEach(doc => {
+    const div = document.createElement('div');
+    div.className = 'doc-item';
+    div.innerHTML = `
+      <div><h3>${escapeHtml(doc.file_name)}</h3><p>${doc.category.replace('_',' ')} · ${new Date(doc.uploaded_at).toLocaleDateString()}</p></div>
+      <a class="btn small secondary" href="${doc.file_url}" target="_blank" rel="noopener">Open</a>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function updateMetrics({ weekHours = 0, pending = 0, docCount = 0 } = {}) {
+  document.getElementById('metricHours').textContent = weekHours.toFixed(1);
+  document.getElementById('metricPending').textContent = pending;
+  document.getElementById('metricDocs').textContent = docCount;
+}
+
+document.getElementById('signOutButton').addEventListener('click', function () {
+            window.signOutUser();
+        });
+
+        const userPill = document.getElementById('headerUserPill');
+        const welcomeHeading = document.getElementById('welcomeHeading');
+        const adminNavGroup = document.getElementById('adminNavGroup');
+        const brandInitials = document.getElementById('brandInitials');
+
+        function updateStaffName(profile) {
+            if (!profile) return;
+            const name = profile.full_name || profile.username || 'Staff';
+            if (userPill) userPill.textContent = name;
+            if (welcomeHeading) welcomeHeading.textContent = `Welcome, ${name}`;
+            if (brandInitials) {
+                const words = String(name).trim().split(/\s+/).filter(Boolean);
+                const initials = words.length >= 2
+                    ? `${words[0][0] || ''}${words[words.length - 1][0] || ''}`.toUpperCase()
+                    : `${words[0]?.slice(0, 2).toUpperCase() || 'ST'}`;
+                brandInitials.textContent = initials;
+            }
+        }
+
+        function updateNavAccess(profile) {
+            const shouldShowAdminNav = window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, 'IT') : false;
+            if (adminNavGroup) adminNavGroup.style.display = shouldShowAdminNav ? 'block' : 'none';
+
+            // Accounting group gets the "Payroll Tools" sidebar link (schedule + approvals + docs live on payroll-tools.html)
+            const isAccounting = window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, 'Accounting') : false;
+            const payrollToolsNavItem = document.getElementById('payrollToolsNavItem');
+            if (payrollToolsNavItem) payrollToolsNavItem.style.display = isAccounting ? 'flex' : 'none';
+        }
+
+        const storedProfile = localStorage.getItem('staffProfile');
+        if (storedProfile) {
+            try {
+                const parsedProfile = JSON.parse(storedProfile);
+                updateStaffName(parsedProfile);
+                updateNavAccess(parsedProfile);
+            } catch (error) {
+                console.warn('Unable to parse stored profile:', error);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', function () {
+            const profile = window.currentSupabaseProfile || null;
+            if (profile) {
+                updateStaffName(profile);
+                updateNavAccess(profile);
+            }
+            checkSubmissionLock(); // shows submitted-state banner, or unlocks a fresh period + restores drafts
+            renderAnnouncements(); // shows any messages Accounting has sent
+        });
+</script>
+</body>
+</html>

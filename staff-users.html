@@ -234,23 +234,24 @@
               <input id="group" type="text" placeholder="Operations">
             </label>
             <label>
-              Status
-              <select id="status">
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </label>
-          </div>
-
-          <label>
             New password
             <input id="password" type="password" placeholder="Leave blank to keep current password">
           </label>
+          </div>
+
+          <label class="auth-field">
+    Account Notes
+    <textarea 
+        id="accountNotes" 
+        rows="5" 
+        placeholder="Internal notes about this account">
+    </textarea>
+</label>
 
           <div class="directory-actions">
             <button class="auth-button auth-button--secondary" type="submit">Save changes</button>
-            <button class="auth-button auth-button--secondary" id="toggleActiveBtn" type="button">Deactivate</button>
-            <a class="auth-link" href="dashboard.html">Back to dashboard</a>
+            <button class="auth-button auth-button--red" id="toggleActiveBtn" type="button">Deactivate</button>
+            <a class="auth-button auth-button--dash" href="dashboard.html">Back to dashboard</a>
           </div>
 
           <p id="directoryMessage" class="auth-message" role="status"></p>

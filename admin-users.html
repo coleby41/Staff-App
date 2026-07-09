@@ -42,10 +42,11 @@
         <label class="auth-field">
           <span>Group</span>
           <select id="adminGroup">
-            <option value="Operations">Operations</option>
+            <option value="Owner">Owner</option>
             <option value="Field">Field</option>
             <option value="IT">IT</option>
-            <option value="Admin">Admin</option>
+            <option value="Office">Office</option>
+            <option value="Accounting">Accounting</option>
           </select>
         </label>
 
@@ -59,14 +60,72 @@
     </div>
 
     <div class="auth-panel">
-      <div class="auth-panel__badge">IT-only</div>
-      <h2>Keep account access controlled and auditable.</h2>
-      <ul>
-        <li>Only approved IT staff can create new portal users</li>
-        <li>Users are grouped by role for faster access control</li>
-        <li>New accounts are written directly to the Supabase staff_users table</li>
-      </ul>
-    </div>
+    <div class="auth-panel__badge">Access Matrix</div>
+
+    <h2>Work Group Access</h2>
+    <p>Portal access by staff work group.</p>
+
+    <table class="access-table">
+        <thead>
+            <tr>
+                <th>Work Group</th>
+                <th>Dashboard</th>
+                <th>Company Docs</th>
+                <th>Personal Finance</th>
+                <th>Company Site</th>
+                <th>Payroll Tools</th>
+                <th>IT Tools</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Owner</td>
+                <td>✓</td>
+                <td>✓</td>
+                <td>✓</td>
+                <td>✓</td>
+                <td>✕</td>
+                <td>✕</td>
+            </tr>
+            <tr>
+                <td>Field</td>
+                <td>✓</td>
+                <td>✓</td>
+                <td>✓</td>
+                <td>✓</td>
+                <td>✕</td>
+                <td>✕</td>
+            </tr>
+            <tr>
+                <td>IT</td>
+                <td>✓</td>
+                <td>✓</td>
+                <td>✓</td>
+                <td>✓</td>
+                <td>✕</td>
+                <td>✓</td>
+            </tr>
+            <tr>
+                <td>Office</td>
+                <td>✓</td>
+                <td>✓</td>
+                <td>✓</td>
+                <td>✓</td>
+                <td>✓</td>
+                <td>✕</td>
+            </tr>
+            <tr>
+                <td>Accounting</td>
+                <td>✓</td>
+                <td>✓</td>
+                <td>✓</td>
+                <td>✓</td>
+                <td>✓</td>
+                <td>✕</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
   </div>
 
   <script src="supabase-config.js"></script>

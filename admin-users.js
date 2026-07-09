@@ -21,9 +21,13 @@ function setMessage(element, text, type) {
   element.className = `auth-message ${type}`;
 }
 
-function enforceAccess() {
-  const profile = getStoredProfile() || window.currentSupabaseProfile || null;
-  const isAllowed = window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, 'IT') : false;
+const isAllowed =
+    window.isSupabaseUserInGroup
+    ? (
+        window.isSupabaseUserInGroup(getStoredProfile(), "IT") ||
+        window.isSupabaseUserInGroup(getStoredProfile(), "Super Admin")
+      )
+    : false;
 
   if (!adminForm) return;
 
@@ -43,7 +47,6 @@ function enforceAccess() {
     adminAccessNote.className = 'auth-message success';
   }
   return true;
-}
 
 if (adminForm) {
   enforceAccess();

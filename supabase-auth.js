@@ -71,7 +71,7 @@
     }
 
     const { createClient } = window.supabase;
-    supabaseClient = createClient(config.url, config.anonKey);
+    supabaseClient = window.supabaseClient = createClient(config.url, config.anonKey);
 
     const profile = await loadProfile(username);
     if (!profile) {
@@ -106,7 +106,7 @@
     }
 
     const { createClient } = window.supabase;
-    supabaseClient = createClient(config.url, config.anonKey);
+    supabaseClient = window.supabaseClient = createClient(config.url, config.anonKey);
 
     const hashHex = await hashPassword(payload.password);
 
@@ -128,6 +128,6 @@
 
   if (isConfigured && window.supabase) {
     const { createClient } = window.supabase;
-    supabaseClient = createClient(config.url, config.anonKey);
-  }
+    supabaseClient = window.supabaseClient = createClient(config.url, config.anonKey);
+}
 })();

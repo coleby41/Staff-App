@@ -58,3 +58,16 @@ function toggleSubnav(event, el) {
     el.nextElementSibling.classList.toggle('expanded');
 }
 
+const notificationBell = document.getElementById("notificationBell");
+const notificationDropdown = document.getElementById("notificationDropdown");
+
+notificationBell.addEventListener("click", function () {
+    notificationDropdown.classList.toggle("active");
+});
+
+// Close when clicking outside
+document.addEventListener("click", function(event) {
+    if (!event.target.closest(".notification-wrapper")) {
+        notificationDropdown.classList.remove("active");
+    }
+});

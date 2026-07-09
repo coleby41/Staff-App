@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Leeward Group | Payroll Tools</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" href="Logo/PVMC-logo.png">
+    <style>
+        .window-msg { font-size: 0.9em; padding: 10px 12px; background: var(--surface-2, #f7f7f7); border-radius: 6px; margin-top: 6px; }
+        .filter-row { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+        .filter-row select { max-width: 220px; }
+        .restricted-wrap { max-width: 520px; margin: 60px auto; text-align: center; }
+        .announcement-item { padding: 12px; border: 1px solid var(--border-color, #e2e2e2); border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+        .announcement-item h3 { margin: 0 0 4px; font-size: 1em; }
+        .announcement-item p { margin: 0 0 6px; white-space: pre-wrap; }
+        .announcement-item .announcement-date { font-size: 0.8em; opacity: 0.65; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-left">
+            <div class="brand-mark">
+                <div class="brand-mark__icon" id="brandInitials">ST</div>
+                <div>
+                    <div class="brand-title">The Leeward Group</div>
+                    <div class="brand-subtitle">Staff Portal</div>
+                </div>
+            </div>
+            <button class="menu-btn" id="menuBtn" aria-label="Toggle navigation">☰</button>
+        </div>
+        <div class="header-right">
+            <span class="header-user-pill" id="headerUserPill">Staff</span>
+            <button class="auth-button auth-button--secondary header-signout" id="signOutButton" type="button">Sign out</button>
+        </div>
+    </header>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">Quick access</div>
+        <nav class="sidebar-nav">
+            <a href="dashboard.html" class="nav-item">
+                <span class="home-nav-icon"></span>
+                <span class="nav-text">Dashboard</span>
+            </a>
+
+            <div class="nav-item-group" id="adminNavGroup" style="display:none;">
+                <a href="admin-users.html" class="nav-item nav-parent" onclick="toggleSubnav(event, this)">
+                    <span class="docs-nav-icon"></span>
+                    <span class="nav-text">IT Tools</span>
+                    <span class="nav-arrow"></span>
+                </a>
+                <div class="subnav">
+                    <a href="admin-users.html" class="subnav-item">
+                        <span class="nav-text">Create account</span>
+                    </a>
+                    <a href="staff-users.html" class="subnav-item">
+                        <span class="nav-text">Staff users</span>
+                    </a>
+                </div>
+            </div>
+
+            <a href="payroll-tools.html" class="nav-item active" id="payrollToolsNavItem" style="display:none;">
+                <span class="docs-nav-icon"></span>
+                <span class="nav-text">Payroll Tools</span>
+            </a>
+
+            <div class="nav-item-group">
+                <a href="docs.html" class="nav-item nav-parent" onclick="toggleSubnav(event, this)">
+                    <span class="docs-nav-icon"></span>
+                    <span class="nav-text">Company docs</span>
+                    <span class="nav-arrow"></span>
+                </a>
+                <div class="subnav">
+                    <a href="#" class="subnav-item"><span class="nav-text">New Project Onboarding</span></a>
+                    <a href="#" class="subnav-item"><span class="nav-text">Excel Workbook Templates</span></a>
+                    <a href="#" class="subnav-item"><span class="nav-text">Form Templates</span></a>
+                </div>
+            </div>
+            <a href="https://www.theleewardgroup.us/" class="nav-item" target="_blank">
+                <span class="website-nav-icon"></span>
+                <span class="nav-text">Company site</span>
+            </a>
+
+             <a href="https://www.theleewardgroup.us/" class="nav-item" target="_blank">
+                <span class="website-nav-icon"></span>
+                <span class="nav-text">Personal Finance</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="sidebar-brand">LeeWard Group</div>
+            <div class="version">Version 3.10.1</div>
+        </div>
+    </aside>
+
+  <main class="main-content">
+
+    <div id="restrictedView" class="restricted-wrap" style="display:none;">
+      <h1>Payroll Tools</h1>
+      <p>This page is only available to the Accounting group. If you believe this is a mistake, contact IT.</p>
+    </div>
+
+    <div id="payrollToolsContent" style="display:none;">
+      <section class="hero-section">
+        <div>
+          <p class="eyebrow">Accounting</p>
+          <h1>Payroll Tools</h1>
+          <p>Set the biweekly submission schedule, review pending timesheets, and pull staff documents.</p>
+        </div>
+      </section>
+
+      <div class="metrics-grid">
+        <div class="metric-card"><span class="metric-value" id="metricPendingCount">0</span><span class="metric-label">Pending approvals</span></div>
+        <div class="metric-card"><span class="metric-value" id="metricStaffDocs">0</span><span class="metric-label">Staff documents on file</span></div>
+        <div class="metric-card"><span class="metric-value" id="metricNextPayroll">—</span><span class="metric-label">Next payroll Thursday</span></div>
+      </div>
+
+      <div class="content-grid">
+        <div class="left-column">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Pending Timesheet Approvals</h2>
+                <p class="card-subtitle">Entries submitted by staff, awaiting review</p>
+              </div>
+              <span class="chip">Approvals</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Date</th><th>Staff</th><th>Project</th><th>Hours</th><th>Status</th><th></th></tr>
+                </thead>
+                <tbody id="approvalsBody"></tbody>
+              </table>
+            </div>
+            <div id="approvalsEmpty" class="empty-state" style="display:none;">No entries pending approval.</div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Payroll Submission Schedule</h2>
+                <p class="card-subtitle">Sets the biweekly window that unlocks staff timesheet submissions</p>
+              </div>
+            </div>
+            <div class="entry-form">
+              <label for="payrollAnchorInput">Anchor payroll Thursday (any past or future one)</label>
+              <input type="date" id="payrollAnchorInput">
+              <button class="btn secondary full" onclick="savePayrollAnchor()">Save</button>
+            </div>
+            <p id="payrollSettingsMsg" class="msg"></p>
+            <p id="currentAnchorMsg" class="window-msg"></p>
+          </div>
+
+          
+        </div>
+
+        <div class="right-column">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Staff Documents</h2>
+                <p class="card-subtitle">Pay stubs, tax forms, and other files uploaded by staff</p>
+              </div>
+            </div>
+            <div class="filter-row">
+              <select id="docCategoryFilter" onchange="applyDocFilter()">
+                <option value="all">All categories</option>
+                <option value="pay_stub">Pay stubs</option>
+                <option value="tax_form">Tax forms</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="doc-list" id="staffDocList"></div>
+            <div id="staffDocEmpty" class="empty-state" style="display:none;">No documents uploaded yet.</div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title">Send Announcement</h2>
+                <p class="card-subtitle">Posts to every staff member's Personal Finance page</p>
+              </div>
+              <span class="chip">Announcements</span>
+            </div>
+            <div class="entry-form">
+              <input type="text" id="announcementTitle" placeholder="Title">
+              <textarea id="announcementMessage" placeholder="Message"></textarea>
+              <button class="btn full" onclick="sendAnnouncement()">Send announcement</button>
+            </div>
+            <p id="announcementMsg" class="msg"></p>
+
+            <div id="sentAnnouncementsList" style="margin-top:14px;"></div>
+            <div id="sentAnnouncementsEmpty" class="empty-state" style="display:none;">No announcements sent yet.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="script.js"></script>
+    <script src="supabase-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-auth.js"></script>
+    <script src="auth-guard.js"></script>
+<script>
+// ---- UI only for schedule/approvals/docs — hook these to your data source. ----
+// Announcements below ARE wired to Supabase.
+
+// TODO: move PAYROLL_ANCHOR_KEY to a shared Supabase settings table instead of localStorage so the
+// schedule set here applies to every staff member's browser, not just the accounting user who set it.
+const PAYROLL_ANCHOR_KEY = 'payrollAnchorDate';
+const msPerDay = 86400000;
+let allStaffDocs = []; // populated by renderStaffDocuments(), filtered client-side by category
+
+function stripTime(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+
+function getPayrollAnchor() {
+  const stored = localStorage.getItem(PAYROLL_ANCHOR_KEY);
+  return stored ? stripTime(new Date(stored + 'T00:00:00')) : null;
+}
+
+function getNextPayrollThursday(anchor, date) {
+  const diffDays = Math.round((stripTime(date) - anchor) / msPerDay);
+  if (diffDays <= 0) return anchor;
+  const cyclesPassed = Math.ceil(diffDays / 14);
+  return new Date(anchor.getTime() + cyclesPassed * 14 * msPerDay);
+}
+
+function formatDate(d) {
+  return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+}
+
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str ?? '';
+  return d.innerHTML;
+}
+
+// ---- Announcements to staff (Supabase) ----
+// Uses window.supabaseClient, exposed globally by supabase-auth.js.
+
+async function getAnnouncements() {
+  const { data, error } = await supabaseClient
+    .from('announcements')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) { console.error('Failed to load announcements:', error); return []; }
+  return data;
+}
+
+async function sendAnnouncement() {
+  const titleInput = document.getElementById('announcementTitle');
+  const messageInput = document.getElementById('announcementMessage');
+  const msg = document.getElementById('announcementMsg');
+  const title = titleInput.value.trim();
+  const message = messageInput.value.trim();
+
+  if (!title || !message) { msg.textContent = 'Title and message are required.'; msg.className = 'msg error'; return; }
+
+  const { error } = await supabaseClient.from('announcements').insert({
+    title,
+    message,
+    created_by: window.currentSupabaseProfile?.id || null
+  });
+
+  if (error) {
+    console.error('Failed to send announcement:', error);
+    msg.textContent = 'Something went wrong sending that.';
+    msg.className = 'msg error';
+    return;
+  }
+
+  // Broadcast a notification too, so it shows up in the bell for everyone, not just
+  // on the Personal Finance page's Announcements card.
+  const { error: notifyError } = await supabaseClient.from('notifications').insert({
+    user_id: null, // null = everyone
+    title,
+    message,
+    type: 'announcement'
+  });
+  if (notifyError) console.error('Announcement sent, but failed to create notification:', notifyError);
+
+  titleInput.value = '';
+  messageInput.value = '';
+  msg.textContent = 'Sent — staff will see this on their Personal Finance page.';
+  msg.className = 'msg';
+  renderSentAnnouncements();
+}
+
+async function deleteAnnouncement(id) {
+  const { error } = await supabaseClient.from('announcements').delete().eq('id', id);
+  if (error) { console.error('Failed to delete announcement:', error); return; }
+  renderSentAnnouncements();
+}
+
+async function renderSentAnnouncements() {
+  const list = await getAnnouncements();
+  const container = document.getElementById('sentAnnouncementsList');
+  const empty = document.getElementById('sentAnnouncementsEmpty');
+  container.innerHTML = '';
+  if (!list || list.length === 0) { empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  list.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'announcement-item';
+    div.innerHTML = `
+      <div>
+        <h3>${escapeHtml(item.title)}</h3>
+        <p>${escapeHtml(item.message)}</p>
+        <div class="announcement-date">${new Date(item.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</div>
+      </div>
+      <button class="btn small danger" onclick="deleteAnnouncement('${item.id}')">Delete</button>
+    `;
+    container.appendChild(div);
+  });
+}
+
+// Accounting-only: set the anchor payroll Thursday that all biweekly math is based on
+function savePayrollAnchor() {
+  const val = document.getElementById('payrollAnchorInput').value;
+  const msg = document.getElementById('payrollSettingsMsg');
+  if (!val) { msg.textContent = 'Pick a date.'; msg.className = 'msg error'; return; }
+  const d = new Date(val + 'T00:00:00');
+  if (d.getDay() !== 4) { msg.textContent = 'Anchor date must fall on a Thursday.'; msg.className = 'msg error'; return; }
+
+  // TODO: persist to a shared Supabase settings table instead of localStorage.
+  localStorage.setItem(PAYROLL_ANCHOR_KEY, val);
+  msg.textContent = 'Saved — schedule updated.';
+  msg.className = 'msg';
+  refreshScheduleSummary();
+}
+
+function refreshScheduleSummary() {
+  const anchor = getPayrollAnchor();
+  const input = document.getElementById('payrollAnchorInput');
+  const currentAnchorMsg = document.getElementById('currentAnchorMsg');
+  const metricNextPayroll = document.getElementById('metricNextPayroll');
+
+  if (!anchor) {
+    currentAnchorMsg.textContent = 'No schedule set yet.';
+    metricNextPayroll.textContent = '—';
+    return;
+  }
+  if (input) input.value = anchor.toISOString().slice(0, 10);
+  const today = new Date();
+  const next = stripTime(today).getTime() === anchor.getTime() ? anchor : getNextPayrollThursday(anchor, today);
+  currentAnchorMsg.textContent = `Current anchor: ${formatDate(anchor)}. Next window: ${formatDate(next)}.`;
+  metricNextPayroll.textContent = formatDate(next);
+}
+
+// Approve/reject a pending timesheet entry.
+// staffUserId is the staff_users.id of whoever owns this entry — pass it through from
+// the row so the notification can be targeted at just them.
+async function setStatus(id, status, staffUserId) {
+  // TODO: update entry `id` to `status` ('approved' | 'rejected') in your data source,
+  // e.g. await supabaseClient.from('timesheet_entries').update({ status }).eq('id', id);
+  // then re-fetch and call renderPendingApprovals() again.
+
+  if (staffUserId) {
+    const { error } = await supabaseClient.from('notifications').insert({
+      user_id: staffUserId,
+      title: status === 'approved' ? 'Timesheet approved' : 'Timesheet rejected',
+      message: status === 'approved'
+        ? 'Your submitted hours were approved.'
+        : 'Your submitted hours were rejected — check with Accounting for details.',
+      type: 'timesheet'
+    });
+    if (error) console.error('Failed to create timesheet notification:', error);
+  }
+}
+
+// Call with pending entries fetched from your data source. Include staff_user_id
+// (the staff_users.id of the entry's owner) so setStatus() can notify the right person:
+// renderPendingApprovals([{ id, work_date, project, hours, staff_name, staff_user_id }])
+function renderPendingApprovals(rows) {
+  const body = document.getElementById('approvalsBody');
+  const empty = document.getElementById('approvalsEmpty');
+  body.innerHTML = '';
+  document.getElementById('metricPendingCount').textContent = rows ? rows.length : 0;
+  if (!rows || rows.length === 0) { empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${row.work_date}</td>
+      <td>${escapeHtml(row.staff_name || '—')}</td>
+      <td>${escapeHtml(row.project)}</td>
+      <td>${row.hours}</td>
+      <td><span class="status-pill pending">pending</span></td>
+      <td><button class="btn small" onclick="setStatus('${row.id}','approved','${row.staff_user_id || ''}')">Approve</button> <button class="btn small danger" onclick="setStatus('${row.id}','rejected','${row.staff_user_id || ''}')">Reject</button></td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+// Call with all staff documents fetched from your data source:
+// renderStaffDocuments([{ id, file_name, file_url, category, uploaded_at, staff_name }])
+function renderStaffDocuments(docs) {
+  allStaffDocs = docs || [];
+  document.getElementById('metricStaffDocs').textContent = allStaffDocs.length;
+  applyDocFilter();
+}
+
+function applyDocFilter() {
+  const filter = document.getElementById('docCategoryFilter').value;
+  const list = document.getElementById('staffDocList');
+  const empty = document.getElementById('staffDocEmpty');
+  const filtered = filter === 'all' ? allStaffDocs : allStaffDocs.filter(doc => doc.category === filter);
+
+  list.innerHTML = '';
+  if (!filtered || filtered.length === 0) { empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  filtered.forEach(doc => {
+    const div = document.createElement('div');
+    div.className = 'doc-item';
+    div.innerHTML = `
+      <div><h3>${escapeHtml(doc.file_name)}</h3><p>${escapeHtml(doc.staff_name || '—')} · ${doc.category.replace('_',' ')} · ${new Date(doc.uploaded_at).toLocaleDateString()}</p></div>
+      <a class="btn small secondary" href="${doc.file_url}" target="_blank" rel="noopener">Open</a>
+    `;
+    list.appendChild(div);
+  });
+}
+
+document.getElementById('signOutButton').addEventListener('click', function () {
+    window.signOutUser();
+});
+
+const userPill = document.getElementById('headerUserPill');
+const adminNavGroup = document.getElementById('adminNavGroup');
+const brandInitials = document.getElementById('brandInitials');
+
+function updateStaffName(profile) {
+    if (!profile) return;
+    const name = profile.full_name || profile.username || 'Staff';
+    if (userPill) userPill.textContent = name;
+    if (brandInitials) {
+        const words = String(name).trim().split(/\s+/).filter(Boolean);
+        const initials = words.length >= 2
+            ? `${words[0][0] || ''}${words[words.length - 1][0] || ''}`.toUpperCase()
+            : `${words[0]?.slice(0, 2).toUpperCase() || 'ST'}`;
+        brandInitials.textContent = initials;
+    }
+}
+
+// This page's content is Accounting-only. The sidebar link is also hidden for everyone else
+// (see dashboard.html), but this check is what actually gates the page if someone opens the URL directly.
+function updateNavAccess(profile) {
+    const shouldShowAdminNav = window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, 'IT') : false;
+    if (adminNavGroup) adminNavGroup.style.display = shouldShowAdminNav ? 'block' : 'none';
+
+    const isAccounting = window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, 'Accounting') : false;
+    const isSuperAdmin = window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, 'Super Admin') : false;
+    const hasPayrollAccess = isAccounting || isSuperAdmin;
+
+    const payrollToolsNavItem = document.getElementById('payrollToolsNavItem');
+    if (payrollToolsNavItem) payrollToolsNavItem.style.display = hasPayrollAccess ? 'flex' : 'none';
+
+    document.getElementById('payrollToolsContent').style.display = hasPayrollAccess ? 'block' : 'none';
+    document.getElementById('restrictedView').style.display = hasPayrollAccess ? 'none' : 'block';
+
+    if (hasPayrollAccess) {
+        refreshScheduleSummary();
+        renderSentAnnouncements();
+    }
+}
+
+const storedProfile = localStorage.getItem('staffProfile');
+if (storedProfile) {
+    try {
+        const parsedProfile = JSON.parse(storedProfile);
+        updateStaffName(parsedProfile);
+        updateNavAccess(parsedProfile);
+    } catch (error) {
+        console.warn('Unable to parse stored profile:', error);
+    }
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+    const profile = window.currentSupabaseProfile || null;
+    if (profile) {
+        updateStaffName(profile);
+        updateNavAccess(profile);
+    }
+});
+</script>
+</body>
+</html>
