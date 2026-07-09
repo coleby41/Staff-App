@@ -65,7 +65,7 @@
             </a>
 
             <div class="nav-item-group">
-                <a href="docs.html" class="nav-item nav-parent" onclick="toggleSubnav(event, this)">
+                <a href="#" class="nav-item nav-parent" onclick="toggleSubnav(event, this)">
                     <span class="docs-nav-icon"></span>
                     <span class="nav-text">Company docs</span>
                     <span class="nav-arrow"></span>
@@ -88,12 +88,12 @@
         </nav>
         <div class="sidebar-footer">
             <div class="sidebar-brand">LeeWard Group</div>
-            <div class="version">Version 3.10.1</div>
+            <div class="version">Version XF-729-BETA</div>
         </div>
     </aside>
 
   <main class="main-content">
-
+<H1>Today is, {TODAY}</H1>
     <div id="restrictedView" class="restricted-wrap" style="display:none;">
       <h1>Payroll Tools</h1>
       <p>This page is only available to the Accounting group. If you believe this is a mistake, contact IT.</p>
@@ -201,6 +201,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-auth.js"></script>
     <script src="auth-guard.js"></script>
+    <script src="timeout.js"></script>
+
 <script>
 // ---- UI only for schedule/approvals/docs — hook these to your data source. ----
 // Announcements below ARE wired to Supabase.

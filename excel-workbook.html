@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>The Leeward Group | New Project</title>
+    <title>The Leeward Group | Excel Workbook Library</title>
 
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" type="image/png" href="Logo/PVMC-logo.png">
@@ -95,7 +95,7 @@
 
                             <a 
                                 class="report-bug-btn"
-                                href="https://forms.gle/replace-with-your-link"
+                                href="https://tally.so/r/QKyGj8"
                                 target="_blank"
                                 rel="noopener">
 
@@ -165,7 +165,7 @@
         <div class="nav-item-group">
 
 
-            <a href="docs.html"
+            <a href="#"
                class="nav-item nav-parent"
                onclick="toggleSubnav(event, this)">
 
@@ -229,24 +229,15 @@
 
 
 
-        <a href="time sheet.html"
-           class="nav-item"
-           target="_blank">
+        <a href="time sheet.html" class="nav-item">
 
-
-            <span class="website-nav-icon"></span>
-
+            <span class="finance-nav-icon"></span>
 
             <span class="nav-text">
                 Personal Finance
             </span>
 
-
         </a>
-
-
-
-
 
         <a href="https://www.theleewardgroup.us/"
            class="nav-item"
@@ -387,7 +378,7 @@
 
 
         <div class="version">
-            Version 3.10.1
+            Version XF-729-BETA
         </div>
 
 
@@ -398,29 +389,122 @@
 
 <main class="main-content">
 
-
-
-     <section class="hero-section">
+    <section class="hero-section">
         <div>
-          <p class="eyebrow">Company Docs</p>
-          <h1>Excel Workbook Templates</h1>
-          <p>Access and download the latest Excel workbook templates for your projects.</p>
+            <p class="eyebrow">Company Docs</p>
+            <h1>Excel Workbook Library</h1>
+            <p>Browse, preview, upload, and download the latest Excel workbook templates for your projects.</p>
         </div>
-      </section>
+    </section>
+
+    <div class="workbook-toolbar">
+
+        <input
+            type="text"
+            id="workbookSearchInput"
+            class="workbook-search-input"
+            placeholder="Search workbooks…"
+            autocomplete="off">
+
+        <button class="auth-button auth-button--secondary" id="addWorkbookBtn" type="button">
+            + Add Workbook
+        </button>
+
+    </div>
+
+    <div id="workbookMessage" class="workbook-page-message" style="display:none;"></div>
+
+    <div class="workbook-loading" id="workbookLoadingState">
+        <p>Loading workbooks…</p>
+    </div>
+
+    <div class="workbook-empty" id="workbookEmptyState" style="display:none;">
+        <p>No workbooks yet. Click "Add Workbook" to upload the first one.</p>
+    </div>
+
+    <div class="workbook-empty" id="workbookNoResultsState" style="display:none;">
+        <p>No workbooks match your search.</p>
+    </div>
+
+    <div class="workbook-grid" id="workbookGrid"></div>
 
 </main>
+
+
+<!-- Upload Workbook Modal -->
+<div class="popup-overlay hidden" id="uploadModalOverlay">
+    <div class="popup workbook-popup">
+        <div class="popup-icon"></div>
+        <h2>Add Workbook</h2>
+        <p class="auth-inline-copy">Upload a cover image and the Excel file. Everything else is filled in automatically.</p>
+
+        <form class="auth-form" id="uploadWorkbookForm">
+
+            <label class="auth-field">
+                Workbook title
+                <input type="text" id="workbookTitleInput" name="title" required placeholder="e.g. 2026 Project Budget Template">
+            </label>
+
+            <label class="auth-field">
+                Uploaded by
+                <input type="text" id="workbookUploaderInput" name="uploadedBy" required readonly>
+            </label>
+
+            <label class="auth-field">
+                Cover image
+                <input type="file" id="workbookCoverInput" name="cover" accept="image/*" required>
+            </label>
+
+            <div class="workbook-cover-preview-wrap" id="coverPreviewWrap" style="display:none;">
+                <img id="coverPreviewImg" alt="Cover preview">
+            </div>
+
+            <label class="auth-field">
+                Excel file (.xlsx, .xls, .xlsm)
+                <input type="file" id="workbookFileInput" name="file" accept=".xlsx,.xls,.xlsm" required>
+            </label>
+
+            <p class="auth-message" id="uploadFormMessage"></p>
+
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--red" id="cancelUploadBtn">Cancel</button>
+                <button type="submit" class="auth-button auth-button--secondary" id="submitUploadBtn">Upload workbook</button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+
+<!-- Workbook Preview Modal -->
+<div class="popup-overlay hidden" id="previewModalOverlay">
+    <div class="popup workbook-preview-popup">
+        <div class="workbook-preview-header">
+            <h2 id="previewModalTitle">Workbook preview</h2>
+            <button type="button" class="menu-btn" id="closePreviewBtn" aria-label="Close preview">✕</button>
+        </div>
+        <p class="auth-inline-copy" id="previewModalSubtitle"></p>
+        <div class="workbook-preview-body" id="previewModalBody">
+            <p class="workbook-preview-loading">Loading preview…</p>
+        </div>
+    </div>
+</div>
+
 
 <script src="script.js"></script>
 <script src="supabase-config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-auth.js"></script>
 <script src="auth-guard.js"></script>
+<script src="timeout.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="workbook-library.js"></script>
 
 <script>
 
 
 /* ===========================
-   SIGN OUT -- MOVED TO ITS OWN FILE
+   SIGN OUT
 =========================== */
 
 
@@ -454,16 +538,12 @@ if (signOutButton) {
 
 
 /* ===========================
-   ELEMENTS - 
+   ELEMENTS
 =========================== */
 
 
 const userNameElement =
     document.getElementById("headerUserName");
-
-
-const welcomeHeading =
-    document.getElementById("welcomeHeading");
 
 
 const adminNavGroup =
@@ -480,7 +560,7 @@ const brandInitials =
 
 
 /* ===========================
-   UPDATE STAFF NAME 
+   UPDATE STAFF NAME
 =========================== */
 
 
@@ -499,23 +579,9 @@ function updateStaffName(profile) {
 
 
 
-    // Update only the text
-    // so the bell does not disappear
-
     if (userNameElement) {
 
         userNameElement.textContent = name;
-
-    }
-
-
-
-
-
-    if (welcomeHeading) {
-
-        welcomeHeading.textContent =
-            `Welcome, ${name}`;
 
     }
 
@@ -636,8 +702,6 @@ function updateNavAccess(profile) {
         document.getElementById("payrollToolsNavItem");
 
 
-    // Payroll Tools is visible to the Office and Accounting
-    // workgroups only (see permissions matrix).
     const shouldShowPayrollTools =
         window.isSupabaseUserInGroup
 
@@ -736,6 +800,8 @@ window.addEventListener("DOMContentLoaded", function() {
 
     loadNotifications();
 
+    initWorkbookSearch();
+
 
 });
 
@@ -743,12 +809,6 @@ window.addEventListener("DOMContentLoaded", function() {
 
 /* ===========================
    NOTIFICATIONS (Supabase)
-   Uses window.supabaseClient, exposed globally by supabase-auth.js.
-   Reads broadcast notifications (user_id null, e.g. announcements) plus
-   anything targeted at this specific user (e.g. timesheet approvals).
-   "Read" state is tracked client-side in localStorage — fine for a
-   single-browser-per-person setup; move it server-side later if you
-   need read state to follow someone across devices.
 =========================== */
 
 let currentNotifications = [];
@@ -831,17 +891,103 @@ function renderNotifications() {
     });
 }
 
-// Mark everything currently loaded as read the moment the bell is opened.
-// notificationBell/notificationDropdown are declared in script.js, which loads
-// before this block, so they're already available here.
 if (typeof notificationBell !== 'undefined' && notificationBell) {
     notificationBell.addEventListener("click", function () {
         if (currentNotifications.length === 0) return;
         markNotificationsRead(currentNotifications.map(n => n.id));
-        renderNotifications(); // just updates the badge; list itself stays the same
+        renderNotifications();
     });
 }
 
+
+/* ===========================
+   WORKBOOK SEARCH
+   Filters whatever cards workbook-library.js
+   renders into #workbookGrid, matching against
+   each card's visible text content. Works
+   regardless of the card's internal markup.
+=========================== */
+
+function initWorkbookSearch() {
+
+    const searchInput =
+        document.getElementById("workbookSearchInput");
+
+    const grid =
+        document.getElementById("workbookGrid");
+
+    const noResultsState =
+        document.getElementById("workbookNoResultsState");
+
+    const emptyState =
+        document.getElementById("workbookEmptyState");
+
+    if (!searchInput || !grid) return;
+
+
+    function getCards() {
+
+        // Each direct child of the grid is treated as one workbook card.
+        return Array.from(grid.children);
+
+    }
+
+
+    function applyFilter() {
+
+        const query =
+            searchInput.value.trim().toLowerCase();
+
+        const cards =
+            getCards();
+
+        let visibleCount = 0;
+
+        cards.forEach(card => {
+
+            const text =
+                card.textContent.toLowerCase();
+
+            const matches =
+                !query || text.includes(query);
+
+            card.style.display =
+                matches ? "" : "none";
+
+            if (matches) visibleCount++;
+
+        });
+
+
+        // Only show "no results" if there ARE cards but none match.
+        // If the grid itself is empty (no workbooks uploaded yet),
+        // let workbookEmptyState handle that instead.
+        const hasCards =
+            cards.length > 0;
+
+        if (noResultsState) {
+
+            noResultsState.style.display =
+                (hasCards && query && visibleCount === 0)
+                ? "block"
+                : "none";
+
+        }
+
+    }
+
+
+    searchInput.addEventListener("input", applyFilter);
+
+
+    // Re-apply the current filter whenever the grid's contents
+    // change (e.g. after workbook-library.js finishes loading
+    // workbooks asynchronously).
+    const observer = new MutationObserver(applyFilter);
+
+    observer.observe(grid, { childList: true });
+
+}
 
 
 </script>
