@@ -1700,3 +1700,32 @@ button { font: inherit; }
         max-width: none;
     }
 }
+
+.notification-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.mark-read-btn {
+    background: #f1f3f5;
+    color: #555;
+    border: 1px solid #ddd;
+    border-radius: 9999px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.mark-read-btn:hover {
+    background: #e9ecef;
+    border-color: #ccc;
+}
+
+.mark-read-btn:active {
+    background: #dee2e6;
+}
