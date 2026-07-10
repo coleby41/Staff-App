@@ -80,7 +80,6 @@ supabaseClient: window.supabaseClient || window.SUPABASE_CONFIG || null,
 
 
   function resetIdleTimer() {
-    console.log("Timer reset:", new Date().toLocaleTimeString());
 
     clearWarning();
 
@@ -131,10 +130,6 @@ supabaseClient: window.supabaseClient || window.SUPABASE_CONFIG || null,
 
 
   // Start timer
-  console.log("Idle timeout script loaded");
-
-    console.log("Available Supabase:", window.SUPABASE_CONFIG);
-    console.log("All window keys:", Object.keys(window));
 
   resetIdleTimer();
 

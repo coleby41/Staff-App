@@ -3,6 +3,7 @@
 // Merged from two source files:
 //   - Timesheet / payroll schedule / announcements logic
 //   - Header profile / nav access / sign-out / notifications logic
+// Plus: My Documents (Supabase-backed upload/list/delete)
 // ============================================================
 
 // ---- UI only — no backend calls beyond what's already wired below. ----
@@ -254,16 +255,6 @@ function setStatus(id, status) {
   // TODO: update entry `id` to `status` ('approved' | 'rejected') in your data source
 }
 
-function uploadDoc() {
-  const fileInput = document.getElementById('docFile');
-  const category = document.getElementById('docCategory').value;
-  const msg = document.getElementById('docMsg');
-  const file = fileInput.files[0];
-  if (!file) { msg.textContent = 'Choose a file first.'; msg.className = 'msg error'; return; }
-  // TODO: upload `file` (with `category`) to your data source
-  msg.textContent = '';
-}
-
 // Example row renderer for reference — call with your fetched data:
 // renderTimesheet([{ id, work_date, project, hours, status, staff_name }])
 function renderTimesheet(rows) {
@@ -287,29 +278,170 @@ function renderTimesheet(rows) {
   });
 }
 
-// Example renderer for reference — call with your fetched data:
-// renderDocuments([{ id, file_name, file_url, category, uploaded_at }])
-function renderDocuments(docs) {
+/* ===========================
+   MY DOCUMENTS (Supabase)
+   Table: staff_documents (RLS: user_id = auth.uid())
+   Bucket: staff-documents (private; path = {user_id}/{uuid}-{filename})
+=========================== */
+
+const ALLOWED_DOC_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/heic'];
+const MAX_DOC_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+const CATEGORY_LABELS = { w2: 'W-2 Tax Form', w4: 'W-4 Tax Form', '1099': '1099 Tax Form', other: 'Other Form' };
+
+async function loadDocuments() {
+  if (!window.supabaseClient) { console.error('Supabase client not ready yet'); return; }
+
+  const profile = getAvailableProfile();
+  const userId = profile?.id || profile?.uid;
+  if (!userId) { console.warn('No user id yet — skipping document load'); return; }
+
+  const { data, error } = await window.supabaseClient
+    .from('staff_documents')
+    .select('*')
+    .eq('user_id', userId)
+    .order('uploaded_at', { ascending: false });
+
+  if (error) { console.error('Failed to load documents:', error); return; }
+
+  await renderDocuments(data || []);
+}
+
+async function uploadDoc() {
+  const fileInput = document.getElementById('docFile');
+  const category = document.getElementById('docCategory').value;
+  const msg = document.getElementById('docMsg');
+  const file = fileInput.files[0];
+
+  if (!file) { msg.textContent = 'Choose a file first.'; msg.className = 'msg error'; return; }
+  if (!ALLOWED_DOC_TYPES.includes(file.type)) {
+    msg.textContent = 'Only PDF or image files (JPG, PNG, HEIC) are allowed.';
+    msg.className = 'msg error';
+    return;
+  }
+  if (file.size > MAX_DOC_SIZE_BYTES) {
+    msg.textContent = 'File is too large (10MB max).';
+    msg.className = 'msg error';
+    return;
+  }
+
+  const profile = getAvailableProfile();
+  const userId = profile?.id || profile?.uid;
+  if (!userId) { msg.textContent = 'Still loading your profile — try again in a moment.'; msg.className = 'msg error'; return; }
+
+  msg.textContent = 'Uploading...';
+  msg.className = 'msg';
+
+  const filePath = `${userId}/${crypto.randomUUID()}-${file.name}`;
+
+  const { error: uploadError } = await window.supabaseClient
+    .storage
+    .from('staff-documents')
+    .upload(filePath, file);
+
+  if (uploadError) {
+    console.error('Storage upload failed:', uploadError);
+    msg.textContent = 'Upload failed. Please try again.';
+    msg.className = 'msg error';
+    return;
+  }
+
+  const { error: insertError } = await window.supabaseClient
+    .from('staff_documents')
+    .insert({
+      user_id: userId,
+      file_name: file.name,
+      file_path: filePath,
+      category
+    });
+
+  if (insertError) {
+    console.error('Failed to save document record:', insertError);
+    // Clean up the orphaned storage file since the DB row failed
+    await window.supabaseClient.storage.from('staff-documents').remove([filePath]);
+    msg.textContent = 'Upload failed. Please try again.';
+    msg.className = 'msg error';
+    return;
+  }
+
+  fileInput.value = '';
+  msg.textContent = 'Uploaded successfully.';
+  msg.className = 'msg success';
+  loadDocuments();
+}
+
+async function deleteDoc(id, filePath) {
+  if (!confirm('Delete this document? This cannot be undone.')) return;
+
+  const { error: storageError } = await window.supabaseClient
+    .storage
+    .from('staff-documents')
+    .remove([filePath]);
+
+  if (storageError) { console.error('Failed to delete file from storage:', storageError); }
+
+  const { error: dbError } = await window.supabaseClient
+    .from('staff_documents')
+    .delete()
+    .eq('id', id);
+
+  if (dbError) {
+    console.error('Failed to delete document record:', dbError);
+    return;
+  }
+
+  loadDocuments();
+}
+
+async function renderDocuments(docs) {
   const list = document.getElementById('docList');
   const empty = document.getElementById('docEmpty');
   list.innerHTML = '';
-  if (!docs || docs.length === 0) { empty.style.display = 'block'; return; }
+
+  if (!docs || docs.length === 0) {
+    empty.style.display = 'block';
+    updateMetrics({ docCount: 0 });
+    return;
+  }
   empty.style.display = 'none';
-  docs.forEach(doc => {
+
+  for (const doc of docs) {
+    const { data: signedUrlData, error } = await window.supabaseClient
+      .storage
+      .from('staff-documents')
+      .createSignedUrl(doc.file_path, 60); // link valid for 60 seconds
+
+    const url = error ? '#' : signedUrlData.signedUrl;
+
     const div = document.createElement('div');
     div.className = 'doc-item';
     div.innerHTML = `
-      <div><h3>${escapeHtml(doc.file_name)}</h3><p>${doc.category.replace('_',' ')} · ${new Date(doc.uploaded_at).toLocaleDateString()}</p></div>
-      <a class="btn small secondary" href="${doc.file_url}" target="_blank" rel="noopener">Open</a>
+      <div>
+        <h3>${escapeHtml(doc.file_name)}</h3>
+        <p>${escapeHtml(CATEGORY_LABELS[doc.category] || doc.category)} · ${new Date(doc.uploaded_at).toLocaleDateString()}</p>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <a class="btn small secondary" href="${url}" target="_blank" rel="noopener">Open</a>
+        <button class="btn small danger" onclick="deleteDoc('${doc.id}', '${doc.file_path}')">Delete</button>
+      </div>
     `;
     list.appendChild(div);
-  });
+  }
+
+  updateMetrics({ docCount: docs.length });
 }
 
-function updateMetrics({ weekHours = 0, pending = 0, docCount = 0 } = {}) {
-  document.getElementById('metricHours').textContent = weekHours.toFixed(1);
-  document.getElementById('metricPending').textContent = pending;
-  document.getElementById('metricDocs').textContent = docCount;
+/* ===========================
+   METRICS (merges instead of overwriting, since hours/docs/pending
+   are updated independently by different loaders)
+=========================== */
+
+let metricsState = { weekHours: 0, pending: 0, docCount: 0 };
+
+function updateMetrics(partial = {}) {
+  metricsState = { ...metricsState, ...partial };
+  document.getElementById('metricHours').textContent = metricsState.weekHours.toFixed(1);
+  document.getElementById('metricPending').textContent = metricsState.pending;
+  document.getElementById('metricDocs').textContent = metricsState.docCount;
 }
 
 // Shared HTML-escaping helper (used by draft/timesheet/document/announcement/notification renderers)
@@ -448,14 +580,20 @@ function applyProfileIfAvailable() {
 
 // Tries immediately, then retries every 200ms for up to ~5s (25 attempts).
 function pollForProfile(maxAttempts = 25, intervalMs = 200) {
-  if (applyProfileIfAvailable()) return;
+  if (applyProfileIfAvailable()) {
+    loadDocuments(); // profile was already available — safe to load docs now
+    return;
+  }
 
   let attempts = 0;
   const timer = setInterval(() => {
     attempts++;
-    if (applyProfileIfAvailable() || attempts >= maxAttempts) {
+    const profile = applyProfileIfAvailable();
+    if (profile || attempts >= maxAttempts) {
       clearInterval(timer);
-      if (!profileInitDone) {
+      if (profile) {
+        loadDocuments(); // profile just became available — load docs now
+      } else if (!profileInitDone) {
         console.warn('No staff profile found after waiting — name/nav may not reflect the signed-in user. Check that localStorage.staffProfile is being set (e.g. by auth-guard.js) on this page.');
       }
     }
@@ -562,7 +700,7 @@ if (typeof notificationBell !== 'undefined' && notificationBell) {
 =========================== */
 
 window.addEventListener('DOMContentLoaded', function () {
-  pollForProfile();        // retries for a few seconds until the profile shows up
+  pollForProfile();        // retries for a few seconds until the profile shows up; loads docs once found
   checkSubmissionLock();   // shows submitted-state banner, or unlocks a fresh period + restores drafts
   renderAnnouncements();   // shows any messages Accounting has sent
   loadNotifications();     // loads bell notifications
