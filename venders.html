@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>The Leeward Group | Operations Dashboard</title>
+    <title>The Leeward Group | Companies</title>
 
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" type="image/png" href="Logo/PVMC-logo.png">
@@ -114,9 +114,8 @@
                             </button>
 
                         </div>
-<p style="margin: 10px 0; padding: 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; text-align: center; font-size: 14px; color: #495057;">
-                            Change Password
-                        </p>
+
+
                     </div>
 
 
@@ -151,7 +150,7 @@
 
 
 
-        <a href="dashboard.html" class="nav-item active">
+        <a href="dashboard.html" class="nav-item">
 
             <span class="home-nav-icon"></span>
 
@@ -231,7 +230,7 @@
 
 
 
-       <a href="time sheet.html" class="nav-item">
+        <a href="time sheet.html" class="nav-item">
 
             <span class="finance-nav-icon"></span>
 
@@ -240,10 +239,6 @@
             </span>
 
         </a>
-
-
-
-
 
         <a href="https://www.theleewardgroup.us/"
            class="nav-item"
@@ -274,7 +269,7 @@
         </div>
 
 
-        <a href="venders.html" class="nav-item">
+<a href="venders.html" class="nav-item active">
 
             <span class="companies-nav-icon"></span>
 
@@ -403,53 +398,149 @@
 
 <main class="main-content">
 
-    <h1 id="welcomeHeading">
-        Welcome, Staff
-    </h1>
-
-
-    <section class="hero-section hero-section--construction">
-
+    <section class="hero-section">
         <div>
-
-            <p class="eyebrow">
-                The LeeWard Group Staff Portal
-            </p>
-
-
-            <h1>
-                Supporting our team with the tools, resources, and information needed every day.
-            </h1>
-
+            <p class="eyebrow">Department Wide</p>
+            <h1>Vender Contacts</h1>
+            <p>Browse, add, edit, and manage vender records, including addresses, SSN/FID, and W9 files.</p>
         </div>
-
     </section>
 
+    <div class="workbook-toolbar">
 
-<h1>{NO_DATA_PULLED}</h1>
+        <input
+            type="text"
+            id="companySearchInput"
+            class="workbook-search-input"
+            placeholder="Search companies…"
+            autocomplete="off">
 
+        <button class="auth-button auth-button--secondary" id="addCompanyBtn" type="button">
+            + Add Company
+        </button>
+
+        <button class="auth-button auth-button--secondary" id="addCompanyBtn" type="button">
+            Run A Report
+        </button>
+
+    </div>
+
+    <div id="companyMessage" class="workbook-page-message" style="display:none;"></div>
+
+    <div class="workbook-loading" id="companyLoadingState">
+        <p>Loading companies…</p>
+    </div>
+
+    <div class="workbook-empty" id="companyEmptyState" style="display:none;">
+        <p>No companies yet. Click "Add Company" to create the first one.</p>
+    </div>
+
+    <div class="workbook-empty" id="companyNoResultsState" style="display:none;">
+        <p>No companies match your search.</p>
+    </div>
+
+    <div class="workbook-grid" id="companyGrid"></div>
 
 </main>
 
 
+<!-- Add / Edit Company Modal -->
+<div class="popup-overlay hidden" id="companyModalOverlay">
+    <div class="popup workbook-popup">
+        <div class="popup-icon"></div>
+        <h2 id="companyModalTitle">Add Company</h2>
+        <p class="auth-inline-copy" id="companyModalSubtitle">Enter the company's details below.</p>
+
+        <form class="auth-form" id="companyForm">
+
+            <input type="hidden" id="companyIdInput">
+            <input type="hidden" id="companyExistingW9PathInput">
+
+            <label class="auth-field">
+                Company name
+                <input type="text" id="companyNameInput" name="name" required placeholder="e.g. Leeward Construction LLC">
+            </label>
+
+            <label class="auth-field">
+                Street
+                <input type="text" id="companyStreetInput" name="street" placeholder="e.g. 123 Main St">
+            </label>
+
+            <label class="auth-field">
+                City
+                <input type="text" id="companyCityInput" name="city" placeholder="e.g. Wilmington">
+            </label>
+
+            <label class="auth-field">
+                State
+                <input type="text" id="companyStateInput" name="state" maxlength="2" placeholder="e.g. NC" style="text-transform:uppercase;">
+            </label>
+
+            <label class="auth-field">
+                Zip
+                <input type="text" id="companyZipInput" name="zip" inputmode="numeric" placeholder="e.g. 28401">
+            </label>
+
+            <label class="auth-field">
+                SSN / FID
+                <input type="text" id="companySsnFidInput" name="ssnFid" placeholder="e.g. 12-3456789">
+            </label>
+
+            <label class="auth-field">
+                W9 (PDF)
+                <input type="file" id="companyW9Input" name="w9" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+            </label>
+
+            <p class="auth-inline-copy" id="companyExistingW9Note" style="display:none;"></p>
+
+            <p class="auth-message" id="companyFormMessage"></p>
+
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--red" id="cancelCompanyBtn">Cancel</button>
+                <button type="submit" class="auth-button auth-button--secondary" id="submitCompanyBtn">Save company</button>
+            </div>
+
+            <button type="button" class="auth-button auth-button--red" id="deleteCompanyBtn" style="display:none;">
+                Delete company
+            </button>
+
+        </form>
+    </div>
+</div>
 
 
+<!-- Delete Confirmation Modal -->
+<div class="popup-overlay hidden" id="deleteConfirmOverlay">
+    <div class="popup">
+        <div class="popup-icon"></div>
+        <h2>Delete this company?</h2>
+        <p class="auth-inline-copy" id="deleteConfirmText">
+            This will permanently remove the company record and its W9 file. This can't be undone.
+        </p>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+        <p class="auth-message" id="deleteConfirmMessage"></p>
+
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteBtn">Cancel</button>
+            <button type="button" class="auth-button auth-button--red" id="confirmDeleteBtn">Delete</button>
+        </div>
+    </div>
+</div>
+
+
+<script src="script.js"></script>
 <script src="supabase-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-auth.js"></script>
 <script src="auth-guard.js"></script>
-<script src="script.js"></script>
 <script src="timeout.js"></script>
-
-
-
+<script src="companies.js"></script>
 
 <script>
 
 
 /* ===========================
-   SIGN OUT -- MOVED TO ITS OWN FILE
+   SIGN OUT
 =========================== */
 
 
@@ -483,16 +574,12 @@ if (signOutButton) {
 
 
 /* ===========================
-   ELEMENTS - 
+   ELEMENTS
 =========================== */
 
 
 const userNameElement =
     document.getElementById("headerUserName");
-
-
-const welcomeHeading =
-    document.getElementById("welcomeHeading");
 
 
 const adminNavGroup =
@@ -509,7 +596,7 @@ const brandInitials =
 
 
 /* ===========================
-   UPDATE STAFF NAME 
+   UPDATE STAFF NAME
 =========================== */
 
 
@@ -528,23 +615,9 @@ function updateStaffName(profile) {
 
 
 
-    // Update only the text
-    // so the bell does not disappear
-
     if (userNameElement) {
 
         userNameElement.textContent = name;
-
-    }
-
-
-
-
-
-    if (welcomeHeading) {
-
-        welcomeHeading.textContent =
-            `Welcome, ${name}`;
 
     }
 
@@ -665,8 +738,6 @@ function updateNavAccess(profile) {
         document.getElementById("payrollToolsNavItem");
 
 
-    // Payroll Tools is visible to the Office and Accounting
-    // workgroups only (see permissions matrix).
     const shouldShowPayrollTools =
         window.isSupabaseUserInGroup
 
@@ -765,6 +836,12 @@ window.addEventListener("DOMContentLoaded", function() {
 
     loadNotifications();
 
+    initCompanySearch();
+
+    if (typeof window.initCompaniesPage === "function") {
+        window.initCompaniesPage();
+    }
+
 
 });
 
@@ -772,12 +849,6 @@ window.addEventListener("DOMContentLoaded", function() {
 
 /* ===========================
    NOTIFICATIONS (Supabase)
-   Uses window.supabaseClient, exposed globally by supabase-auth.js.
-   Reads broadcast notifications (user_id null, e.g. announcements) plus
-   anything targeted at this specific user (e.g. timesheet approvals).
-   "Read" state is tracked client-side in localStorage — fine for a
-   single-browser-per-person setup; move it server-side later if you
-   need read state to follow someone across devices.
 =========================== */
 
 let currentNotifications = [];
@@ -860,17 +931,92 @@ function renderNotifications() {
     });
 }
 
-// Mark everything currently loaded as read the moment the bell is opened.
-// notificationBell/notificationDropdown are declared in script.js, which loads
-// before this block, so they're already available here.
 if (typeof notificationBell !== 'undefined' && notificationBell) {
     notificationBell.addEventListener("click", function () {
         if (currentNotifications.length === 0) return;
         markNotificationsRead(currentNotifications.map(n => n.id));
-        renderNotifications(); // just updates the badge; list itself stays the same
+        renderNotifications();
     });
 }
 
+
+/* ===========================
+   COMPANY SEARCH
+   Filters whatever cards companies.js renders
+   into #companyGrid, matching against each
+   card's visible text content.
+=========================== */
+
+function initCompanySearch() {
+
+    const searchInput =
+        document.getElementById("companySearchInput");
+
+    const grid =
+        document.getElementById("companyGrid");
+
+    const noResultsState =
+        document.getElementById("companyNoResultsState");
+
+    if (!searchInput || !grid) return;
+
+
+    function getCards() {
+
+        return Array.from(grid.children);
+
+    }
+
+
+    function applyFilter() {
+
+        const query =
+            searchInput.value.trim().toLowerCase();
+
+        const cards =
+            getCards();
+
+        let visibleCount = 0;
+
+        cards.forEach(card => {
+
+            const text =
+                card.textContent.toLowerCase();
+
+            const matches =
+                !query || text.includes(query);
+
+            card.style.display =
+                matches ? "" : "none";
+
+            if (matches) visibleCount++;
+
+        });
+
+
+        const hasCards =
+            cards.length > 0;
+
+        if (noResultsState) {
+
+            noResultsState.style.display =
+                (hasCards && query && visibleCount === 0)
+                ? "block"
+                : "none";
+
+        }
+
+    }
+
+
+    searchInput.addEventListener("input", applyFilter);
+
+
+    const observer = new MutationObserver(applyFilter);
+
+    observer.observe(grid, { childList: true });
+
+}
 
 
 </script>
