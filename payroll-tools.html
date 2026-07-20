@@ -19,78 +19,384 @@
 </head>
 <body>
     <header class="header">
-        <div class="header-left">
-            <div class="brand-mark">
-                <div class="brand-mark__icon" id="brandInitials">ST</div>
-                <div>
-                    <div class="brand-title">The Leeward Group</div>
-                    <div class="brand-subtitle">Staff Portal</div>
-                </div>
+
+    <div class="header-left">
+
+        <div class="brand-mark">
+
+            <div class="brand-mark__icon" id="brandInitials">
+                ST
             </div>
-            <button class="menu-btn" id="menuBtn" aria-label="Toggle navigation">☰</button>
-        </div>
-        <div class="header-right">
-            <span class="header-user-pill" id="headerUserPill">Staff</span>
-            <button class="auth-button auth-button--secondary header-signout" id="signOutButton" type="button">Sign out</button>
-        </div>
-    </header>
 
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-header">Quick access</div>
-        <nav class="sidebar-nav">
-            <a href="dashboard.html" class="nav-item">
-                <span class="home-nav-icon"></span>
-                <span class="nav-text">Dashboard</span>
-            </a>
+            <div>
+                <div class="brand-title">
+                    The Leeward Group
+                </div>
 
-            <div class="nav-item-group" id="adminNavGroup" style="display:none;">
-                <a href="admin-users.html" class="nav-item nav-parent" onclick="toggleSubnav(event, this)">
-                    <span class="docs-nav-icon"></span>
-                    <span class="nav-text">IT Tools</span>
-                    <span class="nav-arrow"></span>
-                </a>
-                <div class="subnav">
-                    <a href="admin-users.html" class="subnav-item">
-                        <span class="nav-text">Create account</span>
-                    </a>
-                    <a href="staff-users.html" class="subnav-item">
-                        <span class="nav-text">Staff users</span>
-                    </a>
+                <div class="brand-subtitle">
+                    Staff Portal
                 </div>
             </div>
 
-            <a href="payroll-tools.html" class="nav-item active" id="payrollToolsNavItem" style="display:none;">
+        </div>
+
+
+        <button class="menu-btn" id="menuBtn" aria-label="Toggle navigation">
+            ☰
+        </button>
+
+    </div>
+
+
+
+    <div class="header-right">
+
+        <div class="header-user-area">
+
+            <div class="header-user-pill" id="headerUserPill">
+
+
+                <span id="headerUserName">
+                    Staff
+                </span>
+
+
+
+                <div class="notification-wrapper">
+
+
+                    <button 
+                        class="notification-bell"
+                        id="notificationBell"
+                        aria-label="Notifications">
+
+                        🔔
+
+                        <span class="notification-count">
+                            3
+                        </span>
+
+                    </button>
+
+
+
+
+                    <div class="notification-dropdown" id="notificationDropdown">
+
+
+                        <div class="notification-header">
+                        <span>Notifications</span>
+                        <button class="mark-read-btn">Mark as read</button>
+                        </div>
+
+
+                        <div id="notificationList"></div>
+
+                        <div id="notificationEmpty" class="notification-item" style="display:none;">
+                            <p>No notifications yet.</p>
+                        </div>
+
+
+                        <div class="notification-footer">
+
+                            <a 
+                                class="report-bug-btn"
+                                href="https://tally.so/r/QKyGj8"
+                                target="_blank"
+                                rel="noopener">
+
+                                Report bug
+
+                            </a>
+
+                            <button 
+                                class="auth-button auth-button--secondary header-signout"
+                                id="signOutButton"
+                                type="button">
+
+                                Sign out
+
+                            </button>
+
+                        </div>
+<p style="margin: 10px 0; padding: 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; text-align: center; font-size: 14px; color: #495057;">
+                            Change Password
+                        </p>
+                    </div>
+
+
+                </div>
+
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+
+</header>
+
+
+
+
+
+<aside class="sidebar" id="sidebar">
+
+
+    <div class="sidebar-header">
+        COMPANY WIDE
+    </div>
+
+
+
+    <nav class="sidebar-nav">
+
+
+
+        <a href="dashboard.html" class="nav-item">
+
+            <span class="home-nav-icon"></span>
+
+            <span class="nav-text">
+                Dashboard
+            </span>
+
+        </a>
+
+
+
+
+        <div class="nav-item-group">
+
+
+            <a href="#"
+               class="nav-item nav-parent"
+               onclick="toggleSubnav(event, this)">
+
+
                 <span class="docs-nav-icon"></span>
-                <span class="nav-text">Payroll Tools</span>
+
+
+                <span class="nav-text">
+                    Company docs
+                </span>
+
+
+                <span class="nav-arrow"></span>
+
+
             </a>
 
-            <div class="nav-item-group">
-                <a href="#" class="nav-item nav-parent" onclick="toggleSubnav(event, this)">
-                    <span class="docs-nav-icon"></span>
-                    <span class="nav-text">Company docs</span>
-                    <span class="nav-arrow"></span>
+
+
+
+            <div class="subnav">
+
+
+                <a href="new-project.html" class="subnav-item">
+
+                    <span class="nav-text">
+                        New Project Onboarding
+                    </span>
+
                 </a>
-                <div class="subnav">
-                    <a href="#" class="subnav-item"><span class="nav-text">New Project Onboarding</span></a>
-                    <a href="#" class="subnav-item"><span class="nav-text">Excel Workbook Templates</span></a>
-                    <a href="#" class="subnav-item"><span class="nav-text">Form Templates</span></a>
-                </div>
+
+
+
+                <a href="excel-workbook.html" class="subnav-item">
+
+                    <span class="nav-text">
+                        Excel Workbook Templates
+                    </span>
+
+                </a>
+
+
+
+                <a href="form-template.html" class="subnav-item">
+
+                    <span class="nav-text">
+                        Form Templates
+                    </span>
+
+                </a>
+
+
+
             </div>
-            <a href="https://www.theleewardgroup.us/" class="nav-item" target="_blank">
-                <span class="website-nav-icon"></span>
-                <span class="nav-text">Company site</span>
+
+
+
+        </div>
+
+
+
+
+
+       <a href="time sheet.html" class="nav-item">
+
+            <span class="finance-nav-icon"></span>
+
+            <span class="nav-text">
+                Personal Finance
+            </span>
+
+        </a>
+
+
+
+
+
+        <a href="https://www.theleewardgroup.us/"
+           class="nav-item"
+           target="_blank">
+
+
+            <span class="website-nav-icon"></span>
+
+
+            <span class="nav-text">
+                Company site
+            </span>
+
+
+        </a>
+
+
+
+
+
+        <hr style="border:.5px solid rgba(255,255,255,0.14); margin:10px 0;">
+
+
+
+
+        <div class="sidebar-header">
+            Department Wide
+        </div>
+
+
+
+
+
+        <a href="payroll-tools.html"
+           class="nav-item active"
+           id="payrollToolsNavItem"
+           style="display:none;">
+
+
+            <span class="docs-nav-icon"></span>
+
+
+            <span class="nav-text">
+                Payroll Tools
+            </span>
+
+
+        </a>
+
+
+
+
+
+        <div class="nav-item-group"
+             id="adminNavGroup"
+             style="display:none;">
+
+
+
+            <a href="admin-users.html"
+               class="nav-item nav-parent"
+               onclick="toggleSubnav(event, this)">
+
+
+
+                <span class="docs-nav-icon"></span>
+
+
+                <span class="nav-text">
+                    IT Tools
+                </span>
+
+
+                <span class="nav-arrow"></span>
+
+
+
             </a>
 
-             <a href="https://www.theleewardgroup.us/" class="nav-item" target="_blank">
-                <span class="website-nav-icon"></span>
-                <span class="nav-text">Personal Finance</span>
-            </a>
-        </nav>
-        <div class="sidebar-footer">
-            <div class="sidebar-brand">LeeWard Group</div>
-            <div class="version">Version XF-729-BETA</div>
+
+
+
+
+            <div class="subnav">
+
+
+                <a href="admin-users.html"
+                   class="subnav-item">
+
+
+                    <span class="nav-text">
+                        Create account
+                    </span>
+
+
+                </a>
+
+
+
+
+                <a href="staff-users.html"
+                   class="subnav-item">
+
+
+                    <span class="nav-text">
+                        Staff users
+                    </span>
+
+
+                </a>
+
+
+
+            </div>
+
+
+
         </div>
-    </aside>
+
+
+
+
+    </nav>
+
+
+
+
+
+    <div class="sidebar-footer">
+
+
+        <div class="footer-pill" id="sidebarGroupPill"></div>
+
+
+        <div class="sidebar-brand">
+            LeeWard Group
+        </div>
+
+
+        <div class="version">
+            Version XF-729-BETA
+        </div>
+
+
+    </div>
+
+
+</aside>
 
   <main class="main-content">
 <H1>Today is, {TODAY}</H1>
@@ -109,9 +415,9 @@
       </section>
 
       <div class="metrics-grid">
-        <div class="metric-card"><span class="metric-value" id="metricPendingCount">0</span><span class="metric-label">Pending approvals</span></div>
-        <div class="metric-card"><span class="metric-value" id="metricStaffDocs">0</span><span class="metric-label">Staff documents on file</span></div>
-        <div class="metric-card"><span class="metric-value" id="metricNextPayroll">—</span><span class="metric-label">Next payroll Thursday</span></div>
+        <div class="metric-card-1"><span class="metric-value" id="metricPendingCount">0</span><span class="metric-label">Pending approvals</span></div>
+        <div class="metric-card-2"><span class="metric-value" id="metricStaffDocs">0</span><span class="metric-label">Staff documents on file</span></div>
+        <div class="metric-card-3"><span class="metric-value" id="metricNextPayroll">—</span><span class="metric-label">Next payroll Thursday</span></div>
       </div>
 
       <div class="content-grid">
@@ -483,6 +789,111 @@ window.addEventListener('DOMContentLoaded', function () {
         updateNavAccess(profile);
     }
 });
+
+/* ===========================
+   NOTIFICATIONS (Supabase)
+   Uses window.supabaseClient, exposed globally by supabase-auth.js.
+   Reads broadcast notifications (user_id null, e.g. announcements) plus
+   anything targeted at this specific user (e.g. timesheet approvals).
+   "Read" state is tracked client-side in localStorage — fine for a
+   single-browser-per-person setup; move it server-side later if you
+   need read state to follow someone across devices.
+=========================== */
+
+let currentNotifications = [];
+const READ_IDS_KEY = 'readNotificationIds';
+
+function escapeHtmlLocal(str) {
+    const d = document.createElement('div');
+    d.textContent = str ?? '';
+    return d.innerHTML;
+}
+
+function getReadNotificationIds() {
+    try { return new Set(JSON.parse(localStorage.getItem(READ_IDS_KEY) || '[]')); }
+    catch { return new Set(); }
+}
+
+function markNotificationsRead(ids) {
+    const read = getReadNotificationIds();
+    ids.forEach(id => read.add(id));
+    localStorage.setItem(READ_IDS_KEY, JSON.stringify([...read]));
+}
+
+async function loadNotifications() {
+    if (!window.supabaseClient) { console.error('Supabase client not ready yet'); return; }
+
+    const profile = window.currentSupabaseProfile
+        || JSON.parse(localStorage.getItem('staffProfile') || 'null');
+    const userId = profile?.id || profile?.uid || null;
+
+    let query = window.supabaseClient
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+    query = userId
+        ? query.or(`user_id.is.null,user_id.eq.${userId}`)
+        : query.is('user_id', null);
+
+    const { data, error } = await query;
+    if (error) { console.error('Failed to load notifications:', error); return; }
+
+    currentNotifications = data || [];
+    renderNotifications();
+}
+
+function renderNotifications() {
+    const list = document.getElementById('notificationList');
+    const empty = document.getElementById('notificationEmpty');
+    const countEl = document.querySelector('.notification-count');
+    const readIds = getReadNotificationIds();
+    const unreadCount = currentNotifications.filter(n => !readIds.has(n.id)).length;
+
+    if (countEl) {
+        if (unreadCount > 0) {
+            countEl.style.display = 'inline-flex';
+            countEl.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
+        } else {
+            countEl.style.display = 'none';
+        }
+    }
+
+    if (!list) return;
+    list.innerHTML = '';
+
+    if (currentNotifications.length === 0) {
+        if (empty) empty.style.display = 'block';
+        return;
+    }
+    if (empty) empty.style.display = 'none';
+
+    currentNotifications.forEach(n => {
+        const div = document.createElement('div');
+        div.className = 'notification-item';
+        div.innerHTML = `
+            <strong>${escapeHtmlLocal(n.title)}</strong>
+            <p>${escapeHtmlLocal(n.message)}</p>
+        `;
+        list.appendChild(div);
+    });
+}
+
+// Mark everything currently loaded as read the moment the bell is opened.
+// notificationBell/notificationDropdown are declared in script.js, which loads
+// before this block, so they're already available here.
+if (typeof notificationBell !== 'undefined' && notificationBell) {
+    notificationBell.addEventListener("click", function () {
+        if (currentNotifications.length === 0) return;
+        markNotificationsRead(currentNotifications.map(n => n.id));
+        renderNotifications(); // just updates the badge; list itself stays the same
+    });
+}
+
+
+
+</script>
 </script>
 </body>
 </html>
