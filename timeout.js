@@ -9,8 +9,8 @@
 
   // ---------- CONFIG ----------
   const CONFIG = {
-    // Time before logout (2 minutes)
-    idleTimeoutMs: 2 * 60 * 1000,
+    // Time before logout (5 minutes)
+    idleTimeoutMs: 5 * 60 * 1000,
 
     // Login page location
     loginPage: "index.html",
