@@ -130,7 +130,7 @@ function renderCompanies(companies) {
                     type="button"
                     class="company-edit-btn"
                     data-id="${company.id}"
-                    aria-label="Edit company">
+                    aria-label="Edit Vendor">
                     <span class="company-edit-icon"></span>
                 </button>
 
@@ -152,11 +152,27 @@ function renderCompanies(companies) {
                     <span class="chip ${hasW9 ? "" : "chip--muted"}">${hasW9 ? "On file" : "Missing"}</span>
                 </div>
 
-                <div class="workbook-actions">
-                    <button type="button" class="workbook-btn workbook-btn--preview company-view-w9-btn" data-id="${company.id}" ${hasW9 ? "" : "disabled"}>
-                        View W9
-                    </button>
-                </div>
+                <div class="workbook-actions workbook-pill-group">
+    <button
+        type="button"
+        class="workbook-btn workbook-btn--preview company-view-w9-btn"
+        data-id="${company.id}"
+        ${hasW9 ? "" : "disabled"}
+    >
+        View W9
+    </button>
+
+    <button
+        type="button"
+        class="workbook-btn workbook-btn--download company-download-w9-btn"
+        data-id="${company.id}"
+        ${hasW9 ? "" : "disabled"}
+    >
+        Download W9
+    </button>
+</div>
+
+                <a href="#" class="company-view-contacts-link" data-id="${company.id}" data-name="${escapeHtmlCompanies(company.Name || "")}">View Contact Info</a>
 
             </div>
         `;
@@ -179,6 +195,16 @@ function renderCompanies(companies) {
             const id = btn.dataset.id;
             const company = allCompanies.find(c => String(c.id) === String(id));
             if (company && company.W9FilePath) viewW9(company.W9FilePath);
+        });
+    });
+
+    // View Contact Info links
+    grid.querySelectorAll(".company-view-contacts-link").forEach(link => {
+        link.addEventListener("click", (event) => {
+            event.preventDefault();
+            const id = link.dataset.id;
+            const company = allCompanies.find(c => String(c.id) === String(id));
+            if (company) openContactsModal(company);
         });
     });
 }
@@ -230,8 +256,8 @@ function openCompanyModal(company) {
     setFormMessage("", "");
 
     if (company?.id) {
-        title.textContent = "Edit Company";
-        subtitle.textContent = "Update the company's details, or delete it below.";
+        title.textContent = "Edit Vendor";
+        subtitle.textContent = "Update the vendor's details, or delete it below.";
         deleteBtn.style.display = "block";
 
         if (company.W9FilePath) {
@@ -241,8 +267,8 @@ function openCompanyModal(company) {
             existingW9Note.style.display = "none";
         }
     } else {
-        title.textContent = "Add Company";
-        subtitle.textContent = "Enter the company's details below.";
+        title.textContent = "Add Vendor";
+        subtitle.textContent = "Enter the Vendor's details below.";
         deleteBtn.style.display = "none";
         existingW9Note.style.display = "none";
     }
@@ -347,9 +373,10 @@ async function uploadW9(file, existingPath) {
 }
 
 /* ===========================
-   DELETE
+   DELETE (shared by companies + contacts)
 =========================== */
 
+let pendingDeleteType = null; // "company" | "contact"
 let pendingDeleteId = null;
 let pendingDeleteW9Path = null;
 
@@ -359,55 +386,285 @@ function openDeleteConfirm() {
 
     if (!id) return;
 
+    pendingDeleteType = "company";
     pendingDeleteId = id;
     pendingDeleteW9Path = w9Path || null;
 
+    document.getElementById("deleteConfirmText").textContent =
+        "This will permanently remove the vendor record and its W9 file. This can't be undone.";
+    document.getElementById("deleteConfirmMessage").textContent = "";
+    document.getElementById("deleteConfirmOverlay").classList.remove("hidden");
+}
+
+function openContactDeleteConfirm() {
+    const id = document.getElementById("contactIdInput").value;
+
+    if (!id) return;
+
+    pendingDeleteType = "contact";
+    pendingDeleteId = id;
+    pendingDeleteW9Path = null;
+
+    document.getElementById("deleteConfirmText").textContent =
+        "This will permanently remove this contact. This can't be undone.";
     document.getElementById("deleteConfirmMessage").textContent = "";
     document.getElementById("deleteConfirmOverlay").classList.remove("hidden");
 }
 
 function closeDeleteConfirm() {
     document.getElementById("deleteConfirmOverlay").classList.add("hidden");
+    pendingDeleteType = null;
     pendingDeleteId = null;
     pendingDeleteW9Path = null;
 }
 
-async function confirmDeleteCompany() {
+async function confirmDelete() {
 
-    if (!pendingDeleteId) return;
+    if (!pendingDeleteId || !pendingDeleteType) return;
 
     const confirmBtn = document.getElementById("confirmDeleteBtn");
     confirmBtn.disabled = true;
 
     try {
 
-        const { error } = await window.supabaseClient
-            .from(COMPANIES_TABLE)
-            .delete()
-            .eq("id", pendingDeleteId);
+        if (pendingDeleteType === "company") {
 
-        if (error) throw error;
+            const { error } = await window.supabaseClient
+                .from(COMPANIES_TABLE)
+                .delete()
+                .eq("id", pendingDeleteId);
 
-        if (pendingDeleteW9Path) {
-            window.supabaseClient
-                .storage
-                .from(W9_BUCKET)
-                .remove([pendingDeleteW9Path])
-                .catch(err => console.warn("Couldn't remove W9 file:", err));
+            if (error) throw error;
+
+            if (pendingDeleteW9Path) {
+                window.supabaseClient
+                    .storage
+                    .from(W9_BUCKET)
+                    .remove([pendingDeleteW9Path])
+                    .catch(err => console.warn("Couldn't remove W9 file:", err));
+            }
+
+            closeDeleteConfirm();
+            closeCompanyModal();
+            showCompanyMessage("Vendor deleted.", "success");
+            await loadCompanies();
+
+        } else if (pendingDeleteType === "contact") {
+
+            const companyId = document.getElementById("contactCompanyIdInput").value;
+
+            const { error } = await window.supabaseClient
+                .from(CONTACTS_TABLE)
+                .delete()
+                .eq("id", pendingDeleteId);
+
+            if (error) throw error;
+
+            closeDeleteConfirm();
+            closeContactFormModal();
+            await refreshContactsList(companyId);
+
         }
 
-        closeDeleteConfirm();
-        closeCompanyModal();
-        showCompanyMessage("Company deleted.", "success");
-        await loadCompanies();
-
     } catch (error) {
-        console.error("Failed to delete company:", error);
+        console.error("Failed to delete:", error);
         document.getElementById("deleteConfirmMessage").textContent =
-            "Something went wrong deleting this company. Please try again.";
+            "Something went wrong deleting this. Please try again.";
         document.getElementById("deleteConfirmMessage").className = "auth-message error";
     } finally {
         confirmBtn.disabled = false;
+    }
+}
+
+/* ===========================
+   CONTACTS
+=========================== */
+
+const CONTACTS_TABLE = "Contacts";
+
+function setContactFormMessage(text, type) {
+    const el = document.getElementById("contactFormMessage");
+    if (!el) return;
+    el.textContent = text || "";
+    el.className = `auth-message ${type || ""}`.trim();
+}
+
+async function openContactsModal(company) {
+
+    const overlay = document.getElementById("contactsModalOverlay");
+    const titleEl = document.getElementById("contactsModalTitle");
+
+    document.getElementById("contactsModalCompanyId").value = company.id;
+    titleEl.textContent = `Contacts — ${company.Name || "Company"}`;
+    titleEl.dataset.companyName = company.Name || "";
+
+    overlay.classList.remove("hidden");
+    document.body.classList.add("popup-active");
+
+    await refreshContactsList(company.id);
+}
+
+function closeContactsModal() {
+    document.getElementById("contactsModalOverlay").classList.add("hidden");
+    if (document.getElementById("contactModalOverlay").classList.contains("hidden")) {
+        document.body.classList.remove("popup-active");
+    }
+}
+
+async function refreshContactsList(companyId) {
+
+    const body = document.getElementById("contactsListBody");
+    body.innerHTML = `<p class="workbook-preview-loading">Loading contacts…</p>`;
+
+    const { data, error } = await window.supabaseClient
+        .from(CONTACTS_TABLE)
+        .select("*")
+        .eq("company_id", companyId)
+        .order("Name", { ascending: true });
+
+    if (error) {
+        console.error("Failed to load contacts:", error);
+        body.innerHTML = `<p class="workbook-preview-empty">Couldn't load contacts. Please try again.</p>`;
+        return;
+    }
+
+    renderContactList(data || [], companyId);
+}
+
+function renderContactList(contacts, companyId) {
+
+    const body = document.getElementById("contactsListBody");
+
+    if (!contacts.length) {
+        body.innerHTML = `<p class="workbook-preview-empty">No contacts on file for this company yet.</p>`;
+        return;
+    }
+
+    const companyName = document.getElementById("contactsModalTitle").dataset.companyName || "";
+
+    body.innerHTML = `
+        <div class="contact-list">
+            ${contacts.map(contact => `
+                <div class="contact-item">
+
+                    <button
+                        type="button"
+                        class="company-edit-btn contact-edit-btn"
+                        data-id="${contact.id}"
+                        aria-label="Edit contact">
+                        <span class="company-edit-icon"></span>
+                    </button>
+
+                    <h4 class="contact-item-name">${escapeHtmlCompanies(contact.Name || "Unnamed contact")}</h4>
+                    ${contact.Title ? `<p class="contact-item-title">${escapeHtmlCompanies(contact.Title)}</p>` : ""}
+
+                    <div class="contact-item-details">
+                        ${contact.WorkPhone ? `<p><span class="company-card-label">Work</span> ${escapeHtmlCompanies(contact.WorkPhone)}</p>` : ""}
+                        ${contact.MobilePhone ? `<p><span class="company-card-label">Mobile</span> ${escapeHtmlCompanies(contact.MobilePhone)}</p>` : ""}
+                        ${contact.Email ? `<p><span class="company-card-label">Email</span> ${escapeHtmlCompanies(contact.Email)}</p>` : ""}
+                        ${contact.Role ? `<p><span class="company-card-label">Role</span> ${escapeHtmlCompanies(contact.Role)}</p>` : ""}
+                    </div>
+
+                </div>
+            `).join("")}
+        </div>
+    `;
+
+    body.querySelectorAll(".contact-edit-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const contact = contacts.find(c => String(c.id) === String(btn.dataset.id));
+            if (contact) openContactFormModal(contact, companyId, companyName);
+        });
+    });
+}
+
+function openContactFormModal(contact, companyId, companyName) {
+
+    const overlay = document.getElementById("contactModalOverlay");
+    const title = document.getElementById("contactModalTitle");
+    const deleteBtn = document.getElementById("deleteContactBtn");
+
+    document.getElementById("contactIdInput").value = contact?.id ?? "";
+    document.getElementById("contactCompanyIdInput").value = companyId;
+    document.getElementById("contactNameInput").value = contact?.Name ?? "";
+    document.getElementById("contactTitleInput").value = contact?.Title ?? "";
+    document.getElementById("contactWorkPhoneInput").value = contact?.WorkPhone ?? "";
+    document.getElementById("contactMobilePhoneInput").value = contact?.MobilePhone ?? "";
+    document.getElementById("contactEmailInput").value = contact?.Email ?? "";
+    document.getElementById("contactRoleInput").value = contact?.Role ?? "";
+
+    title.textContent = contact?.id
+        ? `Edit Contact — ${companyName || "Company"}`
+        : `Add Contact — ${companyName || "Company"}`;
+
+    deleteBtn.style.display = contact?.id ? "block" : "none";
+
+    setContactFormMessage("", "");
+
+    overlay.classList.remove("hidden");
+    document.body.classList.add("popup-active");
+}
+
+function closeContactFormModal() {
+    document.getElementById("contactModalOverlay").classList.add("hidden");
+    if (document.getElementById("contactsModalOverlay").classList.contains("hidden")) {
+        document.body.classList.remove("popup-active");
+    }
+}
+
+async function handleContactFormSubmit(event) {
+
+    event.preventDefault();
+
+    const submitBtn = document.getElementById("submitContactBtn");
+    const id = document.getElementById("contactIdInput").value;
+    const companyId = document.getElementById("contactCompanyIdInput").value;
+
+    const payload = {
+        company_id: companyId,
+        Name: document.getElementById("contactNameInput").value.trim(),
+        Title: document.getElementById("contactTitleInput").value.trim() || null,
+        WorkPhone: document.getElementById("contactWorkPhoneInput").value.trim() || null,
+        MobilePhone: document.getElementById("contactMobilePhoneInput").value.trim() || null,
+        Email: document.getElementById("contactEmailInput").value.trim() || null,
+        Role: document.getElementById("contactRoleInput").value.trim() || null
+    };
+
+    if (!payload.Name) {
+        setContactFormMessage("Contact name is required.", "error");
+        return;
+    }
+
+    submitBtn.disabled = true;
+    setContactFormMessage("Saving…", "");
+
+    try {
+
+        let saveError;
+
+        if (id) {
+            const { error } = await window.supabaseClient
+                .from(CONTACTS_TABLE)
+                .update(payload)
+                .eq("id", id);
+            saveError = error;
+        } else {
+            const { error } = await window.supabaseClient
+                .from(CONTACTS_TABLE)
+                .insert(payload);
+            saveError = error;
+        }
+
+        if (saveError) throw saveError;
+
+        closeContactFormModal();
+        await refreshContactsList(companyId);
+
+    } catch (error) {
+        console.error("Failed to save contact:", error);
+        setContactFormMessage("Something went wrong saving this contact. Please try again.", "error");
+    } finally {
+        submitBtn.disabled = false;
     }
 }
 
@@ -442,7 +699,7 @@ window.initCompaniesPage = function () {
     if (cancelDeleteBtn) cancelDeleteBtn.addEventListener("click", closeDeleteConfirm);
 
     const confirmDeleteBtn = document.getElementById("confirmDeleteBtn");
-    if (confirmDeleteBtn) confirmDeleteBtn.addEventListener("click", confirmDeleteCompany);
+    if (confirmDeleteBtn) confirmDeleteBtn.addEventListener("click", confirmDelete);
 
     const deleteOverlay = document.getElementById("deleteConfirmOverlay");
     if (deleteOverlay) {
@@ -450,6 +707,43 @@ window.initCompaniesPage = function () {
             if (event.target === deleteOverlay) closeDeleteConfirm();
         });
     }
+
+    // Contacts list modal
+    const closeContactsBtn = document.getElementById("closeContactsBtn");
+    if (closeContactsBtn) closeContactsBtn.addEventListener("click", closeContactsModal);
+
+    const contactsOverlay = document.getElementById("contactsModalOverlay");
+    if (contactsOverlay) {
+        contactsOverlay.addEventListener("click", (event) => {
+            if (event.target === contactsOverlay) closeContactsModal();
+        });
+    }
+
+    const addContactBtn = document.getElementById("addContactBtn");
+    if (addContactBtn) {
+        addContactBtn.addEventListener("click", () => {
+            const companyId = document.getElementById("contactsModalCompanyId").value;
+            const companyName = document.getElementById("contactsModalTitle").dataset.companyName || "";
+            openContactFormModal(null, companyId, companyName);
+        });
+    }
+
+    // Contact add/edit modal
+    const cancelContactBtn = document.getElementById("cancelContactBtn");
+    if (cancelContactBtn) cancelContactBtn.addEventListener("click", closeContactFormModal);
+
+    const contactFormOverlay = document.getElementById("contactModalOverlay");
+    if (contactFormOverlay) {
+        contactFormOverlay.addEventListener("click", (event) => {
+            if (event.target === contactFormOverlay) closeContactFormModal();
+        });
+    }
+
+    const contactForm = document.getElementById("contactForm");
+    if (contactForm) contactForm.addEventListener("submit", handleContactFormSubmit);
+
+    const deleteContactBtn = document.getElementById("deleteContactBtn");
+    if (deleteContactBtn) deleteContactBtn.addEventListener("click", openContactDeleteConfirm);
 
     hideCompanyMessage();
 };

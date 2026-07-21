@@ -1836,3 +1836,93 @@ button { font: inherit; }
 .workbook-btn--preview:disabled:hover {
   background: var(--accent-soft);
 }
+ 
+.company-view-contacts-link {
+  display: block;
+  margin-top: 10px;
+  align-self: center;
+  color: var(--accent);
+  text-decoration: underline;
+  font-size: 0.78rem;
+  text-align: center;
+}
+ 
+.company-view-contacts-link:hover {
+  color: var(--accent-strong);
+}
+ 
+/* Contacts list popup */
+ 
+.contact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 4px 14px;
+}
+ 
+.contact-item {
+  position: relative;
+  padding: 14px 44px 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+ 
+.contact-item-name {
+  margin: 0 0 2px;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text);
+}
+ 
+.contact-item-title {
+  margin: 0 0 8px;
+  color: var(--text-soft);
+  font-size: 0.86rem;
+}
+ 
+.contact-item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+ 
+.contact-item-details p {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--text);
+}
+ 
+.contact-item-details .company-card-label {
+  display: inline-block;
+  min-width: 54px;
+  color: var(--text-soft);
+}
+
+.workbook-pill-group {
+    display: inline-flex;
+    overflow: hidden;
+    border-radius: 9999px;
+    border: 1px solid #d1d5db;
+    gap: 0;
+}
+
+.workbook-pill-group .workbook-btn {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    padding: 4px 12px;   /* Smaller */
+    font-size: 13px;     /* Smaller text */
+    line-height: 1.2;
+}
+
+.workbook-pill-group .workbook-btn + .workbook-btn {
+    border-left: 1px solid #d1d5db;
+    margin: 0;
+}
+
+.workbook-pill-group .workbook-btn:disabled {
+    background: #f3f4f6;
+    color: #9ca3af;
+    cursor: not-allowed;
+}

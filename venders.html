@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>The Leeward Group | Companies</title>
+    <title>The Leeward Group | Vendors</title>
 
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" type="image/png" href="Logo/PVMC-logo.png">
@@ -163,6 +163,19 @@
 
 
 
+        <a href="companies.html" class="nav-item active">
+
+            <span class="companies-nav-icon"></span>
+
+            <span class="nav-text">
+                Companies
+            </span>
+
+        </a>
+
+
+
+
         <div class="nav-item-group">
 
 
@@ -269,15 +282,7 @@
         </div>
 
 
-<a href="venders.html" class="nav-item active">
 
-            <span class="companies-nav-icon"></span>
-
-            <span class="nav-text">
-                Vender Contacts
-            </span>
-
-        </a>
 
 
         <a href="payroll-tools.html"
@@ -400,9 +405,9 @@
 
     <section class="hero-section">
         <div>
-            <p class="eyebrow">Department Wide</p>
-            <h1>Vender Contacts</h1>
-            <p>Browse, add, edit, and manage vender records, including addresses, SSN/FID, and W9 files.</p>
+            <p class="eyebrow">Company Wide</p>
+            <h1>Vendors</h1>
+            <p>Browse, add, edit, and manage Vendors records, including addresses, SSN/FID, and W9 files.</p>
         </div>
     </section>
 
@@ -412,15 +417,11 @@
             type="text"
             id="companySearchInput"
             class="workbook-search-input"
-            placeholder="Search companies…"
+            placeholder="Search Vendors…"
             autocomplete="off">
 
         <button class="auth-button auth-button--secondary" id="addCompanyBtn" type="button">
-            + Add Company
-        </button>
-
-        <button class="auth-button auth-button--secondary" id="addCompanyBtn" type="button">
-            Run A Report
+            + Add Vendor
         </button>
 
     </div>
@@ -428,15 +429,15 @@
     <div id="companyMessage" class="workbook-page-message" style="display:none;"></div>
 
     <div class="workbook-loading" id="companyLoadingState">
-        <p>Loading companies…</p>
+        <p>Loading Vendors…</p>
     </div>
 
     <div class="workbook-empty" id="companyEmptyState" style="display:none;">
-        <p>No companies yet. Click "Add Company" to create the first one.</p>
+        <p>No Vendors yet. Click "Add Vendors" to create the first one.</p>
     </div>
 
     <div class="workbook-empty" id="companyNoResultsState" style="display:none;">
-        <p>No companies match your search.</p>
+        <p>No Vendors match your search.</p>
     </div>
 
     <div class="workbook-grid" id="companyGrid"></div>
@@ -447,9 +448,8 @@
 <!-- Add / Edit Company Modal -->
 <div class="popup-overlay hidden" id="companyModalOverlay">
     <div class="popup workbook-popup">
-        <div class="popup-icon"></div>
-        <h2 id="companyModalTitle">Add Company</h2>
-        <p class="auth-inline-copy" id="companyModalSubtitle">Enter the company's details below.</p>
+        <h2 id="companyModalTitle">Add Vendor</h2>
+        <p class="auth-inline-copy" id="companyModalSubtitle">Enter the Vendor's details below.</p>
 
         <form class="auth-form" id="companyForm">
 
@@ -457,7 +457,7 @@
             <input type="hidden" id="companyExistingW9PathInput">
 
             <label class="auth-field">
-                Company name
+                Vendor name
                 <input type="text" id="companyNameInput" name="name" required placeholder="e.g. Leeward Construction LLC">
             </label>
 
@@ -488,7 +488,7 @@
 
             <label class="auth-field">
                 W9 (PDF)
-                <input type="file" id="companyW9Input" name="w9" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+                <input type="file" id="companyW9Input" name="w9" accept="application/pdf">
             </label>
 
             <p class="auth-inline-copy" id="companyExistingW9Note" style="display:none;"></p>
@@ -497,11 +497,90 @@
 
             <div class="popup-buttons">
                 <button type="button" class="auth-button auth-button--red" id="cancelCompanyBtn">Cancel</button>
-                <button type="submit" class="auth-button auth-button--secondary" id="submitCompanyBtn">Save company</button>
+                <button type="submit" class="auth-button auth-button--secondary" id="submitCompanyBtn">Save Vendor Changes</button>
             </div>
 
             <button type="button" class="auth-button auth-button--red" id="deleteCompanyBtn" style="display:none;">
-                Delete company
+                Delete Vendor
+            </button>
+
+        </form>
+    </div>
+</div>
+
+
+<!-- Contacts List Modal -->
+<div class="popup-overlay hidden" id="contactsModalOverlay">
+    <div class="popup workbook-preview-popup">
+        <div class="workbook-preview-header">
+            <h2 id="contactsModalTitle">Contacts</h2>
+            <button type="button" class="menu-btn" id="closeContactsBtn" aria-label="Close contacts">✕</button>
+        </div>
+
+        <input type="hidden" id="contactsModalCompanyId">
+
+        <div class="workbook-toolbar" style="margin-top:14px; margin-bottom:0;">
+            <button class="auth-button auth-button--secondary" id="addContactBtn" type="button" style="width:auto; padding:10px 18px;">
+                + Add Contact
+            </button>
+        </div>
+
+        <div  id="contactsListBody" style="margin-top:14px;">
+            <p class="workbook-preview-loading">Loading contacts…</p>
+        </div>
+    </div>
+</div>
+
+
+<!-- Contact Add / Edit Modal -->
+<div class="popup-overlay hidden" id="contactModalOverlay">
+    <div class="popup workbook-popup">
+        <h2 id="contactModalTitle">Add Contact</h2>
+
+        <form class="auth-form" id="contactForm">
+
+            <input type="hidden" id="contactIdInput">
+            <input type="hidden" id="contactCompanyIdInput">
+
+            <label class="auth-field">
+                Name
+                <input type="text" id="contactNameInput" name="name" required placeholder="e.g. Jane Smith">
+            </label>
+
+            <label class="auth-field">
+                Title
+                <input type="text" id="contactTitleInput" name="title" placeholder="e.g. Owner">
+            </label>
+
+            <label class="auth-field">
+                Work phone
+                <input type="tel" id="contactWorkPhoneInput" name="workPhone" placeholder="e.g. 910-555-0123">
+            </label>
+
+            <label class="auth-field">
+                Mobile phone
+                <input type="tel" id="contactMobilePhoneInput" name="mobilePhone" placeholder="e.g. 910-555-0123">
+            </label>
+
+            <label class="auth-field">
+                Email
+                <input type="email" id="contactEmailInput" name="email" placeholder="e.g. jane@company.com">
+            </label>
+
+            <label class="auth-field">
+                Role
+                <input type="text" id="contactRoleInput" name="role" placeholder="e.g. Point of Contact, Contract signer">
+            </label>
+
+            <p class="auth-message" id="contactFormMessage"></p>
+
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--red" id="cancelContactBtn">Cancel</button>
+                <button type="submit" class="auth-button auth-button--secondary" id="submitContactBtn">Save contact</button>
+            </div>
+
+            <button type="button" class="auth-button auth-button--red" id="deleteContactBtn" style="display:none;">
+                Delete contact
             </button>
 
         </form>
@@ -512,10 +591,9 @@
 <!-- Delete Confirmation Modal -->
 <div class="popup-overlay hidden" id="deleteConfirmOverlay">
     <div class="popup">
-        <div class="popup-icon"></div>
-        <h2>Delete this company?</h2>
+        <h2>Delete this Vendor?</h2>
         <p class="auth-inline-copy" id="deleteConfirmText">
-            This will permanently remove the company record and its W9 file. This can't be undone.
+            This will permanently remove the Vendor record and its W9 file. This can't be undone.
         </p>
 
         <p class="auth-message" id="deleteConfirmMessage"></p>
