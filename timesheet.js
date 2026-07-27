@@ -29,8 +29,20 @@ const msPerDay = 86400000;
    Reads the same `announcements` table that payroll-tools.html writes to.
 =========================== */
 
+// Temporary announcements (see payroll-tools.html) carry an expires_at 24h
+// out; long-term ones have expires_at = null and never expire on their own.
+// There's no server-side cron for this — every reader opportunistically
+// deletes anything past its expires_at before selecting, so an expired
+// temporary announcement disappears the next time anyone loads a page that
+// shows announcements.
 async function getAnnouncements() {
   if (!window.supabaseClient) { console.error('Supabase client not ready yet'); return []; }
+  const { error: purgeError } = await window.supabaseClient
+    .from('announcements')
+    .delete()
+    .lt('expires_at', new Date().toISOString());
+  if (purgeError) console.error('Failed to purge expired announcements:', purgeError);
+
   const { data, error } = await window.supabaseClient
     .from('announcements')
     .select('*')

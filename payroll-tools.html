@@ -7,14 +7,16 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" type="image/png" href="logos/leewaed-logo.png">
     <style>
-        .window-msg { font-size: 0.9em; padding: 10px 12px; background: var(--surface-2, #f7f7f7); border-radius: 6px; margin-top: 6px; }
-        .filter-row { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
-        .filter-row select { max-width: 220px; }
         .restricted-wrap { max-width: 520px; margin: 60px auto; text-align: center; }
         .announcement-item { padding: 12px; border: 1px solid var(--border-color, #e2e2e2); border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
         .announcement-item h3 { margin: 0 0 4px; font-size: 1em; }
         .announcement-item p { margin: 0 0 6px; white-space: pre-wrap; }
         .announcement-item .announcement-date { font-size: 0.8em; opacity: 0.65; }
+        .announcement-badges { margin-bottom: 6px; }
+        .announcement-type-row { display: flex; flex-direction: column; gap: 8px; }
+        .announcement-type-option { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 0.92rem; cursor: pointer; }
+        .announcement-type-option input { margin: 0; }
+        .announcement-type-hint { color: var(--text-soft); font-weight: 400; font-size: 0.85rem; }
     </style>
 </head>
 <body>
@@ -286,97 +288,140 @@
         <div>
           <p class="eyebrow">Accounting</p>
           <h1>Payroll Tools</h1>
-          <p>Set the biweekly submission schedule, review pending timesheets, and pull staff documents.</p>
+          <p>Set the timesheet pay period schedule and send announcements to staff.</p>
         </div>
       </section>
 
-      <div class="metrics-grid">
-        <div class="metric-card-1"><span class="metric-value" id="metricPendingCount">0</span><span class="metric-label">Pending approvals</span></div>
-        <div class="metric-card-2"><span class="metric-value" id="metricStaffDocs">0</span><span class="metric-label">Staff documents on file</span></div>
-        <div class="metric-card-3"><span class="metric-value" id="metricNextPayroll">—</span><span class="metric-label">Next payroll Thursday</span></div>
+      <div class="content-grid">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Set Timesheet Period</h2>
+              <p class="card-subtitle">Create pay periods and see when the next payday lands</p>
+            </div>
+            <span class="chip">Schedule</span>
+          </div>
+
+          <div class="payday-block">
+            <p class="payday-label">The next day to run payday is:</p>
+            <p class="payday-value" id="nextPaydayValue">Loading…</p>
+          </div>
+
+          <div class="payday-actions">
+            <button type="button" class="auth-button auth-button--secondary" onclick="openPayPeriodCalendar()">View Calendar</button>
+            <button type="button" class="auth-button" onclick="openNewPayPeriodModal()">Make a New Pay Period</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Send Announcement</h2>
+              <p class="card-subtitle">Posts to every staff member's Personal Finance page</p>
+            </div>
+            <span class="chip">Announcements</span>
+          </div>
+
+          <div class="auth-form">
+            <label class="auth-field">
+              Title
+              <input type="text" id="announcementTitle" placeholder="Title">
+            </label>
+            <label class="auth-field">
+              Message
+              <textarea id="announcementMessage" placeholder="Message"></textarea>
+            </label>
+            <div class="auth-field">
+              Announcement type
+              <div class="announcement-type-row">
+                <label class="announcement-type-option">
+                  <input type="radio" name="announcementType" value="temporary" checked>
+                  Temporary <span class="announcement-type-hint">auto-deletes in 24 hours</span>
+                </label>
+                <label class="announcement-type-option">
+                  <input type="radio" name="announcementType" value="longterm">
+                  Long-term <span class="announcement-type-hint">stays until deleted</span>
+                </label>
+              </div>
+            </div>
+            <button type="button" class="auth-button auth-button--secondary" onclick="sendAnnouncement()">Send announcement</button>
+          </div>
+          <p id="announcementMsg" class="auth-message"></p>
+
+          <div id="sentAnnouncementsList" style="margin-top:14px;"></div>
+          <div id="sentAnnouncementsEmpty" class="empty-state" style="display:none;">No announcements sent yet.</div>
+        </div>
       </div>
 
-      <div class="content-grid">
-        <div class="left-column">
-          <div class="card">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title">Pending Timesheet Approvals</h2>
-                <p class="card-subtitle">Entries submitted by staff, awaiting review</p>
-              </div>
-              <span class="chip">Approvals</span>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr><th>Date</th><th>Staff</th><th>Project</th><th>Hours</th><th>Status</th><th></th></tr>
-                </thead>
-                <tbody id="approvalsBody"></tbody>
-              </table>
-            </div>
-            <div id="approvalsEmpty" class="empty-state" style="display:none;">No entries pending approval.</div>
+      <div class="card wide-card" id="accountingDashboardCard">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Accounting Employee Dashboard</h2>
+            <p class="card-subtitle">A shared workspace for the Accounting team</p>
           </div>
-
-          <div class="card">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title">Payroll Submission Schedule</h2>
-                <p class="card-subtitle">Sets the biweekly window that unlocks staff timesheet submissions</p>
-              </div>
-            </div>
-            <div class="entry-form">
-              <label for="payrollAnchorInput">Anchor payroll Thursday (any past or future one)</label>
-              <input type="date" id="payrollAnchorInput">
-              <button class="btn secondary full" onclick="savePayrollAnchor()">Save</button>
-            </div>
-            <p id="payrollSettingsMsg" class="msg"></p>
-            <p id="currentAnchorMsg" class="window-msg"></p>
-          </div>
-
-          
+          <span class="chip">Coming soon</span>
         </div>
-
-        <div class="right-column">
-          <div class="card">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title">Staff Documents</h2>
-                <p class="card-subtitle">Pay stubs, tax forms, and other files uploaded by staff</p>
-              </div>
-            </div>
-            <div class="filter-row">
-              <select id="docCategoryFilter" onchange="applyDocFilter()">
-                <option value="all">All categories</option>
-                <option value="pay_stub">Pay stubs</option>
-                <option value="tax_form">Tax forms</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-            <div class="doc-list" id="staffDocList"></div>
-            <div id="staffDocEmpty" class="empty-state" style="display:none;">No documents uploaded yet.</div>
-          </div>
-          <div class="card">
-            <div class="card-header">
-              <div>
-                <h2 class="card-title">Send Announcement</h2>
-                <p class="card-subtitle">Posts to every staff member's Personal Finance page</p>
-              </div>
-              <span class="chip">Announcements</span>
-            </div>
-            <div class="entry-form">
-              <input type="text" id="announcementTitle" placeholder="Title">
-              <textarea id="announcementMessage" placeholder="Message"></textarea>
-              <button class="btn full" onclick="sendAnnouncement()">Send announcement</button>
-            </div>
-            <p id="announcementMsg" class="msg"></p>
-
-            <div id="sentAnnouncementsList" style="margin-top:14px;"></div>
-            <div id="sentAnnouncementsEmpty" class="empty-state" style="display:none;">No announcements sent yet.</div>
-          </div>
-        </div>
+        <div class="empty-state">We'll design what goes here together next.</div>
       </div>
     </div>
   </main>
+
+  <!-- View Calendar popup -->
+  <div class="popup-overlay hidden" id="payPeriodCalendarOverlay">
+    <div class="popup pay-period-calendar-popup">
+      <div class="workbook-preview-header">
+        <h2>Pay Period Calendar</h2>
+        <button type="button" class="menu-btn" onclick="ppCloseOverlay('payPeriodCalendarOverlay')" aria-label="Close calendar">✕</button>
+      </div>
+      <p class="card-subtitle">Every pay period's start date and payday, at a glance.</p>
+
+      <div class="pp-calendar-nav">
+        <button type="button" class="auth-button auth-button--secondary" onclick="shiftCalendarMonth(-1)" aria-label="Previous month">‹</button>
+        <span id="calendarMonthLabel" class="pp-calendar-month"></span>
+        <button type="button" class="auth-button auth-button--secondary" onclick="shiftCalendarMonth(1)" aria-label="Next month">›</button>
+      </div>
+
+      <div class="pp-calendar-grid" id="calendarGrid"></div>
+
+      <div class="pp-legend">
+        <span class="pp-legend-item"><span class="pp-legend-dot pp-legend-dot--start"></span>Period start</span>
+        <span class="pp-legend-item"><span class="pp-legend-dot pp-legend-dot--end"></span>Payday</span>
+      </div>
+
+      <div class="auth-divider"></div>
+
+      <h3 class="pp-list-heading">All pay periods</h3>
+      <div class="info-list" id="payPeriodList"></div>
+      <div id="payPeriodListEmpty" class="empty-state" style="display:none;">No pay periods created yet.</div>
+
+      <div class="popup-buttons">
+        <button type="button" class="auth-button auth-button--secondary" onclick="ppCloseOverlay('payPeriodCalendarOverlay')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Make a New Pay Period popup -->
+  <div class="popup-overlay hidden" id="newPayPeriodOverlay">
+    <div class="popup">
+      <h2>New Pay Period</h2>
+      <p class="card-subtitle">Set the start and end date for this pay period. Payday is the end date.</p>
+      <form class="auth-form" onsubmit="submitNewPayPeriod(event)">
+        <label class="auth-field">
+          Start date
+          <input type="date" id="newPayPeriodStart" required>
+        </label>
+        <label class="auth-field">
+          End date (payday)
+          <input type="date" id="newPayPeriodEnd" required>
+        </label>
+        <p id="newPayPeriodMsg" class="auth-message"></p>
+        <div class="popup-buttons">
+          <button type="button" class="auth-button auth-button--red" onclick="ppCloseOverlay('newPayPeriodOverlay')">Cancel</button>
+          <button type="submit" class="auth-button auth-button--secondary">Save Pay Period</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 <script src="script.js"></script>
     <script src="supabase-config.js"></script>
@@ -384,34 +429,11 @@
     <script src="supabase-auth.js"></script>
     <script src="auth-guard.js"></script>
     <script src="timeout.js"></script>
+    <script src="payroll-tools.js"></script>
 
 <script>
-// ---- UI only for schedule/approvals/docs — hook these to your data source. ----
-// Announcements below ARE wired to Supabase.
-
-// TODO: move PAYROLL_ANCHOR_KEY to a shared Supabase settings table instead of localStorage so the
-// schedule set here applies to every staff member's browser, not just the accounting user who set it.
-const PAYROLL_ANCHOR_KEY = 'payrollAnchorDate';
-const msPerDay = 86400000;
-let allStaffDocs = []; // populated by renderStaffDocuments(), filtered client-side by category
-
-function stripTime(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
-
-function getPayrollAnchor() {
-  const stored = localStorage.getItem(PAYROLL_ANCHOR_KEY);
-  return stored ? stripTime(new Date(stored + 'T00:00:00')) : null;
-}
-
-function getNextPayrollThursday(anchor, date) {
-  const diffDays = Math.round((stripTime(date) - anchor) / msPerDay);
-  if (diffDays <= 0) return anchor;
-  const cyclesPassed = Math.ceil(diffDays / 14);
-  return new Date(anchor.getTime() + cyclesPassed * 14 * msPerDay);
-}
-
-function formatDate(d) {
-  return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-}
+// Announcements below are wired to Supabase. Pay period logic (View Calendar /
+// Make a New Pay Period / next payday) lives in payroll-tools.js.
 
 function escapeHtml(str) {
   const d = document.createElement('div');
@@ -432,7 +454,22 @@ updateTodayHeading();
 // ---- Announcements to staff (Supabase) ----
 // Uses window.supabaseClient, exposed globally by supabase-auth.js.
 
+// Announcements are either Temporary (auto-deletes 24h after being sent, unless
+// the sender marks it Long-term) or Long-term (expires_at stays null — kept
+// until someone deletes it manually). There's no server-side cron for this —
+// every read here opportunistically deletes anything past its expires_at
+// first, so an expired temporary announcement disappears the next time
+// anyone loads a page that shows announcements.
+async function purgeExpiredAnnouncements() {
+  const { error } = await supabaseClient
+    .from('announcements')
+    .delete()
+    .lt('expires_at', new Date().toISOString());
+  if (error) console.error('Failed to purge expired announcements:', error);
+}
+
 async function getAnnouncements() {
+  await purgeExpiredAnnouncements();
   const { data, error } = await supabaseClient
     .from('announcements')
     .select('*')
@@ -444,22 +481,25 @@ async function getAnnouncements() {
 async function sendAnnouncement() {
   const titleInput = document.getElementById('announcementTitle');
   const messageInput = document.getElementById('announcementMessage');
+  const typeInput = document.querySelector('input[name="announcementType"]:checked');
   const msg = document.getElementById('announcementMsg');
   const title = titleInput.value.trim();
   const message = messageInput.value.trim();
+  const isTemporary = !typeInput || typeInput.value === 'temporary';
 
-  if (!title || !message) { msg.textContent = 'Title and message are required.'; msg.className = 'msg error'; return; }
+  if (!title || !message) { msg.textContent = 'Title and message are required.'; msg.className = 'auth-message error'; return; }
 
   const { error } = await supabaseClient.from('announcements').insert({
     title,
     message,
-    created_by: window.currentSupabaseProfile?.id || null
+    created_by: window.currentSupabaseProfile?.id || null,
+    expires_at: isTemporary ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null
   });
 
   if (error) {
     console.error('Failed to send announcement:', error);
     msg.textContent = 'Something went wrong sending that.';
-    msg.className = 'msg error';
+    msg.className = 'auth-message error';
     return;
   }
 
@@ -475,8 +515,12 @@ async function sendAnnouncement() {
 
   titleInput.value = '';
   messageInput.value = '';
-  msg.textContent = 'Sent — staff will see this on their Personal Finance page.';
-  msg.className = 'msg';
+  const defaultTypeInput = document.querySelector('input[name="announcementType"][value="temporary"]');
+  if (defaultTypeInput) defaultTypeInput.checked = true;
+  msg.textContent = isTemporary
+    ? 'Sent — this will auto-delete in 24 hours.'
+    : 'Sent — this is long-term and will stay until deleted.';
+  msg.className = 'auth-message success';
   renderSentAnnouncements();
 }
 
@@ -498,120 +542,27 @@ async function renderSentAnnouncements() {
     div.className = 'announcement-item';
     div.innerHTML = `
       <div>
+        <div class="announcement-badges">
+          ${announcementTypeBadge(item.expires_at)}
+        </div>
         <h3>${escapeHtml(item.title)}</h3>
         <p>${escapeHtml(item.message)}</p>
-        <div class="announcement-date">${new Date(item.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</div>
+        <div class="announcement-date">Sent ${new Date(item.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</div>
       </div>
-      <button class="btn small danger" onclick="deleteAnnouncement('${item.id}')">Delete</button>
+      <button class="auth-button auth-button--red auth-button--sm" onclick="deleteAnnouncement('${item.id}')">Delete</button>
     `;
     container.appendChild(div);
   });
 }
 
-// Accounting-only: set the anchor payroll Thursday that all biweekly math is based on
-function savePayrollAnchor() {
-  const val = document.getElementById('payrollAnchorInput').value;
-  const msg = document.getElementById('payrollSettingsMsg');
-  if (!val) { msg.textContent = 'Pick a date.'; msg.className = 'msg error'; return; }
-  const d = new Date(val + 'T00:00:00');
-  if (d.getDay() !== 4) { msg.textContent = 'Anchor date must fall on a Thursday.'; msg.className = 'msg error'; return; }
-
-  // TODO: persist to a shared Supabase settings table instead of localStorage.
-  localStorage.setItem(PAYROLL_ANCHOR_KEY, val);
-  msg.textContent = 'Saved — schedule updated.';
-  msg.className = 'msg';
-  refreshScheduleSummary();
-}
-
-function refreshScheduleSummary() {
-  const anchor = getPayrollAnchor();
-  const input = document.getElementById('payrollAnchorInput');
-  const currentAnchorMsg = document.getElementById('currentAnchorMsg');
-  const metricNextPayroll = document.getElementById('metricNextPayroll');
-
-  if (!anchor) {
-    currentAnchorMsg.textContent = 'No schedule set yet.';
-    metricNextPayroll.textContent = '—';
-    return;
-  }
-  if (input) input.value = anchor.toISOString().slice(0, 10);
-  const today = new Date();
-  const next = stripTime(today).getTime() === anchor.getTime() ? anchor : getNextPayrollThursday(anchor, today);
-  currentAnchorMsg.textContent = `Current anchor: ${formatDate(anchor)}. Next window: ${formatDate(next)}.`;
-  metricNextPayroll.textContent = formatDate(next);
-}
-
-// Approve/reject a pending timesheet entry.
-// staffUserId is the staff_users.id of whoever owns this entry — pass it through from
-// the row so the notification can be targeted at just them.
-async function setStatus(id, status, staffUserId) {
-  // TODO: update entry `id` to `status` ('approved' | 'rejected') in your data source,
-  // e.g. await supabaseClient.from('timesheet_entries').update({ status }).eq('id', id);
-  // then re-fetch and call renderPendingApprovals() again.
-
-  if (staffUserId) {
-    const { error } = await supabaseClient.from('notifications').insert({
-      user_id: staffUserId,
-      title: status === 'approved' ? 'Timesheet approved' : 'Timesheet rejected',
-      message: status === 'approved'
-        ? 'Your submitted hours were approved.'
-        : 'Your submitted hours were rejected — check with Accounting for details.',
-      type: 'timesheet'
-    });
-    if (error) console.error('Failed to create timesheet notification:', error);
-  }
-}
-
-// Call with pending entries fetched from your data source. Include staff_user_id
-// (the staff_users.id of the entry's owner) so setStatus() can notify the right person:
-// renderPendingApprovals([{ id, work_date, project, hours, staff_name, staff_user_id }])
-function renderPendingApprovals(rows) {
-  const body = document.getElementById('approvalsBody');
-  const empty = document.getElementById('approvalsEmpty');
-  body.innerHTML = '';
-  document.getElementById('metricPendingCount').textContent = rows ? rows.length : 0;
-  if (!rows || rows.length === 0) { empty.style.display = 'block'; return; }
-  empty.style.display = 'none';
-  rows.forEach(row => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${row.work_date}</td>
-      <td>${escapeHtml(row.staff_name || '—')}</td>
-      <td>${escapeHtml(row.project)}</td>
-      <td>${row.hours}</td>
-      <td><span class="status-pill pending">pending</span></td>
-      <td><button class="btn small" onclick="setStatus('${row.id}','approved','${row.staff_user_id || ''}')">Approve</button> <button class="btn small danger" onclick="setStatus('${row.id}','rejected','${row.staff_user_id || ''}')">Reject</button></td>
-    `;
-    body.appendChild(tr);
-  });
-}
-
-// Call with all staff documents fetched from your data source:
-// renderStaffDocuments([{ id, file_name, file_url, category, uploaded_at, staff_name }])
-function renderStaffDocuments(docs) {
-  allStaffDocs = docs || [];
-  document.getElementById('metricStaffDocs').textContent = allStaffDocs.length;
-  applyDocFilter();
-}
-
-function applyDocFilter() {
-  const filter = document.getElementById('docCategoryFilter').value;
-  const list = document.getElementById('staffDocList');
-  const empty = document.getElementById('staffDocEmpty');
-  const filtered = filter === 'all' ? allStaffDocs : allStaffDocs.filter(doc => doc.category === filter);
-
-  list.innerHTML = '';
-  if (!filtered || filtered.length === 0) { empty.style.display = 'block'; return; }
-  empty.style.display = 'none';
-  filtered.forEach(doc => {
-    const div = document.createElement('div');
-    div.className = 'doc-item';
-    div.innerHTML = `
-      <div><h3>${escapeHtml(doc.file_name)}</h3><p>${escapeHtml(doc.staff_name || '—')} · ${doc.category.replace('_',' ')} · ${new Date(doc.uploaded_at).toLocaleDateString()}</p></div>
-      <a class="btn small secondary" href="${doc.file_url}" target="_blank" rel="noopener">Open</a>
-    `;
-    list.appendChild(div);
-  });
+// Small badge so Accounting can tell at a glance whether a sent announcement
+// is temporary (and how long it has left) or long-term.
+function announcementTypeBadge(expiresAt) {
+  if (!expiresAt) return `<span class="chip chip--muted">Long-term</span>`;
+  const msLeft = new Date(expiresAt).getTime() - Date.now();
+  if (msLeft <= 0) return `<span class="chip chip--warning">Expiring…</span>`;
+  const hoursLeft = Math.max(1, Math.round(msLeft / (60 * 60 * 1000)));
+  return `<span class="chip chip--warning">Temporary · ${hoursLeft}h left</span>`;
 }
 
 document.getElementById('signOutButton').addEventListener('click', function () {
@@ -670,7 +621,7 @@ function updateNavAccess(profile) {
     document.getElementById('restrictedView').style.display = hasPayrollAccess ? 'none' : 'block';
 
     if (hasPayrollAccess) {
-        refreshScheduleSummary();
+        initPayrollToolsCard();
         renderSentAnnouncements();
     }
 }

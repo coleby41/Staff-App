@@ -444,6 +444,16 @@ button { font: inherit; }
   color: var(--accent);
 }
 
+.chip--muted {
+  background: var(--surface-alt);
+  color: var(--text-soft);
+}
+
+.chip--warning {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
 .equipment-list,
 .workflow-list,
 .info-list {
@@ -2088,6 +2098,181 @@ button { font: inherit; }
 .view-toggle-icon--grid {
     mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='8' height='8' rx='1.5'/%3E%3Crect x='13' y='3' width='8' height='8' rx='1.5'/%3E%3Crect x='3' y='13' width='8' height='8' rx='1.5'/%3E%3Crect x='13' y='13' width='8' height='8' rx='1.5'/%3E%3C/svg%3E") center/contain no-repeat;
     -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='8' height='8' rx='1.5'/%3E%3Crect x='13' y='3' width='8' height='8' rx='1.5'/%3E%3Crect x='3' y='13' width='8' height='8' rx='1.5'/%3E%3Crect x='13' y='13' width='8' height='8' rx='1.5'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+/* ============================================================================
+   Payroll Tools — "Set Timesheet Period" card + View Calendar / New Pay
+   Period popups (payroll-tools.html, payroll-tools.js)
+============================================================================ */
+
+.wide-card {
+    grid-column: 1 / -1;
+    margin-top: 20px;
+}
+
+.empty-state {
+    padding: 16px;
+    text-align: center;
+    color: var(--text-soft);
+    font-size: 0.9rem;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface-alt);
+}
+
+.auth-button--sm {
+    padding: 6px 12px;
+    font-size: 0.82rem;
+    margin-top: 0;
+}
+
+.payday-block {
+    padding: 18px 20px;
+    border-radius: var(--radius-md);
+    background: var(--accent-soft);
+    margin-bottom: 16px;
+}
+
+.payday-label {
+    margin: 0 0 6px;
+    color: var(--accent);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.payday-value {
+    margin: 0;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--accent-strong);
+}
+
+.payday-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.payday-actions .auth-button {
+    flex: 1;
+    min-width: 160px;
+    margin-top: 0;
+}
+
+.pay-period-calendar-popup {
+    width: min(94vw, 560px);
+    max-height: 86vh;
+    overflow-y: auto;
+    text-align: left;
+}
+
+.pp-calendar-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 14px 0 10px;
+}
+
+.pp-calendar-nav .auth-button {
+    padding: 8px 14px;
+    margin-top: 0;
+}
+
+.pp-calendar-month {
+    font-weight: 700;
+    color: var(--accent-strong);
+    font-size: 1.02rem;
+}
+
+.pp-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+}
+
+.pp-day {
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    border-radius: var(--radius-sm);
+}
+
+.pp-day-heading {
+    font-weight: 700;
+    color: var(--text-soft);
+    font-size: 0.75rem;
+    aspect-ratio: auto;
+}
+
+.pp-day-empty {
+    background: transparent;
+}
+
+.pp-day:not(.pp-day-heading):not(.pp-day-empty) {
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+}
+
+.pp-day-start {
+    background: var(--success-soft) !important;
+    border-color: #a5d8b8 !important;
+    color: var(--success);
+    font-weight: 700;
+}
+
+.pp-day-end {
+    background: var(--accent-soft) !important;
+    border-color: var(--accent) !important;
+    color: var(--accent-strong);
+    font-weight: 700;
+}
+
+.pp-day-start.pp-day-end {
+    background: linear-gradient(135deg, var(--success-soft) 0%, var(--accent-soft) 100%) !important;
+}
+
+.pp-legend {
+    display: flex;
+    gap: 16px;
+    margin: 14px 0 4px;
+    font-size: 0.85rem;
+    color: var(--text-soft);
+}
+
+.pp-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pp-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.pp-legend-dot--start {
+    background: var(--success);
+}
+
+.pp-legend-dot--end {
+    background: var(--accent);
+}
+
+.pp-list-heading {
+    margin: 4px 0 10px;
+    font-size: 0.95rem;
+}
+
+@media (max-width: 600px) {
+    .payday-actions .auth-button {
+        min-width: 0;
+    }
+}
 }
 
 .view-toggle-icon--list {
