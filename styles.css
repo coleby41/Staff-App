@@ -422,6 +422,15 @@ button { font: inherit; }
   font-weight: 700;
 }
 
+.card-title-icon {
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+  vertical-align: -3px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
 .card-subtitle {
   margin: 4px 0 0;
   color: var(--text-soft);

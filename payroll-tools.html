@@ -639,7 +639,7 @@ if (userNameElement) { userNameElement.textContent = name; }
 // Reuses isSupabaseUserInGroup() so it stays in sync with whatever field/shape
 // supabase-auth.js actually stores groups in. Add more group names to KNOWN_GROUPS
 // below if staff_users supports groups beyond these three.
-const KNOWN_GROUPS = ['Super Admin', 'IT', 'Accounting'];
+const KNOWN_GROUPS = ['Super Admin', 'IT', 'Accounting', 'Office'];
 function updateGroupPill(profile) {
     const pill = document.getElementById('sidebarGroupPill');
     if (!pill) return;
@@ -654,6 +654,8 @@ function updateNavAccess(profile) {
     const isIT = window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, 'IT') : false;
     const isAccounting = window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, 'Accounting') : false;
     const isSuperAdmin = window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, 'Super Admin') : false;
+    const isOffice = window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, 'Office') : false;
+
 
     // Super Admin gets access to everything gated below, not just Payroll Tools.
     const shouldShowAdminNav = isIT || isSuperAdmin;
