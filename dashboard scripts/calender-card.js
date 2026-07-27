@@ -6,6 +6,7 @@
        <div class="card-header">
          <h2 class="card-title">🗓️ Calendar</h2>
          <a href="#" id="linkCalendarLink" class="chip">Link Calendar</a>
+         <a href="#" id="manageCalendarLink" class="chip" style="display:none;">Manage Calendar</a>
        </div>
        <div id="calendarEventsList" class="info-list"></div>
      </div>
@@ -13,8 +14,9 @@
    ⚠️ CONFIG REQUIRED: set EDGE_FUNCTIONS_BASE_URL below to your Supabase
    project's Edge Functions base URL, e.g.
    "https://abcxyzproject.functions.supabase.co". See
-   /supabase/functions/README.md for how to deploy the 4 functions this
-   card talks to.
+   /supabase/functions/README.md for how to deploy the 5 functions this
+   card talks to (calendar-oauth-start, calendar-oauth-callback,
+   calendar-caldav-connect, calendar-events-sync, calendar-disconnect).
 
    Tables read: public.calendar_connections_status (safe view — no tokens),
    public.calendar_providers, public.calendar_events_cache.
@@ -29,16 +31,22 @@
   const EDGE_FUNCTIONS_BASE_URL = "https://ostaqjuawieqpwuhrvsm.supabase.co/functions/v1";
 
   let currentProfile = null;
+  // The user's calendar connection row (status/provider/email), refreshed
+  // every time refreshCalendarCard() runs. Used by the Manage Calendar popup
+  // so it doesn't need its own separate fetch just to know what's connected.
+  let currentConnection = null;
 
   document.addEventListener("DOMContentLoaded", async () => {
     const listEl = document.getElementById("calendarEventsList");
     const linkEl = document.getElementById("linkCalendarLink");
+    const manageEl = document.getElementById("manageCalendarLink");
     if (!listEl) return;
 
     currentProfile = await DS.getStaffProfile();
     if (!currentProfile) {
       listEl.innerHTML = `<p class="card-subtitle">Sign in to see your calendar.</p>`;
       if (linkEl) linkEl.style.display = "none";
+      if (manageEl) manageEl.style.display = "none";
       return;
     }
 
@@ -49,6 +57,13 @@
       linkEl.addEventListener("click", (e) => {
         e.preventDefault();
         openLinkCalendarModal();
+      });
+    }
+
+    if (manageEl) {
+      manageEl.addEventListener("click", (e) => {
+        e.preventDefault();
+        openManageCalendarModal();
       });
     }
   });
@@ -75,23 +90,34 @@
   async function refreshCalendarCard() {
     const listEl = document.getElementById("calendarEventsList");
     const linkEl = document.getElementById("linkCalendarLink");
+    const manageEl = document.getElementById("manageCalendarLink");
     const userId = DS.getUserId(currentProfile);
 
+    // Deliberately not filtering by status here (unlike before) — an "error"
+    // connection still needs to show up so Manage Calendar can surface it
+    // and offer Reconnect/Disconnect instead of silently looking unlinked.
     const { data: connections } = await DS.safeQuery(
       "load calendar_connections_status",
       window.supabaseClient
         .from("calendar_connections_status")
         .select("*")
         .eq("user_id", userId)
-        .eq("status", "connected")
     );
 
-    const isConnected = connections && connections.length > 0;
+    currentConnection = (connections && connections[0]) || null;
+    const hasConnection = !!currentConnection;
+    const isActive = hasConnection && currentConnection.status === "connected";
 
-    if (linkEl) linkEl.style.display = isConnected ? "none" : "inline-flex";
+    if (linkEl) linkEl.style.display = hasConnection ? "none" : "inline-flex";
+    if (manageEl) manageEl.style.display = hasConnection ? "inline-flex" : "none";
 
-    if (!isConnected) {
+    if (!hasConnection) {
       listEl.innerHTML = `<p class="card-subtitle">No calendar linked yet. Use "Link Calendar" above to connect one.</p>`;
+      return;
+    }
+
+    if (!isActive) {
+      listEl.innerHTML = `<p class="card-subtitle">Your calendar connection needs attention. Open "Manage Calendar" above to reconnect.</p>`;
       return;
     }
 
@@ -275,5 +301,152 @@
         DS.setFormMessage(messageEl, "Couldn't reach the server. Try again.", "error");
       }
     });
+  }
+
+  /* ------------------------------------------------------------------- */
+  /* Manage Calendar — status, manual sync, reconnect-on-error, disconnect */
+
+  function statusPillClass(status) {
+    if (status === "connected") return "connected";
+    if (status === "error") return "error";
+    return "disconnected";
+  }
+
+  function statusPillText(status) {
+    if (status === "connected") return "Connected";
+    if (status === "error") return "Needs attention";
+    return status || "Unknown";
+  }
+
+  function openManageCalendarModal() {
+    if (!currentConnection) return;
+
+    const providerLabel = currentConnection.provider_label || currentConnection.provider_id;
+    const accountEmail = currentConnection.external_account_email || "No account email on file";
+    const isError = currentConnection.status === "error";
+
+    const overlay = DS.buildPopup(
+      "manageCalendarModal",
+      `
+      <h2>Manage Calendar</h2>
+      <p class="card-subtitle">Connected via ${DS.escapeHtml(providerLabel)}</p>
+
+      <div class="equipment-item" style="margin:14px 0;">
+        <div>
+          <h3>${DS.escapeHtml(accountEmail)}</h3>
+          <p>${DS.escapeHtml(providerLabel)}</p>
+        </div>
+        <span class="status ${statusPillClass(currentConnection.status)}" id="manageCalendarStatus">${statusPillText(currentConnection.status)}</span>
+      </div>
+
+      <p class="auth-message" id="manageCalendarMessage"></p>
+
+      <div class="popup-buttons" style="flex-wrap:wrap;">
+        <button type="button" class="auth-button auth-button--secondary" id="syncNowBtn">Sync now</button>
+        <button type="button" class="auth-button" id="reconnectCalendarBtn" style="${isError ? "" : "display:none;"}">Reconnect</button>
+        <button type="button" class="auth-button auth-button--red" id="disconnectCalendarBtn">Disconnect</button>
+      </div>
+
+      <div class="popup-buttons">
+        <button type="button" class="auth-button auth-button--secondary" id="closeManageCalendarBtn">Close</button>
+      </div>
+      `
+    );
+
+    DS.openPopup(overlay);
+
+    overlay.querySelector("#closeManageCalendarBtn").addEventListener("click", () => DS.closePopup(overlay));
+    overlay.querySelector("#syncNowBtn").addEventListener("click", () => syncCalendarNow(overlay));
+    overlay.querySelector("#reconnectCalendarBtn").addEventListener("click", () => {
+      startOAuthFlow(currentConnection.provider_id);
+    });
+    overlay.querySelector("#disconnectCalendarBtn").addEventListener("click", () => disconnectCalendar(overlay));
+  }
+
+  async function syncCalendarNow(overlay) {
+    const messageEl = overlay.querySelector("#manageCalendarMessage");
+    const btn = overlay.querySelector("#syncNowBtn");
+    DS.setFormMessage(messageEl, "Syncing…", "");
+    if (btn) btn.disabled = true;
+
+    try {
+      const anonKey = window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.anonKey;
+      const res = await fetch(`${EDGE_FUNCTIONS_BASE_URL}/calendar-events-sync`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: anonKey || "",
+          Authorization: `Bearer ${anonKey || ""}`,
+        },
+        body: JSON.stringify({ user_id: DS.getUserId(currentProfile) }),
+      });
+      const result = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        DS.setFormMessage(messageEl, result.error || "Sync failed. Try again.", "error");
+        return;
+      }
+
+      const syncResult = (result.synced || [])[0];
+      if (syncResult && syncResult.status === "error") {
+        DS.setFormMessage(messageEl, syncResult.message || "Sync failed — the connection needs attention.", "error");
+      } else {
+        DS.setFormMessage(messageEl, "Synced!", "success");
+      }
+
+      // Pull the fresh status/event list into both the dashboard card and
+      // this still-open modal (in case the sync just flipped the status,
+      // e.g. connected -> error, or error -> connected after a token fix).
+      await refreshCalendarCard();
+      if (currentConnection) {
+        const statusEl = overlay.querySelector("#manageCalendarStatus");
+        if (statusEl) {
+          statusEl.className = `status ${statusPillClass(currentConnection.status)}`;
+          statusEl.textContent = statusPillText(currentConnection.status);
+        }
+        const reconnectBtn = overlay.querySelector("#reconnectCalendarBtn");
+        if (reconnectBtn) {
+          reconnectBtn.style.display = currentConnection.status === "error" ? "" : "none";
+        }
+      }
+    } catch (err) {
+      console.error("Manual calendar sync failed", err);
+      DS.setFormMessage(messageEl, "Couldn't reach the server. Try again.", "error");
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function disconnectCalendar(overlay) {
+    const messageEl = overlay.querySelector("#manageCalendarMessage");
+    if (!window.confirm("Disconnect this calendar? You'll need to link it again to see events.")) return;
+
+    try {
+      const anonKey = window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.anonKey;
+      const res = await fetch(`${EDGE_FUNCTIONS_BASE_URL}/calendar-disconnect`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: anonKey || "",
+          Authorization: `Bearer ${anonKey || ""}`,
+        },
+        body: JSON.stringify({
+          user_id: DS.getUserId(currentProfile),
+          provider_id: currentConnection.provider_id,
+        }),
+      });
+      const result = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        DS.setFormMessage(messageEl, result.error || "Couldn't disconnect. Try again.", "error");
+        return;
+      }
+
+      DS.closePopup(overlay);
+      await refreshCalendarCard();
+    } catch (err) {
+      console.error("Calendar disconnect failed", err);
+      DS.setFormMessage(messageEl, "Couldn't reach the server. Try again.", "error");
+    }
   }
 })();

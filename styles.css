@@ -509,6 +509,12 @@ button { font: inherit; }
   color: var(--danger);
 }
 
+.status.error {
+  background: var(--warning-soft);
+  border-color: #e8c48f;
+  color: var(--warning);
+}
+
 .quick-links-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
