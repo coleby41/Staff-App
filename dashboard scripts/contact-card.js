@@ -37,7 +37,7 @@ const importantContacts = [
     {
         name: 'Coleby Ludwig',
         jobTitle: 'Data Coordinator/IT',
-        phone: '(910) 367-9782'
+        phone: 'N/A'
     },
 
 ];
