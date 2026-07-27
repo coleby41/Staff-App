@@ -5,10 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>The Leeward Group | Operations Dashboard</title>
+    <title>Leeward Staff Portal | Dashboard</title>
 
     <link rel="stylesheet" href="styles.css">
-    <link rel="icon" type="image/png" href="Logo/PVMC-logo.png">
+    <link rel="stylesheet" href="dashboard-cards.css">
+    <link rel="icon" type="image/png" href="logos/leewaed-logo.png">
 </head>
 
 <body>
@@ -60,7 +61,7 @@
                 <div class="notification-wrapper">
 
 
-                    <button 
+                    <button
                         class="notification-bell"
                         id="notificationBell"
                         aria-label="Notifications">
@@ -94,7 +95,7 @@
 
                         <div class="notification-footer">
 
-                            <a 
+                            <a
                                 class="report-bug-btn"
                                 href="https://tally.so/r/QKyGj8"
                                 target="_blank"
@@ -104,7 +105,7 @@
 
                             </a>
 
-                            <button 
+                            <button
                                 class="auth-button auth-button--secondary header-signout"
                                 id="signOutButton"
                                 type="button">
@@ -279,7 +280,7 @@
             <span class="companies-nav-icon"></span>
 
             <span class="nav-text">
-                Vender Contacts
+                Vendor Contacts
             </span>
 
         </a>
@@ -317,7 +318,7 @@
 
 
 
-                <span class="docs-nav-icon"></span>
+                <span class="it-tools-nav-icon"></span>
 
 
                 <span class="nav-text">
@@ -426,7 +427,96 @@
     </section>
 
 
-<h1>{NO_DATA_PULLED}</h1>
+    <!-- ===========================================================
+         DASHBOARD CARDS
+         Top row: My Tasks, Quick Links, Weather, Company Updates
+         Bottom row: Project Snapshot, Calendar, Important Contacts
+         Each card's data/behavior is driven by its own *-card.js file
+         (see script tags near the bottom of this file).
+    ============================================================ -->
+
+    <div class="dashboard-top-grid">
+
+        <!-- My Tasks -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">My Tasks</h2>
+                <a href="tasks.html" class="chip">View all</a>
+            </div>
+            <div id="myTasksList" class="info-list"></div>
+            <a href="#" id="addTaskLink" class="auth-link" style="display:block; margin-top:12px;">+ Add new task</a>
+        </div>
+
+        <!-- Quick Links -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Quick Links</h2>
+            </div>
+            <div id="quickLinksGrid" class="quick-links-grid"></div>
+            <a href="#" id="editShortcutsLink" class="auth-link" style="display:block; margin-top:12px;">Edit shortcuts</a>
+        </div>
+
+        <!-- Weather -->
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">☀️ Weather</h2>
+                    <p class="card-subtitle" id="weatherLocation">Wilmington, NC</p>
+                </div>
+            </div>
+            <div id="weatherBody"></div>
+            <a href="#" id="viewFullForecastLink" class="auth-link" target="_blank" rel="noopener" style="display:block; margin-top:12px;">View full forecast</a>
+        </div>
+
+        <!-- Company Updates -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">📣 Company Updates</h2>
+            </div>
+            <div id="companyUpdatesList" class="info-list"></div>
+            <button type="button" id="makeUpdateBtn" style="display:none; background:none; border:none; padding:0; cursor:pointer;">
+                + Make a Company Update
+            </button>
+        </div>
+
+    </div>
+
+    <div class="dashboard-bottom-grid">
+
+        <!-- Project Snapshot -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">📈 Project Snapshot</h2>
+                <a href="projects.html" class="chip">View all projects</a>
+            </div>
+            <div class="stats-grid" style="grid-template-columns: 1fr;">
+                <div class="stat-item">
+                    <div class="stat-number-status-projector" id="activeProjectsCount">—</div>
+                    <div class="stat-label">Active Projects</div>
+                </div>
+            </div>
+            <h3 style="margin:16px 0 8px; font-size:0.95rem;">Upcoming Deadlines</h3>
+            <div id="upcomingDeadlinesList" class="info-list"></div>
+        </div>
+
+        <!-- Calendar -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">🗓️ Calendar</h2>
+                <a href="#" id="linkCalendarLink" class="chip">Link Calendar</a>
+            </div>
+            <div id="calendarEventsList" class="info-list"></div>
+        </div>
+
+        <!-- Important Contacts -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">📞 Important Contacts</h2>
+            </div>
+            <div id="importantContactsList" class="info-list"></div>
+        </div>
+
+    </div>
 
 
 </main>
@@ -441,6 +531,17 @@
 <script src="auth-guard.js"></script>
 <script src="script.js"></script>
 <script src="timeout.js"></script>
+
+<!-- New dashboard card scripts — none of the files above were modified.
+     dashboard-shared.js must load first; the rest can be in any order. -->
+<script src="dashboard scripts/dashboard.js"></script>
+<script src="dashboard scripts/task.js"></script>
+<script src="dashboard scripts/quicklinks.js"></script>
+<script src="dashboard scripts/weather.js"></script>
+<script src="dashboard scripts/update.js"></script>
+<script src="dashboard scripts/projects.js"></script>
+<script src="dashboard scripts/calender-card.js"></script>
+<script src="dashboard scripts/contact-card.js"></script>
 
 
 
@@ -483,7 +584,7 @@ if (signOutButton) {
 
 
 /* ===========================
-   ELEMENTS - 
+   ELEMENTS -
 =========================== */
 
 
@@ -509,7 +610,7 @@ const brandInitials =
 
 
 /* ===========================
-   UPDATE STAFF NAME 
+   UPDATE STAFF NAME
 =========================== */
 
 

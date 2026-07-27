@@ -8,7 +8,7 @@
     <title>The Leeward Group | Vendors</title>
 
     <link rel="stylesheet" href="styles.css">
-    <link rel="icon" type="image/png" href="Logo/PVMC-logo.png">
+    <link rel="icon" type="image/png" href="logos/leewaed-logo.png">
 </head>
 
 <body>
@@ -163,19 +163,6 @@
 
 
 
-        <a href="companies.html" class="nav-item active">
-
-            <span class="companies-nav-icon"></span>
-
-            <span class="nav-text">
-                Companies
-            </span>
-
-        </a>
-
-
-
-
         <div class="nav-item-group">
 
 
@@ -281,9 +268,15 @@
             Department Wide
         </div>
 
+        <a href="venders.html" class="nav-item active">
 
+            <span class="companies-nav-icon"></span>
 
+            <span class="nav-text">
+                Vendor Contacts
+            </span>
 
+        </a>
 
         <a href="payroll-tools.html"
            class="nav-item"
@@ -311,24 +304,14 @@
 
 
 
-            <a href="admin-users.html"
+            <a href="#"
                class="nav-item nav-parent"
                onclick="toggleSubnav(event, this)">
-
-
-
-                <span class="docs-nav-icon"></span>
-
-
+                <span class="it-tools-nav-icon"></span>
                 <span class="nav-text">
                     IT Tools
                 </span>
-
-
                 <span class="nav-arrow"></span>
-
-
-
             </a>
 
 
@@ -411,20 +394,34 @@
         </div>
     </section>
 
-    <div class="workbook-toolbar">
+<div class="workbook-toolbar">
 
-        <input
-            type="text"
-            id="companySearchInput"
-            class="workbook-search-input"
-            placeholder="Search Vendors…"
-            autocomplete="off">
+    <div class="view-toggle" id="companyViewToggle" role="group" aria-label="Toggle view">
+    <span class="view-toggle-indicator" id="viewToggleIndicator"></span>
+    <button type="button" class="view-toggle-btn active" id="cardViewBtn" data-view="card" aria-label="Card view" aria-pressed="true">
+        <span class="view-toggle-icon view-toggle-icon--grid"></span>
+    </button>
+    <button type="button" class="view-toggle-btn" id="listViewBtn" data-view="list" aria-label="Horizontal view" aria-pressed="false">
+        <span class="view-toggle-icon view-toggle-icon--list"></span>
+    </button>
+</div>
 
-        <button class="auth-button auth-button--secondary" id="addCompanyBtn" type="button">
-            + Add Vendor
-        </button>
+    <input
+        type="text"
+        id="companySearchInput"
+        class="workbook-search-input"
+        placeholder="Search Vendors…"
+        autocomplete="off">
 
-    </div>
+    <button class="auth-button auth-button--secondary" id="addCompanyBtn" type="button">
+        + Add Vendor
+    </button>
+
+    <button class="auth-button auth-button--secondary" id="addCompanyBtn" type="button">
+        Start A Report
+    </button>
+
+</div>
 
     <div id="companyMessage" class="workbook-page-message" style="display:none;"></div>
 
@@ -433,7 +430,7 @@
     </div>
 
     <div class="workbook-empty" id="companyEmptyState" style="display:none;">
-        <p>No Vendors yet. Click "Add Vendors" to create the first one.</p>
+        <p>No Vendors yet. Click "Add Vendor" to create the first one.</p>
     </div>
 
     <div class="workbook-empty" id="companyNoResultsState" style="display:none;">
@@ -603,8 +600,8 @@
             <button type="button" class="auth-button auth-button--red" id="confirmDeleteBtn">Delete</button>
         </div>
     </div>
+    
 </div>
-
 
 <script src="script.js"></script>
 <script src="supabase-config.js"></script>
@@ -615,8 +612,36 @@
 <script src="companies.js"></script>
 
 <script>
+/* ===========================
+   VIEW TOGGLE (Card / Horizontal)
+=========================== */
 
+function initCompanyViewToggle() {
 
+    const grid = document.getElementById("companyGrid");
+    const toggle = document.getElementById("companyViewToggle");
+    const cardBtn = document.getElementById("cardViewBtn");
+    const listBtn = document.getElementById("listViewBtn");
+
+    if (!grid || !toggle || !cardBtn || !listBtn) return;
+
+    function setView(view) {
+
+        const isList = view === "list";
+
+        grid.classList.toggle("workbook-grid--list", isList);
+        toggle.classList.toggle("view-toggle--list", isList);
+
+        cardBtn.classList.toggle("active", !isList);
+        listBtn.classList.toggle("active", isList);
+
+        cardBtn.setAttribute("aria-pressed", String(!isList));
+        listBtn.setAttribute("aria-pressed", String(isList));
+    }
+
+    cardBtn.addEventListener("click", () => setView("card"));
+    listBtn.addEventListener("click", () => setView("list"));
+}
 /* ===========================
    SIGN OUT
 =========================== */
@@ -915,6 +940,7 @@ window.addEventListener("DOMContentLoaded", function() {
     loadNotifications();
 
     initCompanySearch();
+    initCompanyViewToggle();
 
     if (typeof window.initCompaniesPage === "function") {
         window.initCompaniesPage();

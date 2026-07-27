@@ -6,7 +6,6 @@ const selectedUserIdInput = document.getElementById('selectedUserId');
 const fullNameInput = document.getElementById('fullName');
 const usernameInput = document.getElementById('username');
 const groupInput = document.getElementById('group');
-const statusSelect = document.getElementById('status');
 const passwordInput = document.getElementById('password');
 const accountNotesInput = document.getElementById('accountNotes');
 const toggleActiveBtn = document.getElementById('toggleActiveBtn');
@@ -85,11 +84,10 @@ function showDetailsForm(user) {
   if (fullNameInput) fullNameInput.value = user.full_name || '';
   if (usernameInput) usernameInput.value = user.username || '';
   if (groupInput) groupInput.value = Array.isArray(user.workgroup) ? user.workgroup[0] || '' : user.workgroup || '';
-  if (statusSelect) statusSelect.value = user.active === false ? 'inactive' : 'active';
   if (passwordInput) passwordInput.value = '';
   if (accountNotesInput) {
-  accountNotesInput.value = user.account_notes || '';
-}
+    accountNotesInput.value = user.account_notes || '';
+  }
   if (toggleActiveBtn) {
     toggleActiveBtn.textContent = user.active === false ? 'Reactivate' : 'Deactivate';
   }
@@ -103,13 +101,16 @@ function applySearch(term) {
   renderUserList(filteredUsers);
 }
 
-const isAllowed =
+async function loadStaffUsers() {
+  const profile = getStoredProfile();
+
+  const isAllowed =
     window.isSupabaseUserInGroup
-    ? (
-        window.isSupabaseUserInGroup(profile, "IT") ||
-        window.isSupabaseUserInGroup(profile, "Super Admin")
-      )
-    : false;
+      ? (
+          window.isSupabaseUserInGroup(profile, "IT") ||
+          window.isSupabaseUserInGroup(profile, "Super Admin")
+        )
+      : false;
 
   if (!isAllowed) {
     setMessage(directoryMessage, 'Access denied. Only IT users can view all staff accounts.', 'error');
@@ -145,6 +146,7 @@ const isAllowed =
     showDetailsForm(null);
     setMessage(directoryMessage, 'No staff users found in Supabase.', 'success');
   }
+}
 
 async function updateSelectedUser(updates) {
   if (!selectedUserId) return false;
@@ -178,17 +180,11 @@ userDetailsForm.addEventListener('submit', async function (event) {
   event.preventDefault();
 
   const updates = {
-  full_name: fullNameInput.value.trim(),
-  username: usernameInput.value.trim(),
-  workgroup: [groupInput.value.trim() || 'Operations'],
-  account_notes: accountNotesInput ? accountNotesInput.value.trim() : ''
-};
-
-  if (statusSelect.value === 'inactive') {
-    updates.active = false;
-  } else {
-    updates.active = true;
-  }
+    full_name: fullNameInput.value.trim(),
+    username: usernameInput.value.trim(),
+    workgroup: [groupInput.value.trim() || 'Operations'],
+    account_notes: accountNotesInput ? accountNotesInput.value.trim() : ''
+  };
 
   if (passwordInput.value.trim()) {
     updates.password_hash = await hashPassword(passwordInput.value);
