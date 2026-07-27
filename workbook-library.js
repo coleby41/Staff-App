@@ -7,6 +7,7 @@ const WORKBOOKS_BUCKET = "workbooks";
 const WORKBOOKS_TABLE = "workbooks";
 
 let workbookRecords = [];
+let editingWorkbookRecord = null;
 
 /* ---------- helpers ---------- */
 
@@ -125,6 +126,9 @@ function buildWorkbookCard(record) {
     card.innerHTML = `
         <div class="workbook-cover" style="background-image:url('${escapeHtml(record.cover_url)}')">
             <div class="workbook-cover-gradient"></div>
+            <button type="button" class="workbook-edit-btn" data-action="edit" aria-label="Edit workbook">
+                <span class="company-edit-icon"></span>
+            </button>
             <h3 class="workbook-cover-title">${escapeHtml(record.title)}</h3>
         </div>
         <div class="workbook-card-body">
@@ -143,24 +147,70 @@ function buildWorkbookCard(record) {
         openPreviewModal(record);
     });
 
+    card.querySelector('[data-action="edit"]').addEventListener("click", (e) => {
+        e.stopPropagation();
+        openEditWorkbookModal(record);
+    });
+
     return card;
 }
 
-/* ---------- upload modal ---------- */
+/* ---------- upload / edit modal ---------- */
 
 function openUploadModal() {
-    const overlay = document.getElementById("uploadModalOverlay");
-    const uploaderInput = document.getElementById("workbookUploaderInput");
-    const messageEl = document.getElementById("uploadFormMessage");
+    openWorkbookModal(null);
+}
 
-    if (uploaderInput) uploaderInput.value = getCurrentStaffName();
-    if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
+function openEditWorkbookModal(record) {
+    openWorkbookModal(record);
+}
+
+function openWorkbookModal(record) {
+    const overlay = document.getElementById("uploadModalOverlay");
+    const titleEl = document.getElementById("workbookModalTitle");
+    const subtitleEl = document.getElementById("workbookModalSubtitle");
+    const uploaderInput = document.getElementById("workbookUploaderInput");
+    const titleInput = document.getElementById("workbookTitleInput");
+    const idInput = document.getElementById("workbookIdInput");
+    const coverInput = document.getElementById("workbookCoverInput");
+    const fileInput = document.getElementById("workbookFileInput");
+    const coverExistingNote = document.getElementById("workbookCoverExistingNote");
+    const fileExistingNote = document.getElementById("workbookFileExistingNote");
+    const messageEl = document.getElementById("uploadFormMessage");
+    const submitBtn = document.getElementById("submitUploadBtn");
+    const previewWrap = document.getElementById("coverPreviewWrap");
+    const deleteBtn = document.getElementById("deleteWorkbookBtn");
+
+    editingWorkbookRecord = record || null;
 
     document.getElementById("uploadWorkbookForm")?.reset();
-    if (uploaderInput) uploaderInput.value = getCurrentStaffName();
-
-    const previewWrap = document.getElementById("coverPreviewWrap");
+    if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
     if (previewWrap) previewWrap.style.display = "none";
+
+    if (record) {
+        if (titleEl) titleEl.textContent = "Edit Workbook";
+        if (subtitleEl) subtitleEl.textContent = "Update the workbook's details, or delete it below.";
+        if (idInput) idInput.value = record.id;
+        if (titleInput) titleInput.value = record.title || "";
+        if (uploaderInput) uploaderInput.value = record.uploaded_by || getCurrentStaffName();
+        if (coverInput) coverInput.required = false;
+        if (fileInput) fileInput.required = false;
+        if (coverExistingNote) coverExistingNote.style.display = "block";
+        if (fileExistingNote) fileExistingNote.style.display = "block";
+        if (submitBtn) submitBtn.textContent = "Save changes";
+        if (deleteBtn) deleteBtn.style.display = "block";
+    } else {
+        if (titleEl) titleEl.textContent = "Add Workbook";
+        if (subtitleEl) subtitleEl.textContent = "Upload a cover image and the Excel file. Everything else is filled in automatically.";
+        if (idInput) idInput.value = "";
+        if (uploaderInput) uploaderInput.value = getCurrentStaffName();
+        if (coverInput) coverInput.required = true;
+        if (fileInput) fileInput.required = true;
+        if (coverExistingNote) coverExistingNote.style.display = "none";
+        if (fileExistingNote) fileExistingNote.style.display = "none";
+        if (submitBtn) submitBtn.textContent = "Upload workbook";
+        if (deleteBtn) deleteBtn.style.display = "none";
+    }
 
     overlay?.classList.remove("hidden");
     document.body.classList.add("popup-active");
@@ -171,37 +221,130 @@ function closeUploadModal() {
     document.body.classList.remove("popup-active");
 }
 
+/* ---------- delete ---------- */
+
+function openDeleteWorkbookConfirm() {
+    if (!editingWorkbookRecord) return;
+
+    const messageEl = document.getElementById("deleteWorkbookConfirmMessage");
+    if (messageEl) messageEl.textContent = "";
+
+    document.getElementById("deleteWorkbookConfirmOverlay")?.classList.remove("hidden");
+}
+
+function closeDeleteWorkbookConfirm() {
+    document.getElementById("deleteWorkbookConfirmOverlay")?.classList.add("hidden");
+}
+
+function removeWorkbookCardFromDom(id) {
+    const gridEl = document.getElementById("workbookGrid");
+    gridEl?.querySelector(`[data-id="${id}"]`)?.remove();
+
+    workbookRecords = workbookRecords.filter(r => r.id !== id);
+
+    if (workbookRecords.length === 0) {
+        const emptyEl = document.getElementById("workbookEmptyState");
+        if (emptyEl) emptyEl.style.display = "block";
+    }
+}
+
+async function confirmDeleteWorkbook() {
+    if (!editingWorkbookRecord) return;
+
+    const record = editingWorkbookRecord;
+    const confirmBtn = document.getElementById("confirmDeleteWorkbookBtn");
+    const messageEl = document.getElementById("deleteWorkbookConfirmMessage");
+
+    if (confirmBtn) confirmBtn.disabled = true;
+
+    try {
+        const { error } = await window.supabaseClient
+            .from(WORKBOOKS_TABLE)
+            .delete()
+            .eq("id", record.id);
+
+        if (error) throw error;
+
+        const pathsToRemove = [record.cover_path, record.file_path].filter(Boolean);
+        if (pathsToRemove.length) {
+            window.supabaseClient
+                .storage
+                .from(WORKBOOKS_BUCKET)
+                .remove(pathsToRemove)
+                .catch(err => console.warn("Couldn't remove workbook files:", err));
+        }
+
+        removeWorkbookCardFromDom(record.id);
+        closeDeleteWorkbookConfirm();
+        closeUploadModal();
+        showPageMessage(`"${record.title}" was deleted.`, "success");
+
+    } catch (error) {
+        console.error("Failed to delete workbook:", error);
+        if (messageEl) messageEl.textContent = "Something went wrong deleting this workbook. Please try again.";
+    } finally {
+        if (confirmBtn) confirmBtn.disabled = false;
+    }
+}
+
 function setUploadSubmitting(isSubmitting) {
     const btn = document.getElementById("submitUploadBtn");
     if (!btn) return;
+    const isEditing = Boolean(document.getElementById("workbookIdInput")?.value);
     btn.disabled = isSubmitting;
-    btn.textContent = isSubmitting ? "Uploading…" : "Upload workbook";
+    if (isSubmitting) {
+        btn.textContent = isEditing ? "Saving…" : "Uploading…";
+    } else {
+        btn.textContent = isEditing ? "Save changes" : "Upload workbook";
+    }
+}
+
+function replaceWorkbookCard(updated) {
+    const index = workbookRecords.findIndex(r => r.id === updated.id);
+    if (index !== -1) workbookRecords[index] = updated;
+
+    const gridEl = document.getElementById("workbookGrid");
+    const oldCard = gridEl?.querySelector(`[data-id="${updated.id}"]`);
+    const newCard = buildWorkbookCard(updated);
+
+    if (oldCard) {
+        oldCard.replaceWith(newCard);
+    } else if (gridEl) {
+        gridEl.appendChild(newCard);
+    }
 }
 
 async function handleUploadSubmit(event) {
     event.preventDefault();
 
+    const idInput = document.getElementById("workbookIdInput");
     const titleInput = document.getElementById("workbookTitleInput");
     const uploaderInput = document.getElementById("workbookUploaderInput");
     const coverInput = document.getElementById("workbookCoverInput");
     const fileInput = document.getElementById("workbookFileInput");
     const messageEl = document.getElementById("uploadFormMessage");
 
+    const editingId = idInput?.value || "";
+    const isEditing = Boolean(editingId);
+
     const title = titleInput?.value.trim();
     const uploadedBy = uploaderInput?.value.trim();
     const coverFile = coverInput?.files?.[0];
     const workbookFile = fileInput?.files?.[0];
 
-    if (!title || !uploadedBy || !coverFile || !workbookFile) {
+    const missingRequiredField = isEditing
+        ? (!title || !uploadedBy)
+        : (!title || !uploadedBy || !coverFile || !workbookFile);
+
+    if (missingRequiredField) {
         if (messageEl) {
-            messageEl.textContent = "Please fill in every field before uploading.";
+            messageEl.textContent = "Please fill in every field before saving.";
             messageEl.className = "auth-message error";
         }
         return;
     }
 
-    const allowedExt = ["xlsx", "xls", "xlsm"];
-    if (!allowedExt.includes(fileExtension(workbookFile.name))) {
+    if (workbookFile && !["xlsx", "xls", "xlsm"].includes(fileExtension(workbookFile.name))) {
         if (messageEl) {
             messageEl.textContent = "Please choose a .xlsx, .xls, or .xlsm file.";
             messageEl.className = "auth-message error";
@@ -218,55 +361,76 @@ async function handleUploadSubmit(event) {
     }
 
     setUploadSubmitting(true);
-    if (messageEl) { messageEl.textContent = "Uploading…"; messageEl.className = "auth-message"; }
+    if (messageEl) {
+        messageEl.textContent = isEditing ? "Saving…" : "Uploading…";
+        messageEl.className = "auth-message";
+    }
 
     try {
-        const id = crypto.randomUUID();
-        const coverPath = `covers/${id}-${coverFile.name}`;
-        const filePath = `files/${id}-${workbookFile.name}`;
+        const id = editingId || crypto.randomUUID();
 
-        const { error: coverUploadError } = await window.supabaseClient
-            .storage
-            .from(WORKBOOKS_BUCKET)
-            .upload(coverPath, coverFile, { cacheControl: "3600", upsert: false });
+        const payload = { title, uploaded_by: uploadedBy };
 
-        if (coverUploadError) throw coverUploadError;
+        if (coverFile) {
+            const coverPath = `covers/${id}-${coverFile.name}`;
+            const { error: coverUploadError } = await window.supabaseClient
+                .storage
+                .from(WORKBOOKS_BUCKET)
+                .upload(coverPath, coverFile, { cacheControl: "3600", upsert: false });
+            if (coverUploadError) throw coverUploadError;
 
-        const { error: fileUploadError } = await window.supabaseClient
-            .storage
-            .from(WORKBOOKS_BUCKET)
-            .upload(filePath, workbookFile, { cacheControl: "3600", upsert: false });
+            payload.cover_path = coverPath;
+            payload.cover_url = window.supabaseClient.storage.from(WORKBOOKS_BUCKET).getPublicUrl(coverPath).data.publicUrl;
+        } else if (!isEditing) {
+            throw new Error("Cover image is required.");
+        }
 
-        if (fileUploadError) throw fileUploadError;
+        if (workbookFile) {
+            const filePath = `files/${id}-${workbookFile.name}`;
+            const { error: fileUploadError } = await window.supabaseClient
+                .storage
+                .from(WORKBOOKS_BUCKET)
+                .upload(filePath, workbookFile, { cacheControl: "3600", upsert: false });
+            if (fileUploadError) throw fileUploadError;
 
-        const coverUrl = window.supabaseClient.storage.from(WORKBOOKS_BUCKET).getPublicUrl(coverPath).data.publicUrl;
-        const fileUrl = window.supabaseClient.storage.from(WORKBOOKS_BUCKET).getPublicUrl(filePath).data.publicUrl;
+            payload.file_name = workbookFile.name;
+            payload.file_path = filePath;
+            payload.file_url = window.supabaseClient.storage.from(WORKBOOKS_BUCKET).getPublicUrl(filePath).data.publicUrl;
+        } else if (!isEditing) {
+            throw new Error("Workbook file is required.");
+        }
 
-        const { data: inserted, error: insertError } = await window.supabaseClient
-            .from(WORKBOOKS_TABLE)
-            .insert({
-                id,
-                title,
-                uploaded_by: uploadedBy,
-                file_name: workbookFile.name,
-                cover_path: coverPath,
-                cover_url: coverUrl,
-                file_path: filePath,
-                file_url: fileUrl
-            })
-            .select()
-            .single();
+        if (isEditing) {
+            const { data: updated, error: updateError } = await window.supabaseClient
+                .from(WORKBOOKS_TABLE)
+                .update(payload)
+                .eq("id", id)
+                .select()
+                .single();
 
-        if (insertError) throw insertError;
+            if (updateError) throw updateError;
 
-        prependWorkbookCard(inserted);
-        closeUploadModal();
-        showPageMessage(`"${title}" was uploaded successfully.`, "success");
+            replaceWorkbookCard(updated);
+            closeUploadModal();
+            showPageMessage(`"${title}" was updated.`, "success");
+        } else {
+            const { data: inserted, error: insertError } = await window.supabaseClient
+                .from(WORKBOOKS_TABLE)
+                .insert({ id, ...payload })
+                .select()
+                .single();
+
+            if (insertError) throw insertError;
+
+            prependWorkbookCard(inserted);
+            closeUploadModal();
+            showPageMessage(`"${title}" was uploaded successfully.`, "success");
+        }
 
     } catch (error) {
-        console.error("Workbook upload failed:", error);
+        console.error("Workbook save failed:", error);
         if (messageEl) {
-            messageEl.textContent = "Upload failed. Please try again.";
+            messageEl.textContent = isEditing ? "Couldn't save changes. Please try again." : "Upload failed. Please try again.";
             messageEl.className = "auth-message error";
         }
     } finally {
@@ -374,10 +538,17 @@ window.addEventListener("DOMContentLoaded", function () {
     document.getElementById("workbookCoverInput")?.addEventListener("change", handleCoverInputChange);
     document.getElementById("closePreviewBtn")?.addEventListener("click", closePreviewModal);
 
+    document.getElementById("deleteWorkbookBtn")?.addEventListener("click", openDeleteWorkbookConfirm);
+    document.getElementById("cancelDeleteWorkbookBtn")?.addEventListener("click", closeDeleteWorkbookConfirm);
+    document.getElementById("confirmDeleteWorkbookBtn")?.addEventListener("click", confirmDeleteWorkbook);
+
     document.getElementById("uploadModalOverlay")?.addEventListener("click", function (e) {
         if (e.target === this) closeUploadModal();
     });
     document.getElementById("previewModalOverlay")?.addEventListener("click", function (e) {
         if (e.target === this) closePreviewModal();
+    });
+    document.getElementById("deleteWorkbookConfirmOverlay")?.addEventListener("click", function (e) {
+        if (e.target === this) closeDeleteWorkbookConfirm();
     });
 });

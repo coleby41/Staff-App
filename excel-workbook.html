@@ -312,14 +312,15 @@
 </main>
 
 
-<!-- Upload Workbook Modal -->
+<!-- Add / Edit Workbook Modal -->
 <div class="popup-overlay hidden" id="uploadModalOverlay">
     <div class="popup workbook-popup">
-        <div class="popup-icon"></div>
-        <h2>Add Workbook</h2>
-        <p class="auth-inline-copy">Upload a cover image and the Excel file. Everything else is filled in automatically.</p>
+        <h2 id="workbookModalTitle">Add Workbook</h2>
+        <p class="auth-inline-copy" id="workbookModalSubtitle">Upload a cover image and the Excel file. Everything else is filled in automatically.</p>
 
         <form class="auth-form" id="uploadWorkbookForm">
+
+            <input type="hidden" id="workbookIdInput" value="">
 
             <label class="auth-field">
                 Workbook title
@@ -331,28 +332,52 @@
                 <input type="text" id="workbookUploaderInput" name="uploadedBy" required readonly>
             </label>
 
-            <label class="auth-field">
+            <label class="auth-field" id="workbookCoverFieldLabel">
                 Cover image
-                <input type="file" id="workbookCoverInput" name="cover" accept="image/*" required>
+                <input type="file" id="workbookCoverInput" name="cover" accept="image/*">
             </label>
+            <p class="auth-inline-copy" id="workbookCoverExistingNote" style="display:none;">Leave blank to keep the current cover image.</p>
 
             <div class="workbook-cover-preview-wrap" id="coverPreviewWrap" style="display:none;">
                 <img id="coverPreviewImg" alt="Cover preview">
             </div>
 
-            <label class="auth-field">
+            <label class="auth-field" id="workbookFileFieldLabel">
                 Excel file (.xlsx, .xls, .xlsm)
-                <input type="file" id="workbookFileInput" name="file" accept=".xlsx,.xls,.xlsm" required>
+                <input type="file" id="workbookFileInput" name="file" accept=".xlsx,.xls,.xlsm">
             </label>
+            <p class="auth-inline-copy" id="workbookFileExistingNote" style="display:none;">Leave blank to keep the current file.</p>
 
             <p class="auth-message" id="uploadFormMessage"></p>
 
             <div class="popup-buttons">
-                <button type="button" class="auth-button auth-button--red" id="cancelUploadBtn">Cancel</button>
+                <button type="button" class="auth-button auth-button--red" id="deleteWorkbookBtn" style="display:none;">Delete Workbook</button>
                 <button type="submit" class="auth-button auth-button--secondary" id="submitUploadBtn">Upload workbook</button>
             </div>
 
+            <button type="button" class="auth-button auth-button--red" id="cancelUploadBtn">
+                Cancel
+            </button>
+
         </form>
+    </div>
+</div>
+
+
+<!-- Delete Workbook Confirmation Modal -->
+<div class="popup-overlay hidden" id="deleteWorkbookConfirmOverlay">
+    <div class="popup">
+        <h2>Delete this workbook?</h2>
+        <p class="auth-inline-copy" id="deleteWorkbookConfirmText">
+            This will permanently remove the workbook and its files. This can't be undone.
+        </p>
+
+        <p class="auth-message" id="deleteWorkbookConfirmMessage"></p>
+
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteWorkbookBtn">Cancel</button>
+            <button type="button" class="auth-button auth-button--red" id="confirmDeleteWorkbookBtn">Delete</button>
+        </div>
     </div>
 </div>
 

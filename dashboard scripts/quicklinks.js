@@ -13,10 +13,11 @@
    Tables: public.quick_link_types (catalog, extensible), public.user_quick_links
    (each user's picks, max 6, enforced here in JS).
 
-   ADDING A NEW SHORTCUT TYPE LATER: insert a row into quick_link_types (SQL),
-   then add one entry to ICONS below if it needs a bespoke icon glyph — no
-   other code changes required. That's the "future expansion" path the spec
-   asked for.
+   ADDING A NEW SHORTCUT TYPE LATER: insert a row into quick_link_types (SQL).
+   If it needs a bespoke glyph, add an entry to the ICONS map and a matching
+   keyword rule to LABEL_ICON_RULES below (or set icon_class to an existing
+   ICONS key) — no other code changes required. Unmatched types fall back to
+   ICONS.default. That's the "future expansion" path the spec asked for.
 ============================================================================ */
 
 (function () {
@@ -24,6 +25,55 @@
 
   const DS = window.DashboardShared;
   const MAX_SHORTCUTS = 6;
+
+  // Inline SVG glyphs, styled dark green on a light green block via
+  // .quick-link-icon / .quick-link-icon svg in styles.css. Looked up by
+  // resolveIcon() below, which checks icon_class first, then falls back to
+  // matching keywords in the shortcut's label. Add a new key + keyword rule
+  // when a new shortcut type needs a bespoke glyph; anything unmatched falls
+  // back to ICONS.default (a link icon), so no other code changes required.
+  const ICON_SVG_ATTRS = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  const ICONS = {
+    expense: `<svg ${ICON_SVG_ATTRS}><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path><rect x="9" y="11" width="6" height="4" rx="1" fill="currentColor" stroke="none"></rect></svg>`,
+    timesheet: `<svg ${ICON_SVG_ATTRS}><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>`,
+    docs: `<svg ${ICON_SVG_ATTRS}><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" fill="currentColor" stroke="none"></path></svg>`,
+    vendor: `<svg ${ICON_SVG_ATTRS}><circle cx="8.5" cy="8" r="3.5" fill="currentColor" stroke="none"></circle><path d="M2 20v-1.5A4.5 4.5 0 0 1 6.5 14h4A4.5 4.5 0 0 1 15 18.5V20z" fill="currentColor" stroke="none"></path><circle cx="17" cy="7" r="3" fill="currentColor" stroke="none" opacity="0.85"></circle><path d="M14.5 13.2A4.5 4.5 0 0 1 20 17.5V19h-3" fill="currentColor" stroke="none" opacity="0.85"></path></svg>`,
+    ithelp: `<svg ${ICON_SVG_ATTRS}><path d="M4 13v-1a8 8 0 0 1 16 0v1"></path><rect x="2" y="13" width="5" height="7" rx="2" fill="currentColor" stroke="none"></rect><rect x="17" y="13" width="5" height="7" rx="2" fill="currentColor" stroke="none"></rect><path d="M19 20a4 4 0 0 1-4 2h-2"></path></svg>`,
+    site: `<svg ${ICON_SVG_ATTRS}><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>`,
+    default: `<svg ${ICON_SVG_ATTRS}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`,
+  };
+
+  // label keyword -> ICONS key. Checked in order; first match wins.
+  const LABEL_ICON_RULES = [
+    [/expense/i, "expense"],
+    [/time\s*sheet|timesheet/i, "timesheet"],
+    [/doc/i, "docs"],
+    [/vendor|contact/i, "vendor"],
+    [/it\s*help|support|help\s*desk/i, "ithelp"],
+    [/site|website/i, "site"],
+  ];
+
+  // If a shortcut's label doesn't match any rule above (unknown/custom
+  // type), it cycles through this pool instead of every unmatched shortcut
+  // showing the same glyph. Keeps unmatched icons visually distinct from
+  // each other even without knowing the real label ahead of time.
+  const FALLBACK_ICONS = [
+    `<svg ${ICON_SVG_ATTRS}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`, // link
+    `<svg ${ICON_SVG_ATTRS}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`, // star
+    `<svg ${ICON_SVG_ATTRS}><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>`, // bookmark
+    `<svg ${ICON_SVG_ATTRS}><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>`, // flag
+    `<svg ${ICON_SVG_ATTRS}><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>`, // compass
+    `<svg ${ICON_SVG_ATTRS}><path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12.01V2h10.01l8.58 8.58a2 2 0 0 1 0 2.83z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>`, // tag
+  ];
+  ICONS.default = FALLBACK_ICONS[0];
+
+  function resolveIcon(display, index) {
+    if (display.iconClass && ICONS[display.iconClass]) return ICONS[display.iconClass];
+    const label = display.label || "";
+    const rule = LABEL_ICON_RULES.find(([pattern]) => pattern.test(label));
+    if (rule) return ICONS[rule[1]];
+    return FALLBACK_ICONS[index % FALLBACK_ICONS.length];
+  }
 
   let currentProfile = null;
   let typeCatalog = []; // public.quick_link_types rows
@@ -59,7 +109,7 @@
   async function loadUserLinks() {
     const gridEl = document.getElementById("quickLinksGrid");
     if (!currentProfile) {
-      gridEl.innerHTML = `<p class="card-subtitle">Sign in to see your shortcuts.</p>`;
+      gridEl.innerHTML = `<p class="card-subtitle quick-links-empty">Sign in to see your shortcuts.</p>`;
       return;
     }
 
@@ -74,7 +124,7 @@
     );
 
     if (error) {
-      gridEl.innerHTML = `<p class="card-subtitle">Couldn't load shortcuts.</p>`;
+      gridEl.innerHTML = `<p class="card-subtitle quick-links-empty">Couldn't load shortcuts.</p>`;
       return;
     }
 
@@ -104,19 +154,19 @@
     const gridEl = document.getElementById("quickLinksGrid");
 
     if (userLinks.length === 0) {
-      gridEl.innerHTML = `<p class="card-subtitle">No shortcuts yet. Use "Edit shortcuts" to add up to ${MAX_SHORTCUTS}.</p>`;
+      gridEl.innerHTML = `<p class="card-subtitle quick-links-empty">No shortcuts yet. Use "Edit shortcuts" to add up to ${MAX_SHORTCUTS}.</p>`;
       return;
     }
 
     gridEl.innerHTML = userLinks
       .slice(0, MAX_SHORTCUTS)
-      .map((link) => {
+      .map((link, index) => {
         const display = resolveLinkDisplay(link);
         if (!display) return "";
         const isExternal = /^https?:\/\//i.test(display.url || "");
         return `
           <a class="quick-link-item" href="${DS.escapeHtml(display.url || "#")}" ${isExternal ? 'target="_blank" rel="noopener"' : ""}>
-            <div class="quick-link-icon"><span class="${display.iconClass}"></span></div>
+            <div class="quick-link-icon">${resolveIcon(display, index)}</div>
             <div class="quick-link-text">${DS.escapeHtml(display.label)}</div>
           </a>
         `;
