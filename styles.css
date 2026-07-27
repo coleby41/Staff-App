@@ -633,6 +633,44 @@ button { font: inherit; }
 .popup-icon { width: 54px; height: 54px; margin-bottom: 12px; border-radius: 16px; background: var(--accent-soft); }
 .popup-buttons { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
 
+.report-options-grid {
+  display: flex;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.report-option-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-alt);
+}
+
+.report-option-card h3 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.report-option-card p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.88rem;
+  flex-grow: 1;
+}
+
+.report-option-card .auth-button {
+  width: 100%;
+  margin-top: 4px;
+}
+
+@media (max-width: 600px) {
+  .report-options-grid { flex-direction: column; }
+}
+
 .auth-page {
   min-height: 100vh;
   display: grid;

@@ -417,7 +417,7 @@
         + Add Vendor
     </button>
 
-    <button class="auth-button auth-button--secondary" id="addCompanyBtn" type="button">
+    <button class="auth-button auth-button--secondary" id="startReportBtn" type="button">
         Start A Report
     </button>
 
@@ -600,8 +600,38 @@
             <button type="button" class="auth-button auth-button--red" id="confirmDeleteBtn">Delete</button>
         </div>
     </div>
-    
+
 </div>
+
+
+<!-- Start A Report Modal -->
+<div class="popup-overlay hidden" id="startReportModalOverlay">
+    <div class="popup workbook-popup">
+        <h2>Start A Report</h2>
+        <p class="auth-inline-copy">Here you can start a report by vendor specialty or by whether the vendor is approved or not.</p>
+
+        <div class="report-options-grid">
+
+            <div class="report-option-card">
+                <h3>Report by Specialty</h3>
+                <p>Generate a report of vendors grouped by specialty.</p>
+                <button type="button" class="auth-button auth-button--secondary" id="reportBySpecialtyBtn">
+                    Start Report
+                </button>
+            </div>
+
+            <div class="report-option-card">
+                <h3>Report by Approval Status</h3>
+                <p>Generate a report of vendors by whether they're approved or not.</p>
+                <button type="button" class="auth-button auth-button--secondary" id="reportByApprovalBtn">
+                    Start Report
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
 
 <script src="script.js"></script>
 <script src="supabase-config.js"></script>
@@ -941,6 +971,7 @@ window.addEventListener("DOMContentLoaded", function() {
 
     initCompanySearch();
     initCompanyViewToggle();
+    initStartReportModal();
 
     if (typeof window.initCompaniesPage === "function") {
         window.initCompaniesPage();
@@ -948,6 +979,49 @@ window.addEventListener("DOMContentLoaded", function() {
 
 
 });
+
+
+/* ===========================
+   START A REPORT MODAL
+=========================== */
+
+function initStartReportModal() {
+
+    const startReportBtn = document.getElementById("startReportBtn");
+    const overlay = document.getElementById("startReportModalOverlay");
+    const closeBtn = document.getElementById("closeStartReportBtn");
+    const bySpecialtyBtn = document.getElementById("reportBySpecialtyBtn");
+    const byApprovalBtn = document.getElementById("reportByApprovalBtn");
+
+    if (!startReportBtn || !overlay) return;
+
+    startReportBtn.addEventListener("click", () => {
+        overlay.classList.remove("hidden");
+    });
+
+    if (closeBtn) {
+        closeBtn.addEventListener("click", () => {
+            overlay.classList.add("hidden");
+        });
+    }
+
+    overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) overlay.classList.add("hidden");
+    });
+
+    // TODO: point these at the real report pages once they exist.
+    if (bySpecialtyBtn) {
+        bySpecialtyBtn.addEventListener("click", () => {
+            console.log("Start report by specialty — page not built yet.");
+        });
+    }
+
+    if (byApprovalBtn) {
+        byApprovalBtn.addEventListener("click", () => {
+            console.log("Run report of approved or not — page not built yet.");
+        });
+    }
+}
 
 
 

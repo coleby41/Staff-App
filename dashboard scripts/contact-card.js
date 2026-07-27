@@ -17,34 +17,28 @@
 const importantContacts = [
 
     {
-        name: 'Main Office',
-        jobTitle: 'Main Office',
-        phone: '(910) 367-9782'
-    },
-
-    {
-        name: 'IT Help Desk',
-        jobTitle: 'IT Help Desk',
-        phone: '(910) 367-4357'
-    },
-
-    {
-        name: 'Accounting',
-        jobTitle: 'Accounting',
-        phone: '(910) 367-8554'
-    },
-
-    {
         name: 'Barry Coppedge',
-        jobTitle: 'Barry Coppedge',
-        phone: '(910) 367-9782'
+        jobTitle: 'Co-Owner',
+        phone: 'N/A'
     },
 
     {
-        name: 'Emergency Maintenance',
-        jobTitle: 'Emergency Maintenance',
-        phone: '(910) 512-0911'
-    }
+        name: 'Ashley Coppedge',
+        jobTitle: 'Office Manager',
+        phone: 'N/A'
+    },
+
+    {
+        name: 'Rodney Williams',
+        jobTitle: 'Co-Owner',
+        phone: 'N/A'
+    },
+
+    {
+        name: 'Coleby Ludwig',
+        jobTitle: 'Data Coordinator/IT',
+        phone: '(910) 367-9782'
+    },
 
 ];
 
