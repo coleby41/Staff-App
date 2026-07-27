@@ -45,6 +45,30 @@ function fileExtension(fileName) {
     return parts.length > 1 ? parts.pop().toLowerCase() : "";
 }
 
+// Supabase Storage rejects object keys containing spaces, unicode, or other
+// "unsafe" characters (e.g. Mac screenshot names like
+// "Screenshot 2026-07-27 at 2.54.57 PM.png", which include a narrow
+// no-break space before "PM") with a 400 "Invalid key" error. Build storage
+// paths from a sanitized version of the filename; the original filename is
+// kept separately (workbooks.file_name) for display/download.
+function sanitizeForStorageKey(fileName) {
+    const lastDot = fileName.lastIndexOf(".");
+    const base = lastDot > 0 ? fileName.slice(0, lastDot) : fileName;
+    const ext = lastDot > 0 ? fileName.slice(lastDot + 1) : "";
+
+    const safeBase = base
+        .normalize("NFKD")
+        .replace(/[̀-ͯ]/g, "")    // strip accents (post-normalize diacritic marks)
+        .replace(/[^\w.-]+/g, "-")          // anything not a-z/0-9/_/./- becomes "-"
+        .replace(/-+/g, "-")                // collapse repeated dashes
+        .replace(/^-+|-+$/g, "")            // trim leading/trailing dashes
+        || "file";
+
+    const safeExt = ext.replace(/[^\w]+/g, "").toLowerCase();
+
+    return safeExt ? `${safeBase}.${safeExt}` : safeBase;
+}
+
 function showPageMessage(text, type) {
     const el = document.getElementById("workbookMessage");
     if (!el) return;
@@ -372,7 +396,7 @@ async function handleUploadSubmit(event) {
         const payload = { title, uploaded_by: uploadedBy };
 
         if (coverFile) {
-            const coverPath = `covers/${id}-${coverFile.name}`;
+            const coverPath = `covers/${id}-${sanitizeForStorageKey(coverFile.name)}`;
             const { error: coverUploadError } = await window.supabaseClient
                 .storage
                 .from(WORKBOOKS_BUCKET)
@@ -386,7 +410,7 @@ async function handleUploadSubmit(event) {
         }
 
         if (workbookFile) {
-            const filePath = `files/${id}-${workbookFile.name}`;
+            const filePath = `files/${id}-${sanitizeForStorageKey(workbookFile.name)}`;
             const { error: fileUploadError } = await window.supabaseClient
                 .storage
                 .from(WORKBOOKS_BUCKET)
