@@ -229,6 +229,16 @@
             </span>
         </a>
 
+        <a href="manage-employees.html"
+           class="nav-item"
+           id="manageEmployeesNavItem"
+           style="display:none;">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">
+                Manage Employees
+            </span>
+        </a>
+
         <div class="nav-item-group"
              id="adminNavGroup"
              style="display:none;">
@@ -357,14 +367,150 @@
         <div class="card-header">
           <div>
             <h2 class="card-title">Accounting Employee Dashboard</h2>
-            <p class="card-subtitle">A shared workspace for the Accounting team</p>
+            <p class="card-subtitle">Payroll roster, timesheet status, and the manager-approved queue</p>
           </div>
-          <span class="chip">Coming soon</span>
+          <button type="button" class="auth-button auth-button--secondary" onclick="openAddEmployeeModal()">Add Employee</button>
         </div>
-        <div class="empty-state">We'll design what goes here together next.</div>
+
+        <div class="dash-tabs">
+          <button type="button" class="dash-tab active" id="dashTabEmployees" onclick="switchDashboardTab('employees')">Employees</button>
+          <button type="button" class="dash-tab" id="dashTabQueue" onclick="switchDashboardTab('queue')">Approved Queue</button>
+        </div>
+
+        <div id="dashPanelEmployees" class="dash-panel">
+          <div class="employee-card-grid" id="employeeCardGrid"></div>
+          <div id="employeeCardEmpty" class="empty-state" style="display:none;">No employees on payroll yet. Use "Add Employee" above to pull someone in from the staff directory.</div>
+        </div>
+
+        <div id="dashPanelQueue" class="dash-panel" style="display:none;">
+          <div class="table-wrap">
+            <table class="dash-queue-table">
+              <thead>
+                <tr><th>Employee</th><th>Pay Period</th><th>Total Hours</th><th>Approval Date</th><th>Status</th><th></th></tr>
+              </thead>
+              <tbody id="approvedQueueBody"></tbody>
+            </table>
+          </div>
+          <div id="approvedQueueEmpty" class="empty-state" style="display:none;">Nothing waiting on Accounting right now.</div>
+        </div>
       </div>
     </div>
   </main>
+
+  <!-- Add Employee popup -->
+  <div class="popup-overlay hidden" id="addEmployeeOverlay">
+    <div class="popup">
+      <h2>Add Employee to Payroll</h2>
+      <p class="card-subtitle">Pick an existing staff account and set their payroll details.</p>
+      <form class="auth-form" onsubmit="submitAddEmployee(event)">
+        <label class="auth-field">
+          Staff member
+          <select id="addEmployeeStaffSelect" required></select>
+        </label>
+        <label class="auth-field">
+          Department
+          <input type="text" id="addEmployeeDepartment" placeholder="e.g. Field Operations">
+        </label>
+        <label class="auth-field">
+          Hourly rate
+          <input type="number" id="addEmployeeRate" min="0" step="0.01" placeholder="e.g. 24.50">
+        </label>
+        <label class="auth-field">
+          Employment type
+          <select id="addEmployeeType">
+            <option value="Full-time">Full-time</option>
+            <option value="Part-time">Part-time</option>
+            <option value="Contractor">Contractor</option>
+          </select>
+        </label>
+        <label class="announcement-type-option">
+          <input type="checkbox" id="addEmployeeOvertimeExempt">
+          Overtime-exempt (salaried / not eligible for OT pay)
+        </label>
+        <p id="addEmployeeMsg" class="auth-message"></p>
+        <div class="popup-buttons">
+          <button type="button" class="auth-button auth-button--red" onclick="ppCloseOverlay('addEmployeeOverlay')">Cancel</button>
+          <button type="submit" class="auth-button auth-button--secondary">Add Employee</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Employee detail / timesheet review popup -->
+  <div class="popup-overlay hidden" id="employeeDetailOverlay">
+    <div class="popup employee-detail-popup">
+      <div class="workbook-preview-header">
+        <h2 id="employeeDetailName">Employee</h2>
+        <button type="button" class="menu-btn" onclick="ppCloseOverlay('employeeDetailOverlay')" aria-label="Close">✕</button>
+      </div>
+      <p class="card-subtitle" id="employeeDetailSubtitle"></p>
+
+      <div class="employee-detail-body">
+        <section>
+          <h3 class="pp-list-heading">Payroll details</h3>
+          <form class="auth-form" id="employeeDetailForm" onsubmit="saveEmployeeDetails(event)">
+            <div class="directory-form__row-inline">
+              <label class="auth-field">
+                Department
+                <input type="text" id="editEmployeeDepartment">
+              </label>
+              <label class="auth-field">
+                Hourly rate
+                <input type="number" id="editEmployeeRate" min="0" step="0.01">
+              </label>
+            </div>
+            <div class="directory-form__row-inline">
+              <label class="auth-field">
+                Employment type
+                <select id="editEmployeeType">
+                  <option value="Full-time">Full-time</option>
+                  <option value="Part-time">Part-time</option>
+                  <option value="Contractor">Contractor</option>
+                </select>
+              </label>
+              <label class="announcement-type-option" style="align-self:center;">
+                <input type="checkbox" id="editEmployeeOvertimeExempt">
+                Overtime-exempt
+              </label>
+            </div>
+            <p id="employeeDetailMsg" class="auth-message"></p>
+            <div class="popup-buttons" style="justify-content:flex-start;">
+              <button type="submit" class="auth-button auth-button--secondary auth-button--sm">Save details</button>
+              <button type="button" class="auth-button auth-button--sm" id="employeeDetailToggleActiveBtn" onclick="toggleEmployeeActive()">Deactivate</button>
+              <button type="button" class="auth-button auth-button--red auth-button--sm" onclick="removeEmployeeFromPayroll()">Remove from payroll</button>
+            </div>
+          </form>
+        </section>
+
+        <div class="auth-divider"></div>
+
+        <section>
+          <h3 class="pp-list-heading">Current pay period timesheet</h3>
+          <p class="card-subtitle" id="employeeDetailPeriodLabel"></p>
+          <div class="table-wrap">
+            <table class="dash-queue-table" id="employeeDetailEntriesTable">
+              <thead>
+                <tr><th>Date</th><th>Clock In</th><th>Clock Out</th><th>Regular</th><th>Overtime</th><th>Notes</th></tr>
+              </thead>
+              <tbody id="employeeDetailEntriesBody"></tbody>
+            </table>
+          </div>
+          <div id="employeeDetailEntriesEmpty" class="empty-state" style="display:none;">No hours entered for this period yet.</div>
+          <p class="employee-detail-total" id="employeeDetailTotal"></p>
+
+          <div class="popup-buttons" id="employeeDetailActions" style="justify-content:flex-start;"></div>
+        </section>
+
+        <div class="auth-divider"></div>
+
+        <section>
+          <h3 class="pp-list-heading">Activity</h3>
+          <div class="info-list" id="employeeDetailEvents"></div>
+          <div id="employeeDetailEventsEmpty" class="empty-state" style="display:none;">No activity yet.</div>
+        </section>
+      </div>
+    </div>
+  </div>
 
   <!-- View Calendar popup -->
   <div class="popup-overlay hidden" id="payPeriodCalendarOverlay">
@@ -428,7 +574,10 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-auth.js"></script>
     <script src="auth-guard.js"></script>
+    <script src="manager-nav.js"></script>
     <script src="timeout.js"></script>
+    <script src="pay-periods-shared.js"></script>
+    <script src="payroll-pdf-stub.js"></script>
     <script src="payroll-tools.js"></script>
 
 <script>

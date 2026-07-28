@@ -7,6 +7,9 @@ const fullNameInput = document.getElementById('fullName');
 const usernameInput = document.getElementById('username');
 const groupInput = document.getElementById('group');
 const passwordInput = document.getElementById('password');
+const staffRoleInput = document.getElementById('staffRole');
+const staffManagerInput = document.getElementById('staffManager');
+const employeeCodeInput = document.getElementById('employeeCode');
 const accountNotesInput = document.getElementById('accountNotes');
 const toggleActiveBtn = document.getElementById('toggleActiveBtn');
 const directoryMessage = document.getElementById('directoryMessage');
@@ -62,11 +65,26 @@ function renderUserList(users) {
       <button class="directory-user ${user.id === selectedUserId ? 'is-active' : ''}" type="button" data-user-id="${user.id}">
         <div class="directory-user__name">${user.full_name || '—'}</div>
         <div class="directory-user__meta">${user.username || '—'}</div>
-        <div class="directory-user__meta">${groups}</div>
+        <div class="directory-user__meta">${groups}${user.role === 'Manager' ? ' · Manager' : ''}</div>
         <span class="directory-user__badge ${isActive ? '' : 'is-inactive'}">${isActive ? 'Active' : 'Inactive'}</span>
       </button>
     `;
   }).join('');
+}
+
+// Rebuilds the Manager <select> from every other staff user (a user can't be
+// their own manager). Called whenever allUsers refreshes and before setting
+// staffManagerInput.value, since a <select> can't select a value that isn't
+// one of its <option>s yet.
+function populateManagerOptions() {
+  if (!staffManagerInput) return;
+  const currentValue = staffManagerInput.value;
+  const options = allUsers
+    .filter((user) => String(user.id) !== String(selectedUserId))
+    .map((user) => `<option value="${user.id}">${user.full_name || user.username || 'Unnamed'}</option>`)
+    .join('');
+  staffManagerInput.innerHTML = `<option value="">— None —</option>${options}`;
+  staffManagerInput.value = currentValue;
 }
 
 function showDetailsForm(user) {
@@ -85,6 +103,10 @@ function showDetailsForm(user) {
   if (usernameInput) usernameInput.value = user.username || '';
   if (groupInput) groupInput.value = Array.isArray(user.workgroup) ? user.workgroup[0] || '' : user.workgroup || '';
   if (passwordInput) passwordInput.value = '';
+  if (staffRoleInput) staffRoleInput.value = user.role || 'Employee';
+  populateManagerOptions();
+  if (staffManagerInput) staffManagerInput.value = user.manager_id || '';
+  if (employeeCodeInput) employeeCodeInput.value = user.employee_code || '';
   if (accountNotesInput) {
     accountNotesInput.value = user.account_notes || '';
   }
@@ -183,6 +205,9 @@ userDetailsForm.addEventListener('submit', async function (event) {
     full_name: fullNameInput.value.trim(),
     username: usernameInput.value.trim(),
     workgroup: [groupInput.value.trim() || 'Operations'],
+    role: staffRoleInput ? staffRoleInput.value : 'Employee',
+    manager_id: staffManagerInput && staffManagerInput.value ? staffManagerInput.value : null,
+    employee_code: employeeCodeInput && employeeCodeInput.value.trim() ? employeeCodeInput.value.trim() : null,
     account_notes: accountNotesInput ? accountNotesInput.value.trim() : ''
   };
 

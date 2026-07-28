@@ -8,21 +8,6 @@
 
 // ---- UI only — no backend calls beyond what's already wired below. ----
 
-let view = 'mine'; // 'mine' | 'team'
-let draftRows = []; // rows staged locally before the weekly submit
-
-/* ===========================
-   BIWEEKLY PAYROLL SUBMISSION SCHEDULE
-=========================== */
-// TODO: move PAYROLL_ANCHOR_KEY and the "submitted period" flag to a shared Supabase settings/entries
-// table. Right now they're in localStorage, so they're per-browser, not shared across staff or devices.
-// NOTE: the anchor date itself is set from payroll-tools.html (Accounting only). This page only
-// reads it to know when the submission window is open.
-const PAYROLL_ANCHOR_KEY = 'payrollAnchorDate';   // accounting-set date, e.g. "2026-07-09"
-const SUBMITTED_PERIOD_KEY = 'timesheetSubmittedPeriod';
-const DRAFT_STORAGE_KEY = 'timesheetDraftRows';
-const msPerDay = 86400000;
-
 /* ===========================
    ANNOUNCEMENTS FROM ACCOUNTING (Supabase)
    Uses window.supabaseClient, exposed globally by supabase-auth.js.
@@ -72,222 +57,306 @@ async function renderAnnouncements() {
   });
 }
 
-/* ===========================
-   PAYROLL DATE HELPERS
-=========================== */
+/* ============================================================================
+   MY TIMESHEET (Supabase)
+   Tables: payroll_employees, timesheets, timesheet_entries, timesheet_events
+   (see supabase-timesheet-workflow-setup.sql). Pay period helpers
+   (loadPayPeriods, getCurrentPayPeriod, ppParseDate, ppFormatLong, etc.) come
+   from pay-periods-shared.js, loaded before this file.
 
-function stripTime(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+   One timesheet row is created per payroll_employee per pay_period, the
+   first time the employee saves a draft or submits. Before that, the status
+   shown is just "Not Started" client-side — there's nothing in the database
+   yet for that period.
+============================================================================ */
 
-function getPayrollAnchor() {
-  const stored = localStorage.getItem(PAYROLL_ANCHOR_KEY);
-  return stored ? stripTime(new Date(stored + 'T00:00:00')) : null;
+let myPayrollEmployeeId = null;
+let myCurrentTimesheet = null; // row from `timesheets`, or null if not created yet this period
+let myEntriesByDate = {};      // 'YYYY-MM-DD' -> timesheet_entries row
+
+const STATUS_LABEL_TO_CLASS = {
+  'Not Started': 'ts-not-started',
+  'In Progress': 'ts-in-progress',
+  'Submitted': 'ts-submitted',
+  'Needs Corrections': 'ts-needs-corrections',
+  'Sent to Accounting': 'ts-sent-to-accounting',
+  'Processed': 'ts-processed',
+  'Complete': 'ts-complete'
+};
+
+function timesheetIsEditable() {
+  const status = myCurrentTimesheet ? myCurrentTimesheet.status : 'Not Started';
+  return status === 'Not Started' || status === 'In Progress' || status === 'Needs Corrections';
 }
 
-function isPayrollThursday(date, anchor) {
-  if (!anchor) return false;
-  const diffDays = Math.round((stripTime(date) - anchor) / msPerDay);
-  return diffDays >= 0 && diffDays % 14 === 0;
+async function initMyTimesheet() {
+  const wrap = document.getElementById('timesheetGridWrap');
+  const noPayrollMsg = document.getElementById('timesheetNoPayrollMsg');
+  const noPeriodMsg = document.getElementById('timesheetNoPeriodMsg');
+  if (!wrap) return; // this page's markup isn't present (shouldn't happen, but stay safe)
+
+  wrap.style.display = 'none';
+  noPayrollMsg.style.display = 'none';
+  noPeriodMsg.style.display = 'none';
+
+  const profile = getAvailableProfile();
+  const staffId = profile?.id || profile?.uid;
+  if (!staffId || !window.supabaseClient) return; // pollForProfile will call this again once ready
+
+  await loadPayPeriods();
+  const period = getCurrentPayPeriod();
+  if (!period) { noPeriodMsg.style.display = 'block'; return; }
+
+  const { data: payrollRow, error: payrollError } = await window.supabaseClient
+    .from('payroll_employees')
+    .select('*')
+    .eq('staff_id', staffId)
+    .maybeSingle();
+  if (payrollError) console.error('Failed to load payroll record:', payrollError);
+  if (!payrollRow) { noPayrollMsg.style.display = 'block'; updateMetrics({ weekHours: 0 }); return; }
+
+  myPayrollEmployeeId = payrollRow.id;
+  updateMetrics({ hourlyRate: payrollRow.hourly_rate });
+
+  const { data: ts, error: tsError } = await window.supabaseClient
+    .from('timesheets')
+    .select('*')
+    .eq('payroll_employee_id', myPayrollEmployeeId)
+    .eq('pay_period_id', period.id)
+    .maybeSingle();
+  if (tsError) console.error('Failed to load timesheet:', tsError);
+  myCurrentTimesheet = ts || null;
+
+  myEntriesByDate = {};
+  if (myCurrentTimesheet) {
+    const { data: entries, error: entriesError } = await window.supabaseClient
+      .from('timesheet_entries')
+      .select('*')
+      .eq('timesheet_id', myCurrentTimesheet.id);
+    if (entriesError) console.error('Failed to load timesheet entries:', entriesError);
+    (entries || []).forEach(e => { myEntriesByDate[e.work_date] = e; });
+  }
+
+  wrap.style.display = 'block';
+  renderTimesheetStatusChip();
+  await renderCorrectionsBanner();
+  renderTimesheetGrid(period);
 }
 
-// Most recent payroll Thursday on or before `date` — used as the id for "which period is this"
-function getCurrentPeriodId(anchor, date) {
-  const diffDays = Math.floor((stripTime(date) - anchor) / msPerDay);
-  const cycles = Math.floor(diffDays / 14);
-  const periodStart = new Date(anchor.getTime() + cycles * 14 * msPerDay);
-  return periodStart.toISOString().slice(0, 10);
+function renderTimesheetStatusChip() {
+  const chip = document.getElementById('timesheetStatusChip');
+  if (!chip) return;
+  const status = myCurrentTimesheet ? myCurrentTimesheet.status : 'Not Started';
+  chip.textContent = status;
+  chip.className = `status ${STATUS_LABEL_TO_CLASS[status] || 'ts-not-started'}`;
 }
 
-function getNextPayrollThursday(anchor, date) {
-  const diffDays = Math.round((stripTime(date) - anchor) / msPerDay);
-  if (diffDays <= 0) return anchor;
-  const cyclesPassed = Math.ceil(diffDays / 14);
-  return new Date(anchor.getTime() + cyclesPassed * 14 * msPerDay);
-}
-
-function formatDate(d) {
-  return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-}
-
-function saveDraftToStorage() { localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draftRows)); }
-function loadDraftFromStorage() {
-  const stored = localStorage.getItem(DRAFT_STORAGE_KEY);
-  draftRows = stored ? JSON.parse(stored) : [];
-}
-
-// Shows/hides the Submit button vs. the "next submission opens..." message
-function updateSubmitAvailability() {
-  const anchor = getPayrollAnchor();
-  const submitBtn = document.getElementById('submitWeekBtn');
-  const windowMsg = document.getElementById('submissionWindowMsg');
-  const today = new Date();
-
-  if (!anchor) {
-    submitBtn.style.display = 'none';
-    windowMsg.textContent = 'Submission schedule not set yet — contact accounting.';
-    windowMsg.style.display = 'block';
+// Shows the manager's most recent rejection comment when the timesheet has
+// been sent back for corrections — pulled from timesheet_events rather than
+// a single "latest comment" column, since every reject/comment is logged
+// there as part of the full audit trail (see supabase-timesheet-workflow-setup.sql).
+async function renderCorrectionsBanner() {
+  const banner = document.getElementById('timesheetCorrectionsBanner');
+  if (!banner) return;
+  if (!myCurrentTimesheet || myCurrentTimesheet.status !== 'Needs Corrections') {
+    banner.style.display = 'none';
     return;
   }
 
-  if (isPayrollThursday(today, anchor)) {
-    windowMsg.style.display = 'none';
-    submitBtn.style.display = 'block';
-    submitBtn.disabled = draftRows.length === 0;
-  } else {
-    submitBtn.style.display = 'none';
-    windowMsg.textContent = `Next submission opens ${formatDate(getNextPayrollThursday(anchor, today))}.`;
-    windowMsg.style.display = 'block';
+  const { data, error } = await window.supabaseClient
+    .from('timesheet_events')
+    .select('*')
+    .eq('timesheet_id', myCurrentTimesheet.id)
+    .eq('event_type', 'rejected')
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (error) console.error('Failed to load correction note:', error);
+
+  const note = data && data[0];
+  banner.innerHTML = `<strong>Your manager sent this back for corrections.</strong>${note && note.comment ? escapeHtml(note.comment) : 'Edit your hours below and resubmit.'}`;
+  banner.style.display = 'block';
+}
+
+function dateRangeForPeriod(period) {
+  const dates = [];
+  let cur = ppParseDate(period.start_date);
+  const end = ppParseDate(period.end_date);
+  while (cur <= end) {
+    const iso = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`;
+    dates.push(iso);
+    cur = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 1);
   }
+  return dates;
 }
 
-// Checks whether the current period was already submitted (locked) or a new period has started
-// (auto-unlock). Run this on page load.
-function checkSubmissionLock() {
-  const anchor = getPayrollAnchor();
-  if (!anchor) { updateSubmitAvailability(); return; }
-  const today = new Date();
-  if (stripTime(today) < anchor) { updateSubmitAvailability(); return; } // before the first period
+function renderTimesheetGrid(period) {
+  const periodLabel = document.getElementById('timesheetPeriodLabel');
+  const body = document.getElementById('timesheetGridBody');
+  const saveBtn = document.getElementById('saveDraftBtn');
+  const submitBtn = document.getElementById('submitTimesheetBtn');
+  if (!body) return;
 
-  const currentPeriodId = getCurrentPeriodId(anchor, today);
-  const submittedPeriodId = localStorage.getItem(SUBMITTED_PERIOD_KEY);
-
-  if (submittedPeriodId === currentPeriodId) {
-    showSubmittedState();
-  } else {
-    resetWeeklySubmission(); // new period since last submission — unlock automatically
+  if (periodLabel) {
+    periodLabel.textContent = `${ppFormatLong(ppParseDate(period.start_date))} – ${ppFormatLong(ppParseDate(period.end_date))}`;
   }
-}
 
-function showSubmittedState() {
-  document.getElementById('entryForm').style.display = 'none';
-  document.getElementById('draftWrap').style.display = 'none';
-  document.getElementById('submitWeekBtn').style.display = 'none';
-  document.getElementById('submissionWindowMsg').style.display = 'none';
-  document.getElementById('submittedBanner').style.display = 'block';
-}
+  const editable = timesheetIsEditable();
+  const dates = dateRangeForPeriod(period);
 
-/* ===========================
-   VIEW / TIMESHEET UI
-=========================== */
-
-function setView(v) {
-  view = v;
-  document.getElementById('btnMine').classList.toggle('active', v === 'mine');
-  document.getElementById('btnTeam').classList.toggle('active', v === 'team');
-  document.getElementById('colUser').style.display = v === 'team' ? '' : 'none';
-  document.getElementById('addEntryBlock').style.display = v === 'mine' ? 'block' : 'none';
-  // TODO: reload timesheet/document data for the selected view
-}
-
-// Show the Team View toggle only for admins — set this from your auth/user data
-function setIsAdmin(isAdmin) {
-  document.getElementById('viewToggle').style.display = isAdmin ? 'inline-flex' : 'none';
-}
-
-// Stage a row locally — nothing is submitted yet
-function addRow() {
-  const work_date = document.getElementById('fDate').value;
-  const project = document.getElementById('fProject').value.trim();
-  const hours = parseFloat(document.getElementById('fHours').value);
-  const category = document.getElementById('fCategory').value;
-  const notes = document.getElementById('fNotes').value.trim();
-  const msg = document.getElementById('entryMsg');
-  if (!work_date || !project || !hours) { msg.textContent = 'Date, project, and hours are required.'; msg.className = 'msg error'; return; }
-
-  draftRows.push({ work_date, project, hours, category, notes });
-
-  document.getElementById('fDate').value = '';
-  document.getElementById('fProject').value = '';
-  document.getElementById('fHours').value = '';
-  document.getElementById('fNotes').value = '';
-  msg.textContent = '';
-  saveDraftToStorage();
-  renderDraft();
-}
-
-function removeRow(index) {
-  draftRows.splice(index, 1);
-  saveDraftToStorage();
-  renderDraft();
-}
-
-function renderDraft() {
-  const wrap = document.getElementById('draftWrap');
-  const body = document.getElementById('draftBody');
-  const total = document.getElementById('draftTotal');
-
-  wrap.style.display = draftRows.length ? 'block' : 'none';
-  body.innerHTML = '';
-  let sum = 0;
-  draftRows.forEach((row, i) => {
-    sum += row.hours;
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${row.work_date}</td>
-      <td>${escapeHtml(row.project)}</td>
-      <td>${row.hours}</td>
-      <td>${row.category}</td>
-      <td><button class="btn small danger" onclick="removeRow(${i})">Remove</button></td>
+  body.innerHTML = dates.map(dateIso => {
+    const entry = myEntriesByDate[dateIso] || {};
+    const dayLabel = ppParseDate(dateIso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    return `
+      <tr data-date="${dateIso}">
+        <td>${dayLabel}</td>
+        <td><input type="time" class="time-input" value="${entry.clock_in || ''}" data-field="clock_in" onchange="recalcTimesheetTotal()" ${editable ? '' : 'disabled'}></td>
+        <td><input type="time" class="time-input" value="${entry.clock_out || ''}" data-field="clock_out" onchange="recalcTimesheetTotal()" ${editable ? '' : 'disabled'}></td>
+        <td data-regular-display>0.00</td>
+        <td><input type="number" class="hours-input" min="0" step="0.25" value="${entry.overtime_hours || ''}" data-field="overtime_hours" onchange="recalcTimesheetTotal()" ${editable ? '' : 'disabled'}></td>
+        <td><input type="text" class="notes-input" value="${escapeHtml(entry.notes || '')}" data-field="notes" placeholder="Optional" ${editable ? '' : 'disabled'}></td>
+      </tr>
     `;
-    body.appendChild(tr);
+  }).join('');
+
+  if (saveBtn) saveBtn.style.display = editable ? 'inline-flex' : 'none';
+  if (submitBtn) {
+    submitBtn.style.display = editable ? 'inline-flex' : 'none';
+    submitBtn.textContent = myCurrentTimesheet && myCurrentTimesheet.status === 'Needs Corrections' ? 'Resubmit Timesheet' : 'Submit Timesheet';
+  }
+
+  recalcTimesheetTotal();
+}
+
+// Regular hours are derived from clock in/out rather than typed — out minus
+// in, in hours. If clock-out is earlier than clock-in, treats it as an
+// overnight shift (adds 24h) rather than a negative number. Either field
+// missing (still on shift, or not started) means 0 for now.
+function computeRegularHours(clockIn, clockOut) {
+  if (!clockIn || !clockOut) return 0;
+  const [inH, inM] = clockIn.split(':').map(Number);
+  const [outH, outM] = clockOut.split(':').map(Number);
+  let minutes = (outH * 60 + outM) - (inH * 60 + inM);
+  if (minutes < 0) minutes += 24 * 60;
+  return Math.round((minutes / 60) * 100) / 100;
+}
+
+function collectTimesheetGridValues() {
+  const rows = document.querySelectorAll('#timesheetGridBody tr[data-date]');
+  return Array.from(rows).map(tr => {
+    const workDate = tr.getAttribute('data-date');
+    const get = (field) => tr.querySelector(`[data-field="${field}"]`);
+    const clockIn = get('clock_in').value || null;
+    const clockOut = get('clock_out').value || null;
+    return {
+      work_date: workDate,
+      clock_in: clockIn,
+      clock_out: clockOut,
+      regular_hours: computeRegularHours(clockIn, clockOut),
+      overtime_hours: parseFloat(get('overtime_hours').value) || 0,
+      notes: get('notes').value.trim()
+    };
   });
-  total.textContent = sum.toFixed(1);
-  updateSubmitAvailability();
 }
 
-// Submits all staged rows as one batch, only allowed on an actual payroll Thursday
-function submitWeekForApproval() {
-  const msg = document.getElementById('submitMsg');
-  const anchor = getPayrollAnchor();
-  const today = new Date();
+function recalcTimesheetTotal() {
+  const totalEl = document.getElementById('timesheetGridTotal');
+  const rows = collectTimesheetGridValues();
 
-  if (draftRows.length === 0) { msg.textContent = 'Add at least one row first.'; msg.className = 'msg error'; return; }
-  if (!anchor || !isPayrollThursday(today, anchor)) { msg.textContent = 'Submissions only open on the scheduled payroll Thursday.'; msg.className = 'msg error'; return; }
-
-  // TODO: send draftRows to your data source in one batch, each with status: 'pending'
-  // e.g. await window.supabaseClient.from('timesheet_entries').insert(draftRows.map(r => ({ ...r, status: 'pending' })));
-
-  localStorage.setItem(SUBMITTED_PERIOD_KEY, getCurrentPeriodId(anchor, today));
-  localStorage.removeItem(DRAFT_STORAGE_KEY);
-  draftRows = [];
-  msg.textContent = '';
-  showSubmittedState();
-  // TODO: refresh renderTimesheet() from your data source so the new pending rows show up in the table above
-}
-
-// Unlocks the form for a fresh period. Called automatically once the current payroll period
-// no longer matches the one that was last submitted — no admin action required.
-function resetWeeklySubmission() {
-  document.getElementById('entryForm').style.display = 'block';
-  document.getElementById('submittedBanner').style.display = 'none';
-  loadDraftFromStorage();
-  renderDraft();
-}
-
-function setStatus(id, status) {
-  // TODO: update entry `id` to `status` ('approved' | 'rejected') in your data source
-}
-
-// Example row renderer for reference — call with your fetched data:
-// renderTimesheet([{ id, work_date, project, hours, status, staff_name }])
-function renderTimesheet(rows) {
-  const body = document.getElementById('timesheetBody');
-  const empty = document.getElementById('timesheetEmpty');
-  body.innerHTML = '';
-  if (!rows || rows.length === 0) { empty.style.display = 'block'; return; }
-  empty.style.display = 'none';
-  rows.forEach(row => {
-    const tr = document.createElement('tr');
-    const canModerate = view === 'team' && row.status === 'pending';
-    tr.innerHTML = `
-      <td>${row.work_date}</td>
-      <td>${escapeHtml(row.project)}</td>
-      <td>${row.hours}</td>
-      <td><span class="status-pill ${row.status}">${row.status}</span></td>
-      <td style="display:${view === 'team' ? '' : 'none'};">${escapeHtml(row.staff_name || '—')}</td>
-      <td>${canModerate ? `<button class="btn small" onclick="setStatus('${row.id}','approved')">Approve</button> <button class="btn small danger" onclick="setStatus('${row.id}','rejected')">Reject</button>` : ''}</td>
-    `;
-    body.appendChild(tr);
+  // Refresh each row's computed "Regular" display cell to match its
+  // current clock in/out inputs (these aren't typed directly, so nothing
+  // else keeps them in sync).
+  document.querySelectorAll('#timesheetGridBody tr[data-date]').forEach((tr, i) => {
+    const cell = tr.querySelector('[data-regular-display]');
+    if (cell) cell.textContent = rows[i].regular_hours.toFixed(2);
   });
+
+  const total = rows.reduce((sum, r) => sum + r.regular_hours + r.overtime_hours, 0);
+  if (totalEl) totalEl.textContent = `Total hours: ${total.toFixed(2)}`;
+  updateMetrics({ weekHours: total });
+  return total;
+}
+
+// Creates the timesheet row (status 'In Progress') the first time this is
+// called for a period, then upserts every day's entry. Safe to call
+// repeatedly — used by both "Save Draft" and as the first step of Submit.
+async function saveTimesheetDraft(silent) {
+  const msg = document.getElementById('timesheetMsg');
+  if (!myPayrollEmployeeId) return false;
+  const period = getCurrentPayPeriod();
+  if (!period) return false;
+
+  if (!myCurrentTimesheet) {
+    const { data, error } = await window.supabaseClient
+      .from('timesheets')
+      .insert({ payroll_employee_id: myPayrollEmployeeId, pay_period_id: period.id, status: 'In Progress' })
+      .select()
+      .single();
+    if (error) { console.error('Failed to start timesheet:', error); if (msg) { msg.textContent = 'Something went wrong saving that.'; msg.className = 'auth-message error'; } return false; }
+    myCurrentTimesheet = data;
+  }
+
+  const rows = collectTimesheetGridValues().map(r => ({ ...r, timesheet_id: myCurrentTimesheet.id }));
+  const { error: upsertError } = await window.supabaseClient
+    .from('timesheet_entries')
+    .upsert(rows, { onConflict: 'timesheet_id,work_date' });
+  if (upsertError) { console.error('Failed to save timesheet entries:', upsertError); if (msg) { msg.textContent = 'Something went wrong saving your hours.'; msg.className = 'auth-message error'; } return false; }
+
+  if (!silent && msg) { msg.textContent = 'Draft saved.'; msg.className = 'auth-message success'; }
+  renderTimesheetStatusChip();
+  return true;
+}
+
+async function submitTimesheet() {
+  const msg = document.getElementById('timesheetMsg');
+  const total = recalcTimesheetTotal();
+  if (total <= 0) { if (msg) { msg.textContent = 'Enter some hours before submitting.'; msg.className = 'auth-message error'; } return; }
+
+  const saved = await saveTimesheetDraft(true);
+  if (!saved || !myCurrentTimesheet) return;
+
+  const profile = getAvailableProfile();
+  const actorId = profile?.id || profile?.uid || null;
+
+  const { error } = await window.supabaseClient
+    .from('timesheets')
+    .update({ status: 'Submitted', submitted_at: new Date().toISOString() })
+    .eq('id', myCurrentTimesheet.id);
+  if (error) { console.error('Failed to submit timesheet:', error); if (msg) { msg.textContent = 'Something went wrong submitting that.'; msg.className = 'auth-message error'; } return; }
+
+  await window.supabaseClient.from('timesheet_events').insert({
+    timesheet_id: myCurrentTimesheet.id, event_type: 'submitted', actor_id: actorId
+  });
+
+  // No PDF gets generated here — per Coleby: nothing is produced until
+  // employee + manager have both signed AND Accounting has finished
+  // processing (see payroll-pdf-stub.js / markTimesheetComplete() in
+  // payroll-tools.js for where that actually happens). The employee just
+  // gets a confirmation notice for now.
+  await window.supabaseClient.from('notifications').insert({
+    user_id: actorId,
+    title: 'Timesheet submitted',
+    message: 'Your timesheet was submitted and is awaiting your manager\'s approval. No PDF is generated until it\'s fully processed.',
+    type: 'timesheet'
+  });
+
+  // Let the manager know something's waiting on them too, so they don't
+  // have to keep checking the Manage Employees page. profile.manager_id
+  // comes straight off the staff_users row (added alongside `role` — see
+  // supabase-timesheet-workflow-setup.sql).
+  if (profile?.manager_id) {
+    await window.supabaseClient.from('notifications').insert({
+      user_id: profile.manager_id,
+      title: 'Timesheet awaiting your review',
+      message: `${profile.full_name || profile.username || 'An employee'} submitted a timesheet for approval.`,
+      type: 'timesheet'
+    });
+  }
+
+  myCurrentTimesheet.status = 'Submitted';
+  if (msg) { msg.textContent = 'Submitted — awaiting manager approval.'; msg.className = 'auth-message success'; }
+  renderTimesheetStatusChip();
+  document.getElementById('timesheetCorrectionsBanner').style.display = 'none';
+  renderTimesheetGrid(getCurrentPayPeriod());
 }
 
 /* ===========================
@@ -447,12 +516,12 @@ async function renderDocuments(docs) {
    are updated independently by different loaders)
 =========================== */
 
-let metricsState = { weekHours: 0, pending: 0, docCount: 0 };
+let metricsState = { weekHours: 0, hourlyRate: null, docCount: 0 };
 
 function updateMetrics(partial = {}) {
   metricsState = { ...metricsState, ...partial };
   document.getElementById('metricHours').textContent = metricsState.weekHours.toFixed(1);
-  document.getElementById('metricPending').textContent = metricsState.pending;
+  document.getElementById('metricPending').textContent = metricsState.hourlyRate != null ? `$${Number(metricsState.hourlyRate).toFixed(2)}/hr` : '—';
   document.getElementById('metricDocs').textContent = metricsState.docCount;
 }
 
@@ -593,7 +662,8 @@ function applyProfileIfAvailable() {
 // Tries immediately, then retries every 200ms for up to ~5s (25 attempts).
 function pollForProfile(maxAttempts = 25, intervalMs = 200) {
   if (applyProfileIfAvailable()) {
-    loadDocuments(); // profile was already available — safe to load docs now
+    loadDocuments();    // profile was already available — safe to load docs now
+    initMyTimesheet();  // ...and to load this employee's timesheet
     return;
   }
 
@@ -604,7 +674,8 @@ function pollForProfile(maxAttempts = 25, intervalMs = 200) {
     if (profile || attempts >= maxAttempts) {
       clearInterval(timer);
       if (profile) {
-        loadDocuments(); // profile just became available — load docs now
+        loadDocuments();    // profile just became available — load docs now
+        initMyTimesheet();  // ...and this employee's timesheet
       } else if (!profileInitDone) {
         console.warn('No staff profile found after waiting — name/nav may not reflect the signed-in user. Check that localStorage.staffProfile is being set (e.g. by auth-guard.js) on this page.');
       }
@@ -712,8 +783,7 @@ if (typeof notificationBell !== 'undefined' && notificationBell) {
 =========================== */
 
 window.addEventListener('DOMContentLoaded', function () {
-  pollForProfile();        // retries for a few seconds until the profile shows up; loads docs once found
-  checkSubmissionLock();   // shows submitted-state banner, or unlocks a fresh period + restores drafts
+  pollForProfile();        // retries for a few seconds until the profile shows up; loads docs + timesheet once found
   renderAnnouncements();   // shows any messages Accounting has sent
   loadNotifications();     // loads bell notifications
 });

@@ -220,6 +220,16 @@
             </span>
         </a>
 
+        <a href="manage-employees.html"
+           class="nav-item"
+           id="manageEmployeesNavItem"
+           style="display:none;">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">
+                Manage Employees
+            </span>
+        </a>
+
         <div class="nav-item-group"
              id="adminNavGroup"
              style="display:none;">
@@ -290,91 +300,65 @@
     </div>
 
     <div class="metrics-grid">
-      <div class="metric-card-1"><span class="metric-value" id="metricHours">{Hours}</span><span class="metric-label">Hours this week</span></div>
-      <div class="metric-card-2"><span class="metric-value" id="metricPending">{Hours}</span><span class="metric-label">Hourly Rate - Get accounting to addjust</span></div>
+      <div class="metric-card-1"><span class="metric-value" id="metricHours">0.0</span><span class="metric-label">Hours this period</span></div>
+      <div class="metric-card-2"><span class="metric-value" id="metricPending">—</span><span class="metric-label">Hourly rate</span></div>
       <div class="metric-card-3"><span class="metric-value" id="metricDocs">{Documents}</span><span class="metric-label">Documents on file</span></div>
     </div>
 
-    <div class="content-grid">
-      <div class="left-column">
-        <div class="card">
-          <div class="card-header">
-            <div>
-              <h2 class="card-title" id="timesheetTitle">Weekly Timesheet - Not Working</h2>
-              <p class="card-subtitle">Add your hours, then submit the week for approval</p>
-            </div>
-            <span class="chip">Weekly log</span>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr><th>Date</th><th>Project</th><th>Hours</th><th>Status</th><th id="colUser" style="display:none;">Staff</th><th></th></tr>
-              </thead>
-              <tbody id="timesheetBody"></tbody>
-            </table>
-          </div>
-          <div id="timesheetEmpty" class="empty-state" style="display:none;">No entries yet.</div>
-
-          <div id="addEntryBlock">
-            <div class="draft-wrap" id="draftWrap" style="display:none;">
-              <table class="draft-table">
-                <thead>
-                  <tr><th>Date</th><th>Project</th><th>Hours</th><th>Category</th><th></th></tr>
-                </thead>
-                <tbody id="draftBody"></tbody>
-              </table>
-              <div class="draft-total">Week total: <span id="draftTotal">0.0</span> hrs</div>
-            </div>
-
-            <div class="entry-form" id="entryForm">
-              <input type="date" id="fDate">
-              <input type="text" id="fProject" placeholder="Project / job name">
-              <input type="number" step="0.25" min="0" id="fHours" placeholder="Hours">
-              <select id="fCategory">
-                <option value="regular">Regular</option>
-                <option value="overtime">Overtime</option>
-                <option value="pto">PTO</option>
-              </select>
-              <textarea id="fNotes" placeholder="Notes (optional)"></textarea>
-              <button class="btn secondary full" onclick="addRow()">Add row</button>
-            </div>
-            <p id="entryMsg" class="msg"></p>
-
-            <button class="btn full" id="submitWeekBtn" onclick="submitWeekForApproval()" style="display:none;" disabled>Submit week for approval</button>
-            <p id="submissionWindowMsg" class="window-msg" style="display:none;"></p>
-            <p id="submitMsg" class="msg"></p>
-          </div>
-
-          <div id="submittedBanner" class="empty-state" style="display:none;">
-            Submitted — awaiting accounting approval.
-            <div class="locked-note">This locks until the next payroll Thursday, when a new submission window opens automatically.</div>
-          </div>
+    <div class="card wide-card">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title" id="timesheetTitle">Timesheet</h2>
+          <p class="card-subtitle" id="timesheetSubtitle">Clock in and out each day, then submit for manager approval</p>
         </div>
+        <span class="status ts-not-started" id="timesheetStatusChip">Not Started</span>
       </div>
 
-      <div class="right-column">
-        <div class="card">
-          <div class="card-header">
-            <div>
-              <h2 class="card-title">My Documents - Not Working</h2>
-              <p class="card-subtitle">Pay stubs, forms, and files</p>
-            </div>
-          </div>
-          <div class="doc-list" id="docList"></div>
-          <div id="docEmpty" class="empty-state" style="display:none;">No documents uploaded yet.</div>
-          <div class="upload-row">
-            <select id="docCategory">
-                <option value="w2">W-2 Tax Form</option>
-                <option value="w4">W-4 Tax Form</option>
-                <option value="1099">1099 Tax Form</option>
-                <option value="other">Other Forms</option>
-            </select>
-            <input type="file" id="docFile">
-          </div>
-          <button class="btn secondary" style="margin-top:10px;width:100%;" onclick="uploadDoc()">Upload</button>
-          <p id="docMsg" class="msg"></p>
+      <div id="timesheetNoPayrollMsg" class="empty-state" style="display:none;">You haven't been added to payroll yet — contact Accounting.</div>
+      <div id="timesheetNoPeriodMsg" class="empty-state" style="display:none;">No pay period has been set up yet — contact Accounting.</div>
+
+      <div id="timesheetCorrectionsBanner" class="correction-banner" style="display:none;"></div>
+
+      <div id="timesheetGridWrap" style="display:none;">
+        <p class="card-subtitle" id="timesheetPeriodLabel"></p>
+        <div class="table-wrap">
+          <table class="dash-queue-table">
+            <thead>
+              <tr><th>Date</th><th>Clock In</th><th>Clock Out</th><th>Regular</th><th>Overtime</th><th>Notes</th></tr>
+            </thead>
+            <tbody id="timesheetGridBody"></tbody>
+          </table>
+        </div>
+        <p class="employee-detail-total" id="timesheetGridTotal"></p>
+
+        <div class="popup-buttons" style="justify-content:flex-start;">
+          <button type="button" class="auth-button auth-button--secondary auth-button--sm" id="saveDraftBtn" onclick="saveTimesheetDraft()">Save Draft</button>
+          <button type="button" class="auth-button auth-button--sm" id="submitTimesheetBtn" onclick="submitTimesheet()">Submit Timesheet</button>
+        </div>
+        <p id="timesheetMsg" class="auth-message"></p>
+      </div>
+    </div>
+
+    <div class="card wide-card">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">My Documents - Not Working</h2>
+          <p class="card-subtitle">Pay stubs, forms, and files</p>
         </div>
       </div>
+      <div class="doc-list" id="docList"></div>
+      <div id="docEmpty" class="empty-state" style="display:none;">No documents uploaded yet.</div>
+      <div class="upload-row">
+        <select id="docCategory">
+            <option value="w2">W-2 Tax Form</option>
+            <option value="w4">W-4 Tax Form</option>
+            <option value="1099">1099 Tax Form</option>
+            <option value="other">Other Forms</option>
+        </select>
+        <input type="file" id="docFile">
+      </div>
+      <button class="btn secondary" style="margin-top:10px;width:100%;" onclick="uploadDoc()">Upload</button>
+      <p id="docMsg" class="msg"></p>
     </div>
   </main>
 </div>
@@ -383,7 +367,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-auth.js"></script>
 <script src="auth-guard.js"></script>
+<script src="manager-nav.js"></script>
 <script src="timeout.js"></script>
+<script src="pay-periods-shared.js"></script>
+<script src="payroll-pdf-stub.js"></script>
 
 
 </body>

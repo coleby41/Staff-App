@@ -2268,11 +2268,191 @@ button { font: inherit; }
     font-size: 0.95rem;
 }
 
+/* ---- Accounting Employee Dashboard (roster, Add Employee, queue) ---- */
+
+.dash-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.dash-tab {
+    border: none;
+    background: none;
+    padding: 10px 4px;
+    margin-bottom: -1px;
+    font-weight: 600;
+    color: var(--text-soft);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+}
+
+.dash-tab.active {
+    color: var(--accent-strong);
+    border-bottom-color: var(--accent);
+}
+
+.employee-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+}
+
+.employee-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface-alt);
+    padding: 16px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.employee-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-1px);
+}
+
+.employee-card.is-inactive {
+    opacity: 0.55;
+}
+
+.employee-card h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.employee-card p {
+    margin: 0;
+    color: var(--text-soft);
+    font-size: 0.85rem;
+}
+
+.employee-card .status {
+    margin-top: 6px;
+    align-self: flex-start;
+    min-width: 0;
+}
+
+.dash-queue-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.dash-queue-table th {
+    text-align: left;
+    padding: 8px 10px;
+    color: var(--text-soft);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--border);
+}
+
+.dash-queue-table td {
+    padding: 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+}
+
+.employee-detail-popup {
+    width: min(94vw, 640px);
+    max-height: 88vh;
+    overflow-y: auto;
+    text-align: left;
+}
+
+.employee-detail-body {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.employee-detail-total {
+    font-weight: 700;
+    color: var(--accent-strong);
+    margin: 10px 0;
+}
+
+.directory-form__row-inline {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+@media (max-width: 600px) {
+    .directory-form__row-inline {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Announcement cards — was previously only defined inline on payroll-tools.html,
+   so it never rendered on time sheet.html's Announcements card. Defining it
+   globally here fixes that without duplicating it per-page. */
+.announcement-item { padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.announcement-item h3 { margin: 0 0 4px; font-size: 1em; }
+.announcement-item p { margin: 0 0 6px; white-space: pre-wrap; }
+.announcement-item .announcement-date { font-size: 0.8em; opacity: 0.65; }
+
+.correction-banner {
+    background: var(--danger-soft);
+    border: 1px solid #f2b5b5;
+    color: var(--danger);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    font-size: 0.92rem;
+}
+
+.correction-banner strong {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.hours-input {
+    width: 68px;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.85rem;
+}
+
+.time-input {
+    width: 118px;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.85rem;
+}
+
+.notes-input {
+    width: 100%;
+    min-width: 140px;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.85rem;
+}
+
+/* Timesheet status pills — reuses .status from the calendar-connection UI
+   for sizing, with its own color per workflow stage. */
+.status.ts-not-started { background: var(--surface-alt); border-color: var(--border); color: var(--text-soft); }
+.status.ts-in-progress { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.status.ts-submitted { background: var(--warning-soft); border-color: #e8c48f; color: var(--warning); }
+.status.ts-needs-corrections { background: var(--danger-soft); border-color: #f2b5b5; color: var(--danger); }
+.status.ts-sent-to-accounting { background: #ece9fb; border-color: #b9adf0; color: #4b3fa8; }
+.status.ts-processed { background: var(--success-soft); border-color: #a5d8b8; color: var(--success); }
+.status.ts-complete { background: var(--success); border-color: var(--success); color: white; }
+
 @media (max-width: 600px) {
     .payday-actions .auth-button {
         min-width: 0;
     }
-}
 }
 
 .view-toggle-icon--list {

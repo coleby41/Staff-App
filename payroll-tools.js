@@ -1,63 +1,23 @@
 /* ============================================================================
-   payroll-tools.js — "Set Timesheet Period" card on payroll-tools.html
+   payroll-tools.js — "Set Timesheet Period" card + Accounting Employee
+   Dashboard (roster, Add Employee, timesheet detail, approved queue) on
+   payroll-tools.html.
 
-   Reads/writes public.pay_periods (see supabase-pay-periods-setup.sql).
-   Each row is one accounting-created pay period: an explicit start_date and
-   end_date. "Next payday" is the end_date of the soonest period that hasn't
-   ended yet. Replaces the old localStorage anchor-Thursday/biweekly-math
-   approach, which is now removed from payroll-tools.html.
+   Pay period date helpers (ppParseDate, ppFormatLong, loadPayPeriods,
+   getNextPayPeriod, getCurrentPayPeriod, allPayPeriods) now live in
+   pay-periods-shared.js, loaded before this file — see that file for docs.
 
    Uses window.supabaseClient, exposed globally by supabase-auth.js.
    initPayrollToolsCard() is called from payroll-tools.html's updateNavAccess()
    once we know the signed-in staff member actually has Payroll Tools access.
 ============================================================================ */
 
-let allPayPeriods = [];       // every row from pay_periods, loaded by loadPayPeriods()
 let calendarViewDate = new Date(); // month currently shown in the View Calendar popup
 
 const PP_MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const PP_DAY_NAMES_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
-function ppStripTime(d) {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-}
-
-// pay_periods.start_date / end_date come back as "YYYY-MM-DD" — parse as
-// local calendar dates, not UTC, so the displayed weekday never shifts.
-function ppParseDate(dateStr) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
-
-function ppFormatMmDdDay(d) {
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getDay()];
-  return `${mm}/${dd}, ${dayName}`;
-}
-
-function ppFormatLong(d) {
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-/* ------------------------- Load + next-payday summary ------------------------- */
-
-async function loadPayPeriods() {
-  const { data, error } = await supabaseClient
-    .from('pay_periods')
-    .select('*')
-    .order('start_date', { ascending: true });
-  if (error) { console.error('Failed to load pay periods:', error); allPayPeriods = []; return; }
-  allPayPeriods = data || [];
-}
-
-function getNextPayPeriod() {
-  const today = ppStripTime(new Date());
-  const upcoming = allPayPeriods
-    .filter(p => ppStripTime(ppParseDate(p.end_date)) >= today)
-    .sort((a, b) => ppParseDate(a.end_date) - ppParseDate(b.end_date));
-  return upcoming[0] || null;
-}
+/* ------------------------- Next-payday summary ------------------------- */
 
 function renderNextPayday() {
   const el = document.getElementById('nextPaydayValue');
@@ -69,26 +29,14 @@ function renderNextPayday() {
 async function initPayrollToolsCard() {
   await loadPayPeriods();
   renderNextPayday();
+  await initAccountingDashboard();
 }
 
-/* --------------------------------- Popup plumbing --------------------------------- */
-
-function ppOpenOverlay(id) {
-  const overlay = document.getElementById(id);
-  if (!overlay) return;
-  overlay.classList.remove('hidden');
-  document.body.classList.add('popup-active');
-}
-
-function ppCloseOverlay(id) {
-  const overlay = document.getElementById(id);
-  if (!overlay) return;
-  overlay.classList.add('hidden');
-  document.body.classList.remove('popup-active');
-}
+/* -------------------------- Popup outside-click-to-close -------------------------- */
+/* ppOpenOverlay/ppCloseOverlay themselves now live in pay-periods-shared.js. */
 
 document.addEventListener('DOMContentLoaded', function () {
-  ['payPeriodCalendarOverlay', 'newPayPeriodOverlay'].forEach(id => {
+  ['payPeriodCalendarOverlay', 'newPayPeriodOverlay', 'addEmployeeOverlay', 'employeeDetailOverlay'].forEach(id => {
     const overlay = document.getElementById(id);
     if (!overlay) return;
     overlay.addEventListener('click', function (event) {
@@ -224,4 +172,478 @@ async function submitNewPayPeriod(event) {
   await loadPayPeriods();
   renderNextPayday();
   ppCloseOverlay('newPayPeriodOverlay');
+}
+
+/* ============================================================================
+   ACCOUNTING EMPLOYEE DASHBOARD
+   Roster (payroll_employees), Add Employee, per-employee timesheet detail
+   review, and the Approved Queue. All joins are done client-side against a
+   flat staff_users fetch (staffDirectoryById) rather than PostgREST embeds,
+   matching how the rest of this app avoids relying on FK-name-dependent
+   embed syntax.
+============================================================================ */
+
+let staffDirectory = [];              // every staff_users row
+let staffDirectoryById = new Map();   // id -> staff_users row
+let payrollEmployees = [];            // every payroll_employees row
+let currentPeriodTimesheets = [];     // timesheets for the open pay period (sparse — not every employee has one yet)
+let approvedQueueTimesheets = [];     // timesheets with status Sent to Accounting / Processed, any period
+let approvedQueueHoursByTimesheet = new Map(); // timesheet_id -> total hours
+let activeEmployeeDetailId = null;    // payroll_employees.id currently open in the detail modal
+
+const STATUS_PILL_CLASS = {
+  'Not Started': 'ts-not-started',
+  'In Progress': 'ts-in-progress',
+  'Submitted': 'ts-submitted',
+  'Needs Corrections': 'ts-needs-corrections',
+  'Sent to Accounting': 'ts-sent-to-accounting',
+  'Processed': 'ts-processed',
+  'Complete': 'ts-complete'
+};
+
+function statusPillHtml(status) {
+  const cls = STATUS_PILL_CLASS[status] || 'ts-not-started';
+  return `<span class="status ${cls}">${escapeHtml(status || 'Not Started')}</span>`;
+}
+
+async function loadStaffDirectory() {
+  const { data, error } = await supabaseClient
+    .from('staff_users')
+    .select('id, full_name, username, manager_id, role, workgroup');
+  if (error) { console.error('Failed to load staff directory:', error); staffDirectory = []; staffDirectoryById = new Map(); return; }
+  staffDirectory = data || [];
+  staffDirectoryById = new Map(staffDirectory.map(s => [s.id, s]));
+}
+
+function staffName(staffId) {
+  const s = staffDirectoryById.get(staffId);
+  return s ? (s.full_name || s.username || 'Unnamed') : '—';
+}
+
+async function initAccountingDashboard() {
+  await loadStaffDirectory();
+  await loadPayrollEmployees();
+  await loadCurrentPeriodTimesheets();
+  renderEmployeeCards();
+  await loadApprovedQueue();
+  renderApprovedQueue();
+}
+
+/* ------------------------------- Roster loading ------------------------------- */
+
+async function loadPayrollEmployees() {
+  const { data, error } = await supabaseClient.from('payroll_employees').select('*');
+  if (error) { console.error('Failed to load payroll employees:', error); payrollEmployees = []; return; }
+  payrollEmployees = (data || []).sort((a, b) => staffName(a.staff_id).localeCompare(staffName(b.staff_id)));
+}
+
+async function loadCurrentPeriodTimesheets() {
+  const period = getCurrentPayPeriod();
+  if (!period) { currentPeriodTimesheets = []; return; }
+  const { data, error } = await supabaseClient
+    .from('timesheets')
+    .select('*')
+    .eq('pay_period_id', period.id);
+  if (error) { console.error('Failed to load current period timesheets:', error); currentPeriodTimesheets = []; return; }
+  currentPeriodTimesheets = data || [];
+}
+
+function timesheetForEmployee(payrollEmployeeId) {
+  return currentPeriodTimesheets.find(t => t.payroll_employee_id === payrollEmployeeId) || null;
+}
+
+/* ------------------------------- Employee cards ------------------------------- */
+
+function renderEmployeeCards() {
+  const grid = document.getElementById('employeeCardGrid');
+  const empty = document.getElementById('employeeCardEmpty');
+  if (!grid) return;
+
+  if (!payrollEmployees.length) {
+    grid.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  grid.innerHTML = payrollEmployees.map(emp => {
+    const staff = staffDirectoryById.get(emp.staff_id);
+    const managerName = staff && staff.manager_id ? staffName(staff.manager_id) : '—';
+    const ts = timesheetForEmployee(emp.id);
+    const status = ts ? ts.status : 'Not Started';
+    const rate = emp.hourly_rate != null ? `$${Number(emp.hourly_rate).toFixed(2)}/hr` : 'Rate not set';
+    return `
+      <div class="employee-card ${emp.active ? '' : 'is-inactive'}" onclick="openEmployeeDetailModal('${emp.id}')">
+        <h3>${escapeHtml(staffName(emp.staff_id))}${emp.active ? '' : ' (Inactive)'}</h3>
+        <p>${escapeHtml(emp.department || 'No department set')}</p>
+        <p>Manager: ${escapeHtml(managerName)}</p>
+        <p>${rate}</p>
+        ${statusPillHtml(status)}
+      </div>
+    `;
+  }).join('');
+}
+
+/* ------------------------------- Add Employee popup ------------------------------- */
+
+async function openAddEmployeeModal() {
+  await loadStaffDirectory();
+  const existingStaffIds = new Set(payrollEmployees.map(e => e.staff_id));
+  const available = staffDirectory.filter(s => !existingStaffIds.has(s.id));
+
+  const select = document.getElementById('addEmployeeStaffSelect');
+  if (select) {
+    select.innerHTML = available.length
+      ? available.map(s => `<option value="${s.id}">${escapeHtml(s.full_name || s.username || 'Unnamed')}</option>`).join('')
+      : '<option value="">No staff accounts left to add</option>';
+  }
+
+  document.getElementById('addEmployeeDepartment').value = '';
+  document.getElementById('addEmployeeRate').value = '';
+  document.getElementById('addEmployeeType').value = 'Full-time';
+  document.getElementById('addEmployeeOvertimeExempt').checked = false;
+  const msg = document.getElementById('addEmployeeMsg');
+  if (msg) { msg.textContent = ''; msg.className = 'auth-message'; }
+
+  ppOpenOverlay('addEmployeeOverlay');
+}
+
+async function submitAddEmployee(event) {
+  event.preventDefault();
+  const staffId = document.getElementById('addEmployeeStaffSelect').value;
+  const msg = document.getElementById('addEmployeeMsg');
+
+  if (!staffId) { msg.textContent = 'Pick a staff member first.'; msg.className = 'auth-message error'; return; }
+
+  const department = document.getElementById('addEmployeeDepartment').value.trim();
+  const rateVal = document.getElementById('addEmployeeRate').value;
+  const employmentType = document.getElementById('addEmployeeType').value;
+  const overtimeExempt = document.getElementById('addEmployeeOvertimeExempt').checked;
+
+  const { error } = await supabaseClient.from('payroll_employees').insert({
+    staff_id: staffId,
+    department: department || null,
+    hourly_rate: rateVal ? Number(rateVal) : null,
+    employment_type: employmentType,
+    overtime_exempt: overtimeExempt,
+    active: true,
+    created_by: window.currentSupabaseProfile?.id || null
+  });
+
+  if (error) {
+    console.error('Failed to add employee to payroll:', error);
+    msg.textContent = 'Something went wrong adding that employee.';
+    msg.className = 'auth-message error';
+    return;
+  }
+
+  ppCloseOverlay('addEmployeeOverlay');
+  await loadPayrollEmployees();
+  renderEmployeeCards();
+}
+
+/* ------------------------------- Employee detail popup ------------------------------- */
+
+async function openEmployeeDetailModal(payrollEmployeeId) {
+  activeEmployeeDetailId = payrollEmployeeId;
+  const emp = payrollEmployees.find(e => e.id === payrollEmployeeId);
+  if (!emp) return;
+
+  document.getElementById('employeeDetailName').textContent = staffName(emp.staff_id);
+  const staff = staffDirectoryById.get(emp.staff_id);
+  const managerName = staff && staff.manager_id ? staffName(staff.manager_id) : 'No manager assigned';
+  document.getElementById('employeeDetailSubtitle').textContent = `Manager: ${managerName} · Added ${emp.date_added}`;
+
+  document.getElementById('editEmployeeDepartment').value = emp.department || '';
+  document.getElementById('editEmployeeRate').value = emp.hourly_rate != null ? emp.hourly_rate : '';
+  document.getElementById('editEmployeeType').value = emp.employment_type || 'Full-time';
+  document.getElementById('editEmployeeOvertimeExempt').checked = !!emp.overtime_exempt;
+  document.getElementById('employeeDetailToggleActiveBtn').textContent = emp.active ? 'Deactivate' : 'Reactivate';
+  const detailMsg = document.getElementById('employeeDetailMsg');
+  if (detailMsg) { detailMsg.textContent = ''; detailMsg.className = 'auth-message'; }
+
+  await renderEmployeeDetailTimesheet(emp);
+  ppOpenOverlay('employeeDetailOverlay');
+}
+
+async function saveEmployeeDetails(event) {
+  event.preventDefault();
+  if (!activeEmployeeDetailId) return;
+  const msg = document.getElementById('employeeDetailMsg');
+
+  const rateVal = document.getElementById('editEmployeeRate').value;
+  const { error } = await supabaseClient.from('payroll_employees').update({
+    department: document.getElementById('editEmployeeDepartment').value.trim() || null,
+    hourly_rate: rateVal ? Number(rateVal) : null,
+    employment_type: document.getElementById('editEmployeeType').value,
+    overtime_exempt: document.getElementById('editEmployeeOvertimeExempt').checked
+  }).eq('id', activeEmployeeDetailId);
+
+  if (error) {
+    console.error('Failed to save employee details:', error);
+    if (msg) { msg.textContent = 'Something went wrong saving that.'; msg.className = 'auth-message error'; }
+    return;
+  }
+
+  if (msg) { msg.textContent = 'Saved.'; msg.className = 'auth-message success'; }
+  await loadPayrollEmployees();
+  renderEmployeeCards();
+}
+
+async function toggleEmployeeActive() {
+  if (!activeEmployeeDetailId) return;
+  const emp = payrollEmployees.find(e => e.id === activeEmployeeDetailId);
+  if (!emp) return;
+  const { error } = await supabaseClient.from('payroll_employees')
+    .update({ active: !emp.active }).eq('id', activeEmployeeDetailId);
+  if (error) { console.error('Failed to toggle active status:', error); return; }
+  await loadPayrollEmployees();
+  renderEmployeeCards();
+  const refreshed = payrollEmployees.find(e => e.id === activeEmployeeDetailId);
+  if (refreshed) {
+    document.getElementById('employeeDetailToggleActiveBtn').textContent = refreshed.active ? 'Deactivate' : 'Reactivate';
+  }
+}
+
+async function removeEmployeeFromPayroll() {
+  if (!activeEmployeeDetailId) return;
+  if (!confirm('Remove this employee from payroll? This also deletes their timesheets, entries, and history. This cannot be undone.')) return;
+  const { error } = await supabaseClient.from('payroll_employees').delete().eq('id', activeEmployeeDetailId);
+  if (error) { console.error('Failed to remove employee from payroll:', error); alert('Could not remove that employee.'); return; }
+  ppCloseOverlay('employeeDetailOverlay');
+  await loadPayrollEmployees();
+  await loadCurrentPeriodTimesheets();
+  renderEmployeeCards();
+  await loadApprovedQueue();
+  renderApprovedQueue();
+}
+
+async function renderEmployeeDetailTimesheet(emp) {
+  const period = getCurrentPayPeriod();
+  const periodLabelEl = document.getElementById('employeeDetailPeriodLabel');
+  const entriesBody = document.getElementById('employeeDetailEntriesBody');
+  const entriesEmpty = document.getElementById('employeeDetailEntriesEmpty');
+  const totalEl = document.getElementById('employeeDetailTotal');
+  const actionsEl = document.getElementById('employeeDetailActions');
+  const eventsList = document.getElementById('employeeDetailEvents');
+  const eventsEmpty = document.getElementById('employeeDetailEventsEmpty');
+
+  if (!period) {
+    if (periodLabelEl) periodLabelEl.textContent = 'No pay period has been created yet.';
+    if (entriesBody) entriesBody.innerHTML = '';
+    if (entriesEmpty) entriesEmpty.style.display = 'block';
+    if (totalEl) totalEl.textContent = '';
+    if (actionsEl) actionsEl.innerHTML = '';
+    if (eventsList) eventsList.innerHTML = '';
+    if (eventsEmpty) eventsEmpty.style.display = 'block';
+    return;
+  }
+
+  if (periodLabelEl) {
+    periodLabelEl.textContent = `${ppFormatLong(ppParseDate(period.start_date))} – ${ppFormatLong(ppParseDate(period.end_date))}`;
+  }
+
+  const ts = timesheetForEmployee(emp.id);
+
+  if (!ts) {
+    if (entriesBody) entriesBody.innerHTML = '';
+    if (entriesEmpty) entriesEmpty.style.display = 'block';
+    if (totalEl) totalEl.textContent = 'Status: Not Started';
+    if (actionsEl) actionsEl.innerHTML = '';
+    if (eventsList) eventsList.innerHTML = '';
+    if (eventsEmpty) eventsEmpty.style.display = 'block';
+    return;
+  }
+
+  const [{ data: entries, error: entriesError }, { data: events, error: eventsError }] = await Promise.all([
+    supabaseClient.from('timesheet_entries').select('*').eq('timesheet_id', ts.id).order('work_date', { ascending: true }),
+    supabaseClient.from('timesheet_events').select('*').eq('timesheet_id', ts.id).order('created_at', { ascending: false })
+  ]);
+  if (entriesError) console.error('Failed to load timesheet entries:', entriesError);
+  if (eventsError) console.error('Failed to load timesheet events:', eventsError);
+
+  const rows = entries || [];
+  if (!rows.length) {
+    if (entriesBody) entriesBody.innerHTML = '';
+    if (entriesEmpty) entriesEmpty.style.display = 'block';
+  } else {
+    if (entriesEmpty) entriesEmpty.style.display = 'none';
+    if (entriesBody) {
+      entriesBody.innerHTML = rows.map(r => `
+        <tr>
+          <td>${r.work_date}</td>
+          <td>${r.clock_in || '—'}</td>
+          <td>${r.clock_out || '—'}</td>
+          <td>${Number(r.regular_hours || 0).toFixed(2)}</td>
+          <td>${Number(r.overtime_hours || 0).toFixed(2)}</td>
+          <td>${escapeHtml(r.notes || '')}</td>
+        </tr>
+      `).join('');
+    }
+  }
+
+  const totalHours = rows.reduce((sum, r) => sum + Number(r.regular_hours || 0) + Number(r.overtime_hours || 0), 0);
+  if (totalEl) totalEl.textContent = `Status: ${ts.status} · Total hours: ${totalHours.toFixed(2)}`;
+
+  if (actionsEl) {
+    if (ts.status === 'Sent to Accounting') {
+      actionsEl.innerHTML = `<button type="button" class="auth-button auth-button--secondary auth-button--sm" onclick="markTimesheetProcessed('${ts.id}')">Mark Processed</button>`;
+    } else if (ts.status === 'Processed') {
+      actionsEl.innerHTML = `<button type="button" class="auth-button auth-button--secondary auth-button--sm" onclick="markTimesheetComplete('${ts.id}')">Mark Complete</button>`;
+    } else {
+      actionsEl.innerHTML = `<p class="card-subtitle">This timesheet is still with the employee or their manager — no Accounting action yet.</p>`;
+    }
+  }
+
+  const eventRows = events || [];
+  if (!eventRows.length) {
+    if (eventsList) eventsList.innerHTML = '';
+    if (eventsEmpty) eventsEmpty.style.display = 'block';
+  } else {
+    if (eventsEmpty) eventsEmpty.style.display = 'none';
+    if (eventsList) {
+      eventsList.innerHTML = eventRows.map(ev => `
+        <div class="info-item">
+          <div>
+            <h3>${escapeHtml(eventTypeLabel(ev.event_type))} — ${escapeHtml(staffName(ev.actor_id))}</h3>
+            ${ev.comment ? `<p>${escapeHtml(ev.comment)}</p>` : ''}
+            <p>${new Date(ev.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</p>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+}
+
+function eventTypeLabel(type) {
+  const labels = {
+    submitted: 'Submitted',
+    approved: 'Approved by manager',
+    rejected: 'Sent back for corrections',
+    comment: 'Comment',
+    sent_to_accounting: 'Sent to Accounting',
+    processed: 'Marked processed',
+    completed: 'Marked complete'
+  };
+  return labels[type] || type;
+}
+
+async function markTimesheetProcessed(timesheetId) {
+  const actorId = window.currentSupabaseProfile?.id || null;
+  const { error } = await supabaseClient.from('timesheets').update({
+    status: 'Processed', processed_by: actorId, processed_at: new Date().toISOString()
+  }).eq('id', timesheetId);
+  if (error) { console.error('Failed to mark timesheet processed:', error); alert('Could not update that timesheet.'); return; }
+
+  await supabaseClient.from('timesheet_events').insert({ timesheet_id: timesheetId, event_type: 'processed', actor_id: actorId });
+
+  await refreshAccountingDashboardAfterAction();
+}
+
+async function markTimesheetComplete(timesheetId) {
+  const actorId = window.currentSupabaseProfile?.id || null;
+  const { error } = await supabaseClient.from('timesheets').update({
+    status: 'Complete', completed_at: new Date().toISOString()
+  }).eq('id', timesheetId);
+  if (error) { console.error('Failed to mark timesheet complete:', error); alert('Could not update that timesheet.'); return; }
+
+  await supabaseClient.from('timesheet_events').insert({ timesheet_id: timesheetId, event_type: 'completed', actor_id: actorId });
+
+  generateFinalPdf(timesheetId); // stub today — see payroll-pdf-stub.js
+
+  await refreshAccountingDashboardAfterAction();
+}
+
+async function refreshAccountingDashboardAfterAction() {
+  await loadCurrentPeriodTimesheets();
+  renderEmployeeCards();
+  await loadApprovedQueue();
+  renderApprovedQueue();
+  if (activeEmployeeDetailId) {
+    const emp = payrollEmployees.find(e => e.id === activeEmployeeDetailId);
+    if (emp) await renderEmployeeDetailTimesheet(emp);
+  }
+}
+
+/* ------------------------------- Approved queue ------------------------------- */
+
+function switchDashboardTab(tab) {
+  const employeesTab = document.getElementById('dashTabEmployees');
+  const queueTab = document.getElementById('dashTabQueue');
+  const employeesPanel = document.getElementById('dashPanelEmployees');
+  const queuePanel = document.getElementById('dashPanelQueue');
+  const showEmployees = tab === 'employees';
+
+  if (employeesTab) employeesTab.classList.toggle('active', showEmployees);
+  if (queueTab) queueTab.classList.toggle('active', !showEmployees);
+  if (employeesPanel) employeesPanel.style.display = showEmployees ? 'block' : 'none';
+  if (queuePanel) queuePanel.style.display = showEmployees ? 'none' : 'block';
+}
+
+async function loadApprovedQueue() {
+  const { data, error } = await supabaseClient
+    .from('timesheets')
+    .select('*')
+    .in('status', ['Sent to Accounting', 'Processed'])
+    .order('approved_at', { ascending: false });
+  if (error) { console.error('Failed to load approved queue:', error); approvedQueueTimesheets = []; approvedQueueHoursByTimesheet = new Map(); return; }
+  approvedQueueTimesheets = data || [];
+
+  approvedQueueHoursByTimesheet = new Map();
+  if (approvedQueueTimesheets.length) {
+    const ids = approvedQueueTimesheets.map(t => t.id);
+    const { data: entries, error: entriesError } = await supabaseClient
+      .from('timesheet_entries')
+      .select('timesheet_id, regular_hours, overtime_hours')
+      .in('timesheet_id', ids);
+    if (entriesError) {
+      console.error('Failed to load queue entry totals:', entriesError);
+    } else {
+      (entries || []).forEach(e => {
+        const prior = approvedQueueHoursByTimesheet.get(e.timesheet_id) || 0;
+        approvedQueueHoursByTimesheet.set(
+          e.timesheet_id,
+          prior + Number(e.regular_hours || 0) + Number(e.overtime_hours || 0)
+        );
+      });
+    }
+  }
+}
+
+function renderApprovedQueue() {
+  const body = document.getElementById('approvedQueueBody');
+  const empty = document.getElementById('approvedQueueEmpty');
+  if (!body) return;
+
+  if (!approvedQueueTimesheets.length) {
+    body.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  const periodById = new Map(allPayPeriods.map(p => [p.id, p]));
+
+  body.innerHTML = approvedQueueTimesheets.map(ts => {
+    const emp = payrollEmployees.find(e => e.id === ts.payroll_employee_id);
+    const employeeName = emp ? staffName(emp.staff_id) : 'Removed employee';
+    const period = periodById.get(ts.pay_period_id);
+    const periodLabel = period ? `${ppFormatLong(ppParseDate(period.start_date))} – ${ppFormatLong(ppParseDate(period.end_date))}` : '—';
+    const totalHours = (approvedQueueHoursByTimesheet.get(ts.id) || 0).toFixed(2);
+    const approvalDate = ts.approved_at ? new Date(ts.approved_at).toLocaleDateString() : '—';
+    const actionBtn = ts.status === 'Sent to Accounting'
+      ? `<button type="button" class="auth-button auth-button--secondary auth-button--sm" onclick="markTimesheetProcessed('${ts.id}')">Mark Processed</button>`
+      : `<button type="button" class="auth-button auth-button--secondary auth-button--sm" onclick="markTimesheetComplete('${ts.id}')">Mark Complete</button>`;
+
+    return `
+      <tr>
+        <td>${escapeHtml(employeeName)}</td>
+        <td>${periodLabel}</td>
+        <td>${totalHours}</td>
+        <td>${approvalDate}</td>
+        <td>${statusPillHtml(ts.status)}</td>
+        <td>${actionBtn}</td>
+      </tr>
+    `;
+  }).join('');
 }

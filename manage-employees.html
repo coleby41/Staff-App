@@ -1,19 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>The Leeward Group | New Project</title>
-
+    <title>The Leeward Group | Manage Employees</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" type="image/png" href="logos/leewaed-logo.png">
+    <style>
+        .restricted-wrap { max-width: 520px; margin: 60px auto; text-align: center; }
+    </style>
 </head>
-
 <body>
-
-<header class="header">
+    <header class="header">
 
     <div class="header-left">
 
@@ -60,7 +58,7 @@
                 <div class="notification-wrapper">
 
 
-                    <button 
+                    <button
                         class="notification-bell"
                         id="notificationBell"
                         aria-label="Notifications">
@@ -94,7 +92,7 @@
 
                         <div class="notification-footer">
 
-                            <a 
+                            <a
                                 class="report-bug-btn"
                                 href="https://tally.so/r/QKyGj8"
                                 target="_blank"
@@ -104,7 +102,7 @@
 
                             </a>
 
-                            <button 
+                            <button
                                 class="auth-button auth-button--secondary header-signout"
                                 id="signOutButton"
                                 type="button">
@@ -114,8 +112,9 @@
                             </button>
 
                         </div>
-
-
+<p style="margin: 10px 0; padding: 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; text-align: center; font-size: 14px; color: #495057;">
+                            Change Password
+                        </p>
                     </div>
 
 
@@ -160,9 +159,9 @@
                 <span class="nav-arrow"></span>
             </a>
 
-            <div class="subnav expanded">
+            <div class="subnav">
 
-                <a href="new-project.html" class="subnav-item active">
+                <a href="new-project.html" class="subnav-item">
                     <span class="nav-text">
                         New Project Onboarding
                     </span>
@@ -222,7 +221,7 @@
         </a>
 
         <a href="manage-employees.html"
-           class="nav-item"
+           class="nav-item active"
            id="manageEmployeesNavItem"
            style="display:none;">
             <span class="docs-nav-icon"></span>
@@ -235,7 +234,7 @@
              id="adminNavGroup"
              style="display:none;">
 
-            <a href="admin-users.html"
+            <a href="#"
                class="nav-item nav-parent"
                onclick="toggleSubnav(event, this)">
                 <span class="it-tools-nav-icon"></span>
@@ -278,373 +277,174 @@
     </div>
 </aside>
 
-<main class="main-content">
+  <main class="main-content">
+    <div id="restrictedView" class="restricted-wrap" style="display:none;">
+      <h1>Manage Employees</h1>
+      <p>This page is only available to Managers and Super Admin. If you believe this is a mistake, contact IT.</p>
+    </div>
 
-
-
-     <section class="hero-section">
+    <div id="manageEmployeesContent" style="display:none;">
+      <section class="hero-section">
         <div>
-          <p class="eyebrow">Company Docs</p>
-          <h1>New Project Onboarding</h1>
-          <p>Ready to Start a New Project? Let's Get Started!</p>
+          <p class="eyebrow">Manager Portal</p>
+          <h1>Manage Employees</h1>
+          <p>Review hours, approve or reject timesheets, and leave correction notes for your direct reports.</p>
         </div>
       </section>
-<h1>{NO_DATA_PULLED}</h1>
 
-</main>
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">My Team</h2>
+            <p class="card-subtitle" id="teamPeriodLabel">Current pay period</p>
+          </div>
+          <span class="chip" id="pendingReviewChip">0 awaiting review</span>
+        </div>
+        <div class="employee-card-grid" id="teamCardGrid"></div>
+        <div id="teamCardEmpty" class="empty-state" style="display:none;">No one reports to you yet — ask IT to set your direct reports' Manager field on the Staff Users page.</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Review Timesheet popup -->
+  <div class="popup-overlay hidden" id="reviewTimesheetOverlay">
+    <div class="popup employee-detail-popup">
+      <div class="workbook-preview-header">
+        <h2 id="reviewEmployeeName">Employee</h2>
+        <button type="button" class="menu-btn" onclick="ppCloseOverlay('reviewTimesheetOverlay')" aria-label="Close">✕</button>
+      </div>
+      <p class="card-subtitle" id="reviewPeriodLabel"></p>
+
+      <div class="table-wrap">
+        <table class="dash-queue-table">
+          <thead><tr><th>Date</th><th>Clock In</th><th>Clock Out</th><th>Regular</th><th>Overtime</th><th>Notes</th></tr></thead>
+          <tbody id="reviewEntriesBody"></tbody>
+        </table>
+      </div>
+      <div id="reviewEntriesEmpty" class="empty-state" style="display:none;">No hours entered yet.</div>
+      <p class="employee-detail-total" id="reviewTotal"></p>
+
+      <div id="reviewActions" class="popup-buttons" style="justify-content:flex-start;"></div>
+
+      <div class="auth-divider"></div>
+
+      <label class="auth-field">
+        Comment
+        <textarea id="reviewComment" placeholder="Optional note — required if rejecting"></textarea>
+      </label>
+      <p id="reviewMsg" class="auth-message"></p>
+      <div class="popup-buttons" style="justify-content:flex-start;">
+        <button type="button" class="auth-button auth-button--sm" onclick="addManagerComment()">Add comment only</button>
+      </div>
+
+      <div class="auth-divider"></div>
+
+      <h3 class="pp-list-heading">Activity</h3>
+      <div class="info-list" id="reviewEvents"></div>
+      <div id="reviewEventsEmpty" class="empty-state" style="display:none;">No activity yet.</div>
+    </div>
+  </div>
 
 <script src="script.js"></script>
-<script src="supabase-config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-auth.js"></script>
-<script src="auth-guard.js"></script>
-<script src="manager-nav.js"></script>
-<script src="timeout.js"></script>
-
+    <script src="supabase-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-auth.js"></script>
+    <script src="auth-guard.js"></script>
+    <script src="manager-nav.js"></script>
+    <script src="timeout.js"></script>
+    <script src="pay-periods-shared.js"></script>
+    <script src="manage-employees.js"></script>
 
 <script>
-
-
-/* ===========================
-   SIGN OUT -- MOVED TO ITS OWN FILE
-=========================== */
-
-
-const signOutButton =
-    document.getElementById("signOutButton");
-
-
-if (signOutButton) {
-
-    signOutButton.addEventListener("click", function(event) {
-
-        event.stopPropagation();
-
-
-        if (typeof window.signOutUser === "function") {
-
-            window.signOutUser();
-
-        } else {
-
-            console.error("signOutUser() is not available");
-
-        }
-
-    });
-
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str ?? '';
+  return d.innerHTML;
 }
 
-
-
-
-
-/* ===========================
-   ELEMENTS - 
-=========================== */
-
-
-const userNameElement =
-    document.getElementById("headerUserName");
-
-
-const welcomeHeading =
-    document.getElementById("welcomeHeading");
-
-
-const adminNavGroup =
-    document.getElementById("adminNavGroup");
-
-
-const brandInitials =
-    document.getElementById("brandInitials");
-
-
-
-
-
-
-
-/* ===========================
-   UPDATE STAFF NAME 
-=========================== */
-
-
-function updateStaffName(profile) {
-
-
-    if (!profile) return;
-
-
-
-    const name =
-        profile.full_name ||
-        profile.username ||
-        "Staff";
-
-
-
-
-    // Update only the text
-    // so the bell does not disappear
-
-    if (userNameElement) {
-
-        userNameElement.textContent = name;
-
-    }
-
-
-
-
-
-    if (welcomeHeading) {
-
-        welcomeHeading.textContent =
-            `Welcome, ${name}`;
-
-    }
-
-
-
-
-
-
-    if (brandInitials) {
-
-
-        const words =
-            String(name)
-            .trim()
-            .split(/\s+/)
-            .filter(Boolean);
-
-
-
-        const initials =
-            words.length >= 2
-
-            ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
-
-            : words[0]
-                ?.substring(0,2)
-                .toUpperCase() || "ST";
-
-
-
-        brandInitials.textContent =
-            initials;
-
-
-    }
-
-
-
-
-
-
-    const sidebarGroupPill =
-        document.getElementById("sidebarGroupPill");
-
-
-
-    if (sidebarGroupPill) {
-
-
-        const groups =
-            window.getSupabaseUserGroups
-
-            ? window.getSupabaseUserGroups(profile)
-
-            : [];
-
-
-
-        sidebarGroupPill.textContent =
-            groups.length
-
-            ? groups
-                .map(
-                    g =>
-                    g.charAt(0).toUpperCase() +
-                    g.slice(1)
-                )
-                .join(", ")
-
-            : "No Group";
-
-
-    }
-
-
-}
-
-
-
-
-
-
-
-
-
-/* ===========================
-   NAV ACCESS
-=========================== */
-
-
-function updateNavAccess(profile) {
-
-
-    const shouldShowAdminNav =
-        window.isSupabaseUserInGroup
-
-        ? (
-            window.isSupabaseUserInGroup(profile, "IT") ||
-            window.isSupabaseUserInGroup(profile, "Super Admin")
-          )
-
-        : false;
-
-
-
-    if (adminNavGroup) {
-
-        adminNavGroup.style.display =
-            shouldShowAdminNav
-            ? "block"
-            : "none";
-
-    }
-
-
-
-    const payrollToolsNavItem =
-        document.getElementById("payrollToolsNavItem");
-
-
-    // Payroll Tools is visible to the Office and Accounting
-    // workgroups only (see permissions matrix).
-    const shouldShowPayrollTools =
-        window.isSupabaseUserInGroup
-
-        ? (
-            window.isSupabaseUserInGroup(profile, "Office") ||
-            window.isSupabaseUserInGroup(profile, "Accounting") ||
-            window.isSupabaseUserInGroup(profile, "Super Admin")
-          )
-
-        : false;
-
-
-
-    if (payrollToolsNavItem) {
-
-        payrollToolsNavItem.style.display =
-            shouldShowPayrollTools
-            ? "flex"
-            : "none";
-
-    }
-
-
-}
-
-
-
-
-
-
-
-/* ===========================
-   LOAD PROFILE
-=========================== */
-
-
-const storedProfile =
-    localStorage.getItem("staffProfile");
-
-
-
-if (storedProfile) {
-
-
-    try {
-
-
-        const parsedProfile =
-            JSON.parse(storedProfile);
-
-
-
-        updateStaffName(parsedProfile);
-
-        updateNavAccess(parsedProfile);
-
-
-
-    } catch(error) {
-
-
-        console.warn(
-            "Unable to parse stored profile:",
-            error
-        );
-
-
-    }
-
-
-}
-
-
-
-
-
-
-window.addEventListener("DOMContentLoaded", function() {
-
-
-    const profile =
-        window.currentSupabaseProfile || null;
-
-
-
-    if (profile) {
-
-
-        updateStaffName(profile);
-
-        updateNavAccess(profile);
-
-
-    }
-
-
-    loadNotifications();
-
-
+document.getElementById('signOutButton').addEventListener('click', function () {
+    window.signOutUser();
 });
 
+const userNameElement = document.getElementById("headerUserName");
+const adminNavGroup = document.getElementById('adminNavGroup');
+const brandInitials = document.getElementById('brandInitials');
 
+function updateStaffName(profile) {
+    if (!profile) return;
+    const name = profile.full_name || profile.username || 'Staff';
+    if (userNameElement) { userNameElement.textContent = name; }
+    if (brandInitials) {
+        const words = String(name).trim().split(/\s+/).filter(Boolean);
+        const initials = words.length >= 2
+            ? `${words[0][0] || ''}${words[words.length - 1][0] || ''}`.toUpperCase()
+            : `${words[0]?.slice(0, 2).toUpperCase() || 'ST'}`;
+        brandInitials.textContent = initials;
+    }
+}
+
+const KNOWN_GROUPS = ['Super Admin', 'IT', 'Accounting', 'Office'];
+function updateGroupPill(profile) {
+    const pill = document.getElementById('sidebarGroupPill');
+    if (!pill) return;
+    if (!profile || !window.isSupabaseUserInGroup) { pill.textContent = ''; return; }
+    const matched = KNOWN_GROUPS.filter(group => window.isSupabaseUserInGroup(profile, group));
+    pill.textContent = matched.length ? matched.join(' · ') : 'Staff';
+}
+
+// This page's content is Manager/Super Admin-only. The sidebar link is also hidden for
+// everyone else (see manager-nav.js), but this check is what actually gates the page
+// content if someone opens the URL directly.
+function updateNavAccess(profile) {
+    const isIT = window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, 'IT') : false;
+    const isSuperAdmin = window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, 'Super Admin') : false;
+    const isManager = String(profile?.role || '').trim().toLowerCase() === 'manager';
+
+    const shouldShowAdminNav = isIT || isSuperAdmin;
+    if (adminNavGroup) adminNavGroup.style.display = shouldShowAdminNav ? 'block' : 'none';
+
+    const isAccounting = window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, 'Accounting') : false;
+    const payrollToolsNavItem = document.getElementById('payrollToolsNavItem');
+    if (payrollToolsNavItem) payrollToolsNavItem.style.display = (isAccounting || isSuperAdmin) ? 'flex' : 'none';
+
+    const hasAccess = isManager || isSuperAdmin;
+    document.getElementById('manageEmployeesContent').style.display = hasAccess ? 'block' : 'none';
+    document.getElementById('restrictedView').style.display = hasAccess ? 'none' : 'block';
+
+    if (hasAccess) {
+        initManagerPortal(profile);
+    }
+}
+
+const storedProfile = localStorage.getItem('staffProfile');
+if (storedProfile) {
+    try {
+        const parsedProfile = JSON.parse(storedProfile);
+        updateStaffName(parsedProfile);
+        updateNavAccess(parsedProfile);
+        updateGroupPill(parsedProfile);
+        loadNotifications();
+    } catch (error) {
+        console.warn('Unable to parse stored profile:', error);
+    }
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+    const profile = window.currentSupabaseProfile || null;
+    if (profile) {
+        updateStaffName(profile);
+        updateNavAccess(profile);
+        updateGroupPill(profile);
+    }
+    loadNotifications();
+});
 
 /* ===========================
-   NOTIFICATIONS (Supabase)
-   Uses window.supabaseClient, exposed globally by supabase-auth.js.
-   Reads broadcast notifications (user_id null, e.g. announcements) plus
-   anything targeted at this specific user (e.g. timesheet approvals).
-   "Read" state is tracked client-side in localStorage — fine for a
-   single-browser-per-person setup; move it server-side later if you
-   need read state to follow someone across devices.
+   NOTIFICATIONS (Supabase) — same pattern as every other page in this app.
 =========================== */
 
 let currentNotifications = [];
 const READ_IDS_KEY = 'readNotificationIds';
-
-function escapeHtmlLocal(str) {
-    const d = document.createElement('div');
-    d.textContent = str ?? '';
-    return d.innerHTML;
-}
 
 function getReadNotificationIds() {
     try { return new Set(JSON.parse(localStorage.getItem(READ_IDS_KEY) || '[]')); }
@@ -710,29 +510,20 @@ function renderNotifications() {
         const div = document.createElement('div');
         div.className = 'notification-item';
         div.innerHTML = `
-            <strong>${escapeHtmlLocal(n.title)}</strong>
-            <p>${escapeHtmlLocal(n.message)}</p>
+            <strong>${escapeHtml(n.title)}</strong>
+            <p>${escapeHtml(n.message)}</p>
         `;
         list.appendChild(div);
     });
 }
 
-// Mark everything currently loaded as read the moment the bell is opened.
-// notificationBell/notificationDropdown are declared in script.js, which loads
-// before this block, so they're already available here.
 if (typeof notificationBell !== 'undefined' && notificationBell) {
     notificationBell.addEventListener("click", function () {
         if (currentNotifications.length === 0) return;
         markNotificationsRead(currentNotifications.map(n => n.id));
-        renderNotifications(); // just updates the badge; list itself stays the same
+        renderNotifications();
     });
 }
-
-
-
 </script>
-
-
 </body>
-
 </html>
