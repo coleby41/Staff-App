@@ -8,6 +8,22 @@
 const COMPANIES_TABLE = "Companies";
 const W9_BUCKET = "company-w9s";
 
+/* ===========================
+   VENDOR TAGS (Supabase)
+   Tables: vendor_tag_categories, vendor_tags, company_tags
+   (see supabase-vendor-tags-setup.sql). Categories are data-driven rather
+   than hardcoded, so a new category can be added from the Manage Tags
+   popup without touching any code.
+=========================== */
+
+const TAG_CATEGORIES_TABLE = "vendor_tag_categories";
+const TAGS_TABLE = "vendor_tags";
+const COMPANY_TAGS_TABLE = "company_tags";
+
+let allTagCategories = []; // [{ id, name, sort_order }]
+let allTags = [];          // [{ id, category_id, name }]
+let allCompanyTags = [];   // [{ id, company_id, tag_id }]
+
 let allCompanies = [];
 
 /* ===========================
@@ -66,6 +82,100 @@ function setFormMessage(text, type) {
 }
 
 /* ===========================
+   VENDOR TAGS — load + lookup helpers
+=========================== */
+
+async function loadVendorTagData() {
+
+    if (!window.supabaseClient) {
+        console.error("Supabase client not ready yet");
+        return;
+    }
+
+    const [categoriesRes, tagsRes, companyTagsRes] = await Promise.all([
+        window.supabaseClient.from(TAG_CATEGORIES_TABLE).select("*").order("sort_order", { ascending: true }),
+        window.supabaseClient.from(TAGS_TABLE).select("*").order("name", { ascending: true }),
+        window.supabaseClient.from(COMPANY_TAGS_TABLE).select("*")
+    ]);
+
+    if (categoriesRes.error) console.error("Failed to load tag categories:", categoriesRes.error);
+    if (tagsRes.error) console.error("Failed to load tags:", tagsRes.error);
+    if (companyTagsRes.error) console.error("Failed to load company tags:", companyTagsRes.error);
+
+    allTagCategories = categoriesRes.data || [];
+    allTags = tagsRes.data || [];
+    allCompanyTags = companyTagsRes.data || [];
+}
+
+// All tags currently assigned to a vendor, each annotated with its category.
+function tagsForCompany(companyId) {
+    const tagIds = new Set(
+        allCompanyTags
+            .filter(ct => String(ct.company_id) === String(companyId))
+            .map(ct => String(ct.tag_id))
+    );
+    return allTags.filter(tag => tagIds.has(String(tag.id)));
+}
+
+// Groups a flat list of tags by category, in category sort order. Returns
+// [{ category, tags }] — every category is included even if empty, so
+// callers (profile popup, tag picker) can show "None assigned" / render
+// checkboxes for categories with nothing selected yet.
+function groupTagsByCategory(tagList) {
+    const byCategory = new Map();
+    allTagCategories.forEach(cat => byCategory.set(String(cat.id), { category: cat, tags: [] }));
+    tagList.forEach(tag => {
+        const group = byCategory.get(String(tag.category_id));
+        if (group) group.tags.push(tag);
+    });
+    return Array.from(byCategory.values());
+}
+
+/* ===========================
+   VENDOR APPROVAL STATUS
+   Fully derived from other fields — no DB column, no manual override.
+   A vendor is "Approved" only once it has: Name, Street, City, State, Zip,
+   SSN/FID, a W9 on file, AND at least one tag from every existing tag
+   category (currently Asset Specialty + Trade — this stays correct even if
+   a category is added or removed later, since it loops allTagCategories).
+=========================== */
+
+function isBlank(value) {
+    return value === null || value === undefined || String(value).trim() === "";
+}
+
+// Returns the list of human-readable things this vendor is missing.
+// Empty array = approved.
+function missingVendorRequirements(company) {
+    if (!company) return ["Vendor name", "Street", "City", "State", "Zip", "SSN / FID", "W9"];
+
+    const missing = [];
+    if (isBlank(company.Name)) missing.push("Vendor name");
+    if (isBlank(company.Street)) missing.push("Street");
+    if (isBlank(company.City)) missing.push("City");
+    if (isBlank(company.State)) missing.push("State");
+    if (isBlank(company.Zip)) missing.push("Zip");
+    if (isBlank(company["SSN/FID"])) missing.push("SSN / FID");
+    if (!company.W9FilePath) missing.push("W9");
+
+    if (allTagCategories.length === 0) {
+        missing.push("Tags");
+    } else {
+        const companyTags = tagsForCompany(company.id);
+        allTagCategories.forEach(cat => {
+            const hasOneFromCategory = companyTags.some(tag => String(tag.category_id) === String(cat.id));
+            if (!hasOneFromCategory) missing.push(`${cat.name} tag`);
+        });
+    }
+
+    return missing;
+}
+
+function isVendorApproved(company) {
+    return missingVendorRequirements(company).length === 0;
+}
+
+/* ===========================
    LOAD + RENDER
 =========================== */
 
@@ -118,6 +228,8 @@ function renderCompanies(companies) {
 
         const address = formatAddress(company);
         const hasW9 = Boolean(company.W9FilePath);
+        const companyTags = tagsForCompany(company.id);
+        const approved = isVendorApproved(company);
 
         const card = document.createElement("div");
         card.className = "workbook-card company-card";
@@ -140,6 +252,17 @@ function renderCompanies(companies) {
                     ${address.street ? `<p>${escapeHtmlCompanies(address.street)}</p>` : ""}
                     ${address.line2 ? `<p>${escapeHtmlCompanies(address.line2)}</p>` : ""}
                     ${(!address.street && !address.line2) ? `<p class="company-card-muted">No address on file</p>` : ""}
+                </div>
+
+                ${companyTags.length ? `
+                <div class="company-card-tags">
+                    ${companyTags.slice(0, 2).map(tag => `<span class="chip chip--tag">${escapeHtmlCompanies(tag.name)}</span>`).join("")}
+                    ${companyTags.length > 2 ? `<span class="chip chip--muted">+${companyTags.length - 2} more</span>` : ""}
+                </div>` : ""}
+
+                <div class="company-card-row">
+                    <span class="company-card-label">Status</span>
+                    <span class="chip ${approved ? "chip--success" : "chip--danger"}">${approved ? "Approved" : "Not Approved"}</span>
                 </div>
 
                 <div class="company-card-row">
@@ -178,6 +301,17 @@ function renderCompanies(companies) {
         `;
 
         grid.appendChild(card);
+    });
+
+    // Card click (anywhere except an interactive element) opens the
+    // read-only vendor profile popup.
+    grid.querySelectorAll(".company-card").forEach(card => {
+        card.addEventListener("click", (event) => {
+            if (event.target.closest(".company-edit-btn, .company-view-w9-btn, .company-download-w9-btn, .company-view-contacts-link")) return;
+            const id = card.dataset.companyId;
+            const company = allCompanies.find(c => String(c.id) === String(id));
+            if (company) openVendorProfileModal(company);
+        });
     });
 
     // Edit buttons
@@ -232,6 +366,151 @@ async function viewW9(filePath) {
 }
 
 /* ===========================
+   VENDOR PROFILE (read-only popup, opened by clicking a card)
+=========================== */
+
+let currentProfileCompany = null;
+
+function openVendorProfileModal(company) {
+
+    currentProfileCompany = company;
+
+    const overlay = document.getElementById("vendorProfileModalOverlay");
+    const address = formatAddress(company);
+    const hasW9 = Boolean(company.W9FilePath);
+
+    document.getElementById("vendorProfileName").textContent = company.Name || "Unnamed company";
+
+    const addressEl = document.getElementById("vendorProfileAddress");
+    addressEl.innerHTML = (address.street || address.line2)
+        ? `${address.street ? `<p>${escapeHtmlCompanies(address.street)}</p>` : ""}${address.line2 ? `<p>${escapeHtmlCompanies(address.line2)}</p>` : ""}`
+        : `<p class="company-card-muted">No address on file</p>`;
+
+    const missing = missingVendorRequirements(company);
+    const approved = missing.length === 0;
+    const statusEl = document.getElementById("vendorProfileApprovalStatus");
+    statusEl.innerHTML = `
+        <span class="chip ${approved ? "chip--success" : "chip--danger"}">${approved ? "Approved" : "Not Approved"}</span>
+        ${!approved ? `<p class="vendor-profile-missing">Missing: ${escapeHtmlCompanies(missing.join(", "))}</p>` : ""}
+    `;
+
+    document.getElementById("vendorProfileSsnFid").textContent = maskSsnFid(company["SSN/FID"]);
+
+    const w9StatusEl = document.getElementById("vendorProfileW9Status");
+    w9StatusEl.innerHTML = hasW9
+        ? `<span class="chip">On file</span> <button type="button" class="workbook-btn workbook-btn--preview" id="vendorProfileViewW9Btn">View W9</button>`
+        : `<span class="chip chip--muted">Missing</span>`;
+
+    const viewW9Btn = document.getElementById("vendorProfileViewW9Btn");
+    if (viewW9Btn) {
+        viewW9Btn.addEventListener("click", () => viewW9(company.W9FilePath));
+    }
+
+    const groups = groupTagsByCategory(tagsForCompany(company.id));
+    const tagGroupsEl = document.getElementById("vendorProfileTagGroups");
+    tagGroupsEl.innerHTML = groups.map(({ category, tags }) => `
+        <div class="vendor-profile-section">
+            <span class="company-card-label">${escapeHtmlCompanies(category.name)}</span>
+            <div class="vendor-profile-tag-list">
+                ${tags.length
+                    ? tags.map(tag => `<span class="chip chip--tag">${escapeHtmlCompanies(tag.name)}</span>`).join("")
+                    : `<span class="company-card-muted">None assigned</span>`
+                }
+            </div>
+        </div>
+    `).join("");
+
+    overlay.classList.remove("hidden");
+    document.body.classList.add("popup-active");
+}
+
+function closeVendorProfileModal() {
+    document.getElementById("vendorProfileModalOverlay").classList.add("hidden");
+    document.body.classList.remove("popup-active");
+    currentProfileCompany = null;
+}
+
+/* ===========================
+   TAG PICKER (inside Add/Edit Vendor form)
+=========================== */
+
+// Renders one checkbox group per category into #companyTagsFieldWrap, with
+// a search box per group (most useful for the long Trade list). Groups with
+// no tags yet (e.g. a brand new category) still render, just with an empty
+// "no tags in this category yet" note.
+function renderTagPicker(selectedTagIds) {
+    const wrap = document.getElementById("companyTagsFieldWrap");
+    if (!wrap) return;
+
+    const selected = selectedTagIds || new Set();
+    const groups = groupTagsByCategory(allTags);
+
+    wrap.innerHTML = groups.map(({ category, tags }) => `
+        <div class="tag-picker-group" data-category-id="${category.id}">
+            <div class="tag-picker-group-title">${escapeHtmlCompanies(category.name)}</div>
+            ${tags.length > 6 ? `<input type="text" class="tag-picker-search" placeholder="Search ${escapeHtmlCompanies(category.name)}…">` : ""}
+            <div class="tag-picker-options">
+                ${tags.length ? tags.map(tag => `
+                    <label class="tag-picker-option">
+                        <input type="checkbox" value="${tag.id}" ${selected.has(String(tag.id)) ? "checked" : ""}>
+                        <span>${escapeHtmlCompanies(tag.name)}</span>
+                    </label>
+                `).join("") : `<p class="company-card-muted">No tags in this category yet — add some from Manage Tags.</p>`}
+            </div>
+        </div>
+    `).join("");
+
+    // Per-group search filter
+    wrap.querySelectorAll(".tag-picker-group").forEach(group => {
+        const search = group.querySelector(".tag-picker-search");
+        if (!search) return;
+        search.addEventListener("input", () => {
+            const query = search.value.trim().toLowerCase();
+            group.querySelectorAll(".tag-picker-option").forEach(option => {
+                const text = option.textContent.trim().toLowerCase();
+                option.style.display = (!query || text.includes(query)) ? "" : "none";
+            });
+        });
+    });
+}
+
+function collectSelectedTagIds() {
+    const wrap = document.getElementById("companyTagsFieldWrap");
+    if (!wrap) return [];
+    return Array.from(wrap.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+}
+
+async function saveCompanyTags(companyId, selectedTagIds) {
+    const existing = allCompanyTags
+        .filter(ct => String(ct.company_id) === String(companyId))
+        .map(ct => String(ct.tag_id));
+
+    const selectedSet = new Set(selectedTagIds.map(String));
+    const existingSet = new Set(existing);
+
+    const toAdd = selectedTagIds.filter(id => !existingSet.has(String(id)));
+    const toRemove = existing.filter(id => !selectedSet.has(id));
+
+    if (toAdd.length) {
+        const { error } = await window.supabaseClient
+            .from(COMPANY_TAGS_TABLE)
+            .insert(toAdd.map(tagId => ({ company_id: companyId, tag_id: tagId })));
+        if (error) console.error("Failed to add vendor tags:", error);
+    }
+
+    if (toRemove.length) {
+        const { error } = await window.supabaseClient
+            .from(COMPANY_TAGS_TABLE)
+            .delete()
+            .eq("company_id", companyId)
+            .in("tag_id", toRemove);
+        if (error) console.error("Failed to remove vendor tags:", error);
+    }
+
+    await loadVendorTagData();
+}
+
+/* ===========================
    ADD / EDIT MODAL
 =========================== */
 
@@ -252,6 +531,11 @@ function openCompanyModal(company) {
     document.getElementById("companyZipInput").value = company?.Zip ?? "";
     document.getElementById("companySsnFidInput").value = company?.["SSN/FID"] ?? "";
     document.getElementById("companyW9Input").value = "";
+
+    const selectedTagIds = new Set(
+        company?.id ? tagsForCompany(company.id).map(tag => String(tag.id)) : []
+    );
+    renderTagPicker(selectedTagIds);
 
     setFormMessage("", "");
 
@@ -320,6 +604,7 @@ async function handleCompanyFormSubmit(event) {
         }
 
         let saveError;
+        let savedCompanyId = id;
 
         if (id) {
             const { error } = await window.supabaseClient
@@ -328,13 +613,20 @@ async function handleCompanyFormSubmit(event) {
                 .eq("id", id);
             saveError = error;
         } else {
-            const { error } = await window.supabaseClient
+            const { data, error } = await window.supabaseClient
                 .from(COMPANIES_TABLE)
-                .insert(payload);
+                .insert(payload)
+                .select()
+                .single();
             saveError = error;
+            savedCompanyId = data?.id;
         }
 
         if (saveError) throw saveError;
+
+        if (savedCompanyId) {
+            await saveCompanyTags(savedCompanyId, collectSelectedTagIds());
+        }
 
         closeCompanyModal();
         showCompanyMessage(id ? "Company updated." : "Company added.", "success");
@@ -669,12 +961,300 @@ async function handleContactFormSubmit(event) {
 }
 
 /* ===========================
+   MANAGE TAGS (add/rename/delete categories + tags)
+=========================== */
+
+function setManageTagsMessage(text, type) {
+    const el = document.getElementById("manageTagsMessage");
+    if (!el) return;
+    el.textContent = text || "";
+    el.className = `auth-message ${type || ""}`.trim();
+}
+
+function openManageTagsModal() {
+    renderManageTagsCategories();
+    setManageTagsMessage("", "");
+    document.getElementById("manageTagsModalOverlay").classList.remove("hidden");
+    document.body.classList.add("popup-active");
+}
+
+function closeManageTagsModal() {
+    document.getElementById("manageTagsModalOverlay").classList.add("hidden");
+    document.body.classList.remove("popup-active");
+}
+
+function renderManageTagsCategories() {
+    const wrap = document.getElementById("manageTagsCategories");
+    if (!wrap) return;
+
+    const groups = groupTagsByCategory(allTags);
+
+    wrap.innerHTML = groups.map(({ category, tags }) => `
+        <div class="tag-admin-category" data-category-id="${category.id}">
+            <div class="tag-admin-category-header">
+                <h3>${escapeHtmlCompanies(category.name)}</h3>
+                <div class="tag-admin-category-actions">
+                    <button type="button" class="workbook-btn workbook-btn--preview tag-admin-rename-cat" data-id="${category.id}">Rename</button>
+                    <button type="button" class="workbook-btn workbook-btn--danger tag-admin-delete-cat" data-id="${category.id}">Delete</button>
+                </div>
+            </div>
+            <div class="tag-admin-tag-list">
+                ${tags.length ? tags.map(tag => `
+                    <div class="tag-admin-tag-row" data-tag-id="${tag.id}">
+                        <span>${escapeHtmlCompanies(tag.name)}</span>
+                        <div class="tag-admin-tag-actions">
+                            <button type="button" class="tag-admin-rename-tag" data-id="${tag.id}">Rename</button>
+                            <button type="button" class="tag-admin-delete-tag" data-id="${tag.id}">Delete</button>
+                        </div>
+                    </div>
+                `).join("") : `<p class="company-card-muted">No tags yet.</p>`}
+            </div>
+            <div class="tag-admin-add-tag">
+                <input type="text" class="tag-admin-new-tag-input" data-category-id="${category.id}" placeholder="New tag name">
+                <button type="button" class="workbook-btn workbook-btn--preview tag-admin-add-tag-btn" data-category-id="${category.id}">+ Add Tag</button>
+            </div>
+        </div>
+    `).join("");
+}
+
+// After any tag/category mutation: reload the underlying data, then
+// re-render everything that shows tags (vendor cards, the manage-tags
+// list, and the tag picker if the Add/Edit Vendor form happens to be open).
+async function refreshAfterTagAdminChange() {
+    await loadVendorTagData();
+    renderCompanies(allCompanies);
+    renderManageTagsCategories();
+
+    const companyModalOverlay = document.getElementById("companyModalOverlay");
+    if (companyModalOverlay && !companyModalOverlay.classList.contains("hidden")) {
+        const id = document.getElementById("companyIdInput").value;
+        const selectedTagIds = new Set(
+            id ? tagsForCompany(id).map(tag => String(tag.id)) : []
+        );
+        renderTagPicker(selectedTagIds);
+    }
+}
+
+async function addTagCategory() {
+    const input = document.getElementById("newTagCategoryInput");
+    const name = input.value.trim();
+    if (!name) return;
+
+    const nextSortOrder = allTagCategories.reduce((max, cat) => Math.max(max, cat.sort_order || 0), 0) + 1;
+
+    const { error } = await window.supabaseClient
+        .from(TAG_CATEGORIES_TABLE)
+        .insert({ name, sort_order: nextSortOrder });
+
+    if (error) {
+        console.error("Failed to add tag category:", error);
+        setManageTagsMessage("Couldn't add that category — it may already exist.", "error");
+        return;
+    }
+
+    input.value = "";
+    setManageTagsMessage("Category added.", "success");
+    await refreshAfterTagAdminChange();
+}
+
+async function renameTagCategory(categoryId) {
+    const category = allTagCategories.find(c => String(c.id) === String(categoryId));
+    if (!category) return;
+
+    const newName = prompt("Rename category:", category.name);
+    if (!newName || !newName.trim() || newName.trim() === category.name) return;
+
+    const { error } = await window.supabaseClient
+        .from(TAG_CATEGORIES_TABLE)
+        .update({ name: newName.trim() })
+        .eq("id", categoryId);
+
+    if (error) {
+        console.error("Failed to rename category:", error);
+        setManageTagsMessage("Couldn't rename that category.", "error");
+        return;
+    }
+
+    await refreshAfterTagAdminChange();
+}
+
+async function deleteTagCategory(categoryId) {
+    const category = allTagCategories.find(c => String(c.id) === String(categoryId));
+    if (!category) return;
+
+    if (!confirm(`Delete "${category.name}" and every tag in it? This removes those tags from all vendors that have them. This can't be undone.`)) return;
+
+    const { error } = await window.supabaseClient
+        .from(TAG_CATEGORIES_TABLE)
+        .delete()
+        .eq("id", categoryId);
+
+    if (error) {
+        console.error("Failed to delete category:", error);
+        setManageTagsMessage("Couldn't delete that category.", "error");
+        return;
+    }
+
+    await refreshAfterTagAdminChange();
+}
+
+async function addTagToCategory(categoryId, inputEl) {
+    const name = inputEl.value.trim();
+    if (!name) return;
+
+    const { error } = await window.supabaseClient
+        .from(TAGS_TABLE)
+        .insert({ category_id: categoryId, name });
+
+    if (error) {
+        console.error("Failed to add tag:", error);
+        setManageTagsMessage("Couldn't add that tag — it may already exist in this category.", "error");
+        return;
+    }
+
+    setManageTagsMessage("Tag added.", "success");
+    await refreshAfterTagAdminChange();
+}
+
+async function renameTag(tagId) {
+    const tag = allTags.find(t => String(t.id) === String(tagId));
+    if (!tag) return;
+
+    const newName = prompt("Rename tag:", tag.name);
+    if (!newName || !newName.trim() || newName.trim() === tag.name) return;
+
+    const { error } = await window.supabaseClient
+        .from(TAGS_TABLE)
+        .update({ name: newName.trim() })
+        .eq("id", tagId);
+
+    if (error) {
+        console.error("Failed to rename tag:", error);
+        setManageTagsMessage("Couldn't rename that tag.", "error");
+        return;
+    }
+
+    await refreshAfterTagAdminChange();
+}
+
+async function deleteTag(tagId) {
+    const tag = allTags.find(t => String(t.id) === String(tagId));
+    if (!tag) return;
+
+    if (!confirm(`Delete "${tag.name}"? This removes it from every vendor that has it. This can't be undone.`)) return;
+
+    const { error } = await window.supabaseClient
+        .from(TAGS_TABLE)
+        .delete()
+        .eq("id", tagId);
+
+    if (error) {
+        console.error("Failed to delete tag:", error);
+        setManageTagsMessage("Couldn't delete that tag.", "error");
+        return;
+    }
+
+    await refreshAfterTagAdminChange();
+}
+
+/* ===========================
    INIT
 =========================== */
 
-window.initCompaniesPage = function () {
+window.initCompaniesPage = async function () {
 
+    await loadVendorTagData();
     loadCompanies();
+
+    // Vendor Profile popup
+    const closeVendorProfileBtn = document.getElementById("closeVendorProfileBtn");
+    if (closeVendorProfileBtn) closeVendorProfileBtn.addEventListener("click", closeVendorProfileModal);
+
+    const vendorProfileOverlay = document.getElementById("vendorProfileModalOverlay");
+    if (vendorProfileOverlay) {
+        vendorProfileOverlay.addEventListener("click", (event) => {
+            if (event.target === vendorProfileOverlay) closeVendorProfileModal();
+        });
+    }
+
+    const vendorProfileViewContactsBtn = document.getElementById("vendorProfileViewContactsBtn");
+    if (vendorProfileViewContactsBtn) {
+        vendorProfileViewContactsBtn.addEventListener("click", () => {
+            if (!currentProfileCompany) return;
+            const company = currentProfileCompany;
+            closeVendorProfileModal();
+            openContactsModal(company);
+        });
+    }
+
+    const vendorProfileEditBtn = document.getElementById("vendorProfileEditBtn");
+    if (vendorProfileEditBtn) {
+        vendorProfileEditBtn.addEventListener("click", () => {
+            if (!currentProfileCompany) return;
+            const company = currentProfileCompany;
+            closeVendorProfileModal();
+            openCompanyModal(company);
+        });
+    }
+
+    // Manage Tags popup
+    const manageTagsBtn = document.getElementById("manageTagsBtn");
+    if (manageTagsBtn) manageTagsBtn.addEventListener("click", openManageTagsModal);
+
+    const closeManageTagsBtn = document.getElementById("closeManageTagsBtn");
+    if (closeManageTagsBtn) closeManageTagsBtn.addEventListener("click", closeManageTagsModal);
+
+    const manageTagsOverlay = document.getElementById("manageTagsModalOverlay");
+    if (manageTagsOverlay) {
+        manageTagsOverlay.addEventListener("click", (event) => {
+            if (event.target === manageTagsOverlay) closeManageTagsModal();
+        });
+    }
+
+    const addTagCategoryBtn = document.getElementById("addTagCategoryBtn");
+    if (addTagCategoryBtn) addTagCategoryBtn.addEventListener("click", addTagCategory);
+
+    const newTagCategoryInput = document.getElementById("newTagCategoryInput");
+    if (newTagCategoryInput) {
+        newTagCategoryInput.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") { event.preventDefault(); addTagCategory(); }
+        });
+    }
+
+    // Event delegation for everything inside the categories list, since it's
+    // fully re-rendered after every add/rename/delete.
+    const manageTagsCategories = document.getElementById("manageTagsCategories");
+    if (manageTagsCategories) {
+        manageTagsCategories.addEventListener("click", (event) => {
+            const renameCatBtn = event.target.closest(".tag-admin-rename-cat");
+            if (renameCatBtn) { renameTagCategory(renameCatBtn.dataset.id); return; }
+
+            const deleteCatBtn = event.target.closest(".tag-admin-delete-cat");
+            if (deleteCatBtn) { deleteTagCategory(deleteCatBtn.dataset.id); return; }
+
+            const renameTagBtn = event.target.closest(".tag-admin-rename-tag");
+            if (renameTagBtn) { renameTag(renameTagBtn.dataset.id); return; }
+
+            const deleteTagBtn = event.target.closest(".tag-admin-delete-tag");
+            if (deleteTagBtn) { deleteTag(deleteTagBtn.dataset.id); return; }
+
+            const addTagBtn = event.target.closest(".tag-admin-add-tag-btn");
+            if (addTagBtn) {
+                const categoryId = addTagBtn.dataset.categoryId;
+                const input = manageTagsCategories.querySelector(`.tag-admin-new-tag-input[data-category-id="${categoryId}"]`);
+                if (input) addTagToCategory(categoryId, input);
+                return;
+            }
+        });
+
+        manageTagsCategories.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter") return;
+            const input = event.target.closest(".tag-admin-new-tag-input");
+            if (!input) return;
+            event.preventDefault();
+            addTagToCategory(input.dataset.categoryId, input);
+        });
+    }
 
     const addBtn = document.getElementById("addCompanyBtn");
     if (addBtn) addBtn.addEventListener("click", () => openCompanyModal(null));

@@ -2766,3 +2766,335 @@ button { font: inherit; }
 .stat-item .stat-number-status-projector {
   font-size: 2rem;
 }
+
+/* ============================================================================
+   VENDOR TAGS (Asset Specialty / Trade)
+   Card tag chips, the Vendor Profile popup (click a card), the tag picker
+   inside the Add/Edit Vendor form, and the Manage Tags admin popup.
+   Reuses the existing .chip / .workbook-preview-popup / .auth-field tokens.
+============================================================================ */
+
+/* -- Card tag chips -- */
+
+.company-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.chip--tag {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.chip--success {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.chip--danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.vendor-profile-status {
+  margin-top: 6px;
+}
+
+.vendor-profile-missing {
+  margin: 8px 0 0;
+  font-size: 0.84rem;
+  color: var(--text-soft);
+}
+
+/* Cards now open a profile popup on click, so make that affordance visible. */
+.company-card {
+  cursor: pointer;
+}
+
+.company-card .company-edit-btn,
+.company-card .workbook-actions,
+.company-card .company-view-contacts-link {
+  cursor: default;
+}
+
+/* -- Vendor Profile popup -- */
+
+.vendor-profile-body {
+  margin-top: 14px;
+  overflow-y: auto;
+  max-height: 66vh;
+  padding-right: 4px;
+}
+
+.vendor-profile-section {
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+
+.vendor-profile-section:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.vendor-profile-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 20px;
+}
+
+.vendor-profile-row .vendor-profile-section {
+  padding-top: 12px;
+}
+
+.vendor-profile-address p {
+  margin: 2px 0 0;
+  color: var(--text);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.vendor-profile-tag-groups {
+  display: flex;
+  flex-direction: column;
+}
+
+.vendor-profile-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* -- Tag picker (inside Add/Edit Vendor form) -- */
+
+.tag-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.tag-picker-group {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--surface-alt);
+}
+
+.tag-picker-group-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-soft);
+  margin-bottom: 8px;
+}
+
+/* Higher specificity than ".auth-field input" (this lives inside an
+   .auth-field wrapper) so these overrides actually stick. */
+.auth-field .tag-picker-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.84rem;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.tag-picker-options {
+  max-height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tag-picker-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 4px;
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.tag-picker-option:hover {
+  background: var(--surface);
+}
+
+/* Explicitly reset the padding/border/background/radius that ".auth-field
+   input" (higher up in this file) would otherwise apply, since this
+   checkbox lives inside an .auth-field wrapper. */
+.auth-field .tag-picker-option input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* -- Manage Tags popup -- */
+
+#manageTagsCategories {
+  margin-top: 10px;
+  overflow-y: auto;
+  max-height: 58vh;
+  padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tag-admin-category {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--surface-alt);
+}
+
+.tag-admin-category-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.tag-admin-category-header h3 {
+  margin: 0;
+  font-size: 0.98rem;
+  color: var(--accent-strong);
+}
+
+.tag-admin-category-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.tag-admin-tag-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+}
+
+.tag-admin-tag-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 0.86rem;
+  color: var(--text);
+}
+
+.tag-admin-tag-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.tag-admin-tag-actions button {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.tag-admin-tag-actions .tag-admin-delete-tag {
+  color: var(--danger);
+}
+
+.workbook-btn--danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: #f0c4c0;
+}
+
+.workbook-btn--danger:hover {
+  background: #fbdedb;
+}
+
+.tag-admin-add-tag {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.tag-admin-add-tag input {
+  flex: 1;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.84rem;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.tag-admin-add-category {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.tag-admin-add-category input {
+  flex: 1;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.88rem;
+  background: var(--surface);
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  .vendor-profile-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* -- Add/Edit Vendor popup: cap it to the viewport and scroll internally
+      instead of overflowing off-screen (it got tall once tags were added) -- */
+
+.company-form-popup {
+  max-height: 88vh;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.company-form-popup::-webkit-scrollbar {
+  width: 10px;
+}
+
+.company-form-popup::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.company-form-popup::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+.company-form-popup::-webkit-scrollbar-thumb:hover {
+  background: var(--text-soft);
+}

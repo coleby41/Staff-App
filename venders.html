@@ -427,8 +427,12 @@
         + Add Vendor
     </button>
 
+    <button class="auth-button auth-button--secondary" id="manageTagsBtn" type="button">
+        Manage Tags
+    </button>
+
     <button class="auth-button auth-button--secondary" id="startReportBtn" type="button">
-        Start A Report
+        Generate A Report
     </button>
 
 </div>
@@ -454,7 +458,7 @@
 
 <!-- Add / Edit Company Modal -->
 <div class="popup-overlay hidden" id="companyModalOverlay">
-    <div class="popup workbook-popup">
+    <div class="popup workbook-popup company-form-popup">
         <h2 id="companyModalTitle">Add Vendor</h2>
         <p class="auth-inline-copy" id="companyModalSubtitle">Enter the Vendor's details below.</p>
 
@@ -493,6 +497,13 @@
                 <input type="text" id="companySsnFidInput" name="ssnFid" placeholder="e.g. 12-3456789">
             </label>
 
+            <div class="auth-field">
+                Tags
+                <div id="companyTagsFieldWrap" class="tag-picker">
+                    <!-- One .tag-picker-group per category, populated by companies.js -->
+                </div>
+            </div>
+
             <label class="auth-field">
                 W9 (PDF)
                 <input type="file" id="companyW9Input" name="w9" accept="application/pdf">
@@ -512,6 +523,76 @@
             </button>
 
         </form>
+    </div>
+</div>
+
+
+<!-- Vendor Profile Modal (read-only, opened by clicking a vendor card) -->
+<div class="popup-overlay hidden" id="vendorProfileModalOverlay">
+    <div class="popup workbook-preview-popup">
+        <div class="workbook-preview-header">
+            <h2 id="vendorProfileName">Vendor</h2>
+            <button type="button" class="menu-btn" id="closeVendorProfileBtn" aria-label="Close vendor profile">✕</button>
+        </div>
+
+        <div class="vendor-profile-body">
+
+            <div class="vendor-profile-section">
+                <span class="company-card-label">Address</span>
+                <div id="vendorProfileAddress" class="vendor-profile-address"></div>
+            </div>
+
+            <div class="vendor-profile-section">
+                <span class="company-card-label">Approval Status</span>
+                <div id="vendorProfileApprovalStatus" class="vendor-profile-status"></div>
+            </div>
+
+            <div class="vendor-profile-row">
+                <div class="vendor-profile-section">
+                    <span class="company-card-label">SSN / FID</span>
+                    <div id="vendorProfileSsnFid"></div>
+                </div>
+
+                <div class="vendor-profile-section">
+                    <span class="company-card-label">W9</span>
+                    <div id="vendorProfileW9Status"></div>
+                </div>
+            </div>
+
+            <div id="vendorProfileTagGroups" class="vendor-profile-tag-groups">
+                <!-- One block per category, populated by companies.js -->
+            </div>
+
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="vendorProfileViewContactsBtn">View Contact Info</button>
+                <button type="button" class="auth-button auth-button--secondary" id="vendorProfileEditBtn">Edit Vendor</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+<!-- Manage Tags Modal -->
+<div class="popup-overlay hidden" id="manageTagsModalOverlay">
+    <div class="popup workbook-preview-popup">
+        <div class="workbook-preview-header">
+            <h2>Manage Tags</h2>
+            <button type="button" class="menu-btn" id="closeManageTagsBtn" aria-label="Close manage tags">✕</button>
+        </div>
+
+        <p class="auth-inline-copy">Add, rename, or remove the tags vendors can be assigned. Deleting a tag removes it from every vendor that has it.</p>
+
+        <div id="manageTagsCategories">
+            <!-- One block per category, populated by companies.js -->
+        </div>
+
+        <div class="tag-admin-add-category">
+            <input type="text" id="newTagCategoryInput" placeholder="New category name (e.g. Region)">
+            <button type="button" class="auth-button auth-button--secondary" id="addTagCategoryBtn">+ Add Category</button>
+        </div>
+
+        <p class="auth-message" id="manageTagsMessage"></p>
     </div>
 </div>
 
@@ -617,8 +698,8 @@
 <!-- Start A Report Modal -->
 <div class="popup-overlay hidden" id="startReportModalOverlay">
     <div class="popup workbook-popup">
-        <h2>Start A Report</h2>
-        <p class="auth-inline-copy">Here you can start a report by vendor specialty or by whether the vendor is approved or not.</p>
+        <h2>Generate A Report</h2>
+        <p class="auth-inline-copy">Here you can generate a report by vendor specialty or by whether the vendor is approved or not.</p>
 
         <div class="report-options-grid">
 
