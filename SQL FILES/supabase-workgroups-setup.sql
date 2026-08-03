@@ -86,7 +86,7 @@ on conflict (name) do nothing;
 -- ============================================================================
 -- Seed access to match today's real behavior:
 --   - Dashboard, New Project Onboarding, Excel Workbook Templates, Form
---     Templates, Personal Finance, Vendor Contacts: every workgroup today
+--     Templates, Staff Finance, Vendor Contacts: every workgroup today
 --     (no gating exists anywhere for these).
 --   - Payroll Tools: Office + Accounting (Super Admin already bypasses).
 --     Note: payroll-tools.html's OWN internal check was actually stricter

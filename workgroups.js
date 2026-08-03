@@ -16,7 +16,7 @@ const GOVERNABLE_TABS = [
     { key: "new_project", label: "New Project Onboarding" },
     { key: "excel_workbook", label: "Excel Workbook Templates" },
     { key: "form_templates", label: "Form Templates" },
-    { key: "personal_finance", label: "Personal Finance" },
+    { key: "personal_finance", label: "Staff Finance" },
     { key: "vendor_contacts", label: "Vendor Contacts" },
     { key: "payroll_tools", label: "Payroll Tools" },
     { key: "manage_employees", label: "Manage Employees *" },

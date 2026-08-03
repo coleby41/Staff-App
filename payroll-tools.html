@@ -189,7 +189,7 @@
        <a href="time sheet.html" class="nav-item">
             <span class="finance-nav-icon"></span>
             <span class="nav-text">
-                Personal Finance
+                Staff Finance
             </span>
         </a>
 
@@ -330,7 +330,7 @@
           <div class="card-header">
             <div>
               <h2 class="card-title">Send Announcement</h2>
-              <p class="card-subtitle">Posts to every staff member's Personal Finance page</p>
+              <p class="card-subtitle">Posts to every staff member's Staff Finance page</p>
             </div>
             <span class="chip">Announcements</span>
           </div>
@@ -665,7 +665,7 @@ async function sendAnnouncement() {
   }
 
   // Broadcast a notification too, so it shows up in the bell for everyone, not just
-  // on the Personal Finance page's Announcements card.
+  // on the Staff Finance page's Announcements card.
   const { error: notifyError } = await supabaseClient.from('notifications').insert({
     user_id: null, // null = everyone
     title,

@@ -10,7 +10,7 @@
    - Accounting doesn't sign the document — they're just the last step that
      has to finish before the signed PDF goes out.
    - Delivery is in-app only, no email. The finished PDF shows up in the
-     employee's existing "My Documents" list on the Personal Finance page
+     employee's existing "My Documents" list on the Staff Finance page
      (reusing that already-built view/download flow instead of inventing a
      new one), plus an in-app notification to the employee and their
      approving manager.
@@ -395,7 +395,7 @@ async function generateFinalPdf(timesheetId) {
   await window.supabaseClient.from('notifications').insert({
     user_id: employeeStaff.id,
     title: 'Timesheet PDF ready',
-    message: `Your signed timesheet for ${period.start_date} to ${period.end_date} is ready — check My Documents on Personal Finance.`,
+    message: `Your signed timesheet for ${period.start_date} to ${period.end_date} is ready — check My Documents on Staff Finance.`,
     type: 'timesheet'
   });
 

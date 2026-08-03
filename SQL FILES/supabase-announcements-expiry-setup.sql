@@ -8,7 +8,7 @@
 --
 -- There's no background cron here — cleanup is opportunistic: every place
 -- that reads the announcements table (payroll-tools.html, timesheet.js on the
--- Personal Finance page) first deletes any row whose expires_at has passed,
+-- Staff Finance page) first deletes any row whose expires_at has passed,
 -- then selects. So an expired temporary announcement disappears the next
 -- time anyone loads a page that shows announcements, without needing
 -- pg_cron or an Edge Function.

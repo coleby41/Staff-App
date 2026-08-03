@@ -3,7 +3,7 @@
    public.pay_periods (see supabase-pay-periods-setup.sql).
 
    Used by payroll-tools.js (Set Timesheet Period card), timesheet.js
-   (Personal Finance timesheet entry), and manage-employees.js (Manager
+   (Staff Finance timesheet entry), and manage-employees.js (Manager
    portal) so none of them duplicate this logic.
 
    Load this after supabase-config.js/supabase-auth.js and before any script
