@@ -367,7 +367,7 @@ async function submitTimesheet() {
 
 const ALLOWED_DOC_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/heic'];
 const MAX_DOC_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
-const CATEGORY_LABELS = { w2: 'W-2 Tax Form', w4: 'W-4 Tax Form', '1099': '1099 Tax Form', other: 'Other Form' };
+const CATEGORY_LABELS = { w2: 'W-2 Tax Form', w4: 'W-4 Tax Form', '1099': '1099 Tax Form', other: 'Other Form', timesheet: 'Timesheet' };
 
 async function loadDocuments() {
   if (!window.supabaseClient) { console.error('Supabase client not ready yet'); return; }

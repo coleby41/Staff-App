@@ -1158,6 +1158,456 @@ async function deleteTag(tagId) {
 }
 
 /* ===========================
+   REPORT: VENDORS BY APPROVAL STATUS
+   Builds a real .pdf client-side (pdfmake, loaded via CDN in venders.html)
+   from whatever is currently in allCompanies — no server round trip, so
+   the report is always current as of the last page load.
+
+   Layout matches the "Vender Approval Report.docx" template Coleby
+   provided: letterhead header (logo + gray title + blue rule), gray
+   metadata block (Report ID / Generated / Prepared by), an Executive
+   Summary + Vender Criteria section, then bulleted Approve Venders /
+   Unapproved Venders lists. Spelling ("Vender") is kept consistent with
+   the template and the rest of this page.
+=========================== */
+
+const REPORT_META_COLOR = "#6B7280";
+const REPORT_HEADER_TITLE_COLOR = "#595959";
+const REPORT_RULE_COLOR = "#1E76BD";
+const REPORT_LOGO_PATH = "logos/leewaed-logo.png"; // already used site-wide (favicon, login, index)
+
+// Fetches the existing site logo as a data URL so it can be embedded in
+// the PDF header. Returns null (not a throw) if it can't be loaded, so a
+// missing logo never blocks the whole report from generating.
+async function loadReportLogoDataUrl() {
+    try {
+        const res = await fetch(REPORT_LOGO_PATH);
+        if (!res.ok) return null;
+        const blob = await res.blob();
+        return await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    } catch (err) {
+        console.warn("Couldn't load report logo:", err);
+        return null;
+    }
+}
+
+function reportId(prefix = "VAR") {
+    const stamp = new Date();
+    const pad = n => String(n).padStart(2, "0");
+    return `${prefix}-${stamp.getFullYear()}${pad(stamp.getMonth() + 1)}${pad(stamp.getDate())}-${pad(stamp.getHours())}${pad(stamp.getMinutes())}`;
+}
+
+function currentStaffName() {
+    const profile = window.currentSupabaseProfile
+        || JSON.parse(localStorage.getItem("staffProfile") || "null");
+    return (profile && (profile.full_name || profile.username)) || "Staff Portal";
+}
+
+// Logs a row to the generated_reports table so a report can be looked up
+// later by its Report ID (the one printed at the top of the PDF). This is
+// metadata only — the PDF itself isn't stored, just who generated it, when,
+// and a few counts/filters for context. Never blocks or fails report
+// generation: if the insert errors (or Supabase isn't configured), this
+// just logs to the console and the report still downloads normally.
+const GENERATED_REPORTS_TABLE = "generated_reports";
+
+async function logGeneratedReport(reportIdText, reportType, details = {}) {
+    if (!window.supabaseClient) return;
+
+    const profile = window.currentSupabaseProfile
+        || JSON.parse(localStorage.getItem("staffProfile") || "null");
+
+    try {
+        const { error } = await window.supabaseClient.from(GENERATED_REPORTS_TABLE).insert({
+            report_id: reportIdText,
+            report_type: reportType,
+            staff_id: profile && (profile.id ?? profile.uid) != null ? String(profile.id ?? profile.uid) : null,
+            staff_name: currentStaffName(),
+            details,
+        });
+        if (error) console.error("Failed to log generated report:", error);
+    } catch (err) {
+        console.error("Failed to log generated report:", err);
+    }
+}
+
+// The gray "Report ID / Generated / Prepared by" block — appears at the
+// top of every vendor report, matching the template. Takes the already-
+// computed report ID string (rather than a prefix) so the same ID can also
+// be logged via logGeneratedReport().
+function reportMetadataBlock(generatedOn, staffName, reportIdText) {
+    return {
+        fontSize: 8.5,
+        color: REPORT_META_COLOR,
+        margin: [0, 0, 0, 10],
+        text: [
+            `Report ID: ${reportIdText}\n`,
+            `Generated: ${generatedOn}\n`,
+            `Prepared by: ${staffName}`,
+        ],
+    };
+}
+
+function reportHeading(text) {
+    return { text, bold: true, fontSize: 14, margin: [0, 0, 0, 4] };
+}
+
+function reportSubheading(text) {
+    return { text, bold: true, fontSize: 12, margin: [0, 6, 0, 2] };
+}
+
+function reportBodyItalic(text) {
+    return { text, italics: true, margin: [20, 0, 0, 8] };
+}
+
+function reportVendorNameList(companies) {
+    if (!companies.length) {
+        return { text: "None.", italics: true };
+    }
+    return { ul: companies.map(c => c.Name || "Unnamed company"), italics: true, margin: [0, 0, 0, 4] };
+}
+
+// Letterhead header shared by every vendor report: logo top-left +
+// "The Leeward Group, LLC" in gray bold, underlined by a 3pt blue rule —
+// repeats on every page.
+function buildReportLetterheadHeader(logoDataUrl) {
+    const headerTitle = { text: "The Leeward Group, LLC", bold: true, fontSize: 20, color: REPORT_HEADER_TITLE_COLOR, alignment: "center" };
+    return {
+        margin: [50, 22, 50, 0],
+        stack: [
+            logoDataUrl
+                ? { columns: [
+                      { image: logoDataUrl, width: 55, height: 25 },
+                      { ...headerTitle, margin: [0, 12, 55, 0] },
+                  ] }
+                : headerTitle,
+            { canvas: [{ type: "line", x1: 0, y1: 8, x2: 495, y2: 8, lineWidth: 2.5, lineColor: REPORT_RULE_COLOR }] },
+        ],
+    };
+}
+
+// Footer shared by every vendor report: report title on the left, live
+// "Page X of Y" on the right.
+function buildReportFooter(titleText) {
+    return (currentPage, pageCount) => ({
+        margin: [50, 10, 50, 0],
+        columns: [
+            { text: titleText, fontSize: 9, color: "#333333" },
+            { text: `Page ${currentPage} of ${pageCount}`, fontSize: 9, color: "#333333", alignment: "right" },
+        ],
+    });
+}
+
+// Builds the report as a PDF Blob (does NOT download it — that's a
+// separate step so the caller can preview it first). Returns
+// { ok, blob, fileName, approvedCount, notApprovedCount } on success,
+// or { ok: false, error } on failure.
+async function buildApprovalStatusReportPdf() {
+
+    if (typeof pdfMake === "undefined") {
+        console.error("pdfmake failed to load");
+        return { ok: false, error: "Report library failed to load. Refresh and try again." };
+    }
+
+    const companies = [...allCompanies].sort((a, b) =>
+        (a.Name || "").localeCompare(b.Name || "")
+    );
+
+    const approved = companies.filter(isVendorApproved);
+    const notApproved = companies.filter(c => !isVendorApproved(c));
+
+    const generatedOn = new Date().toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+    });
+    const staffName = currentStaffName();
+    const logoDataUrl = await loadReportLogoDataUrl();
+    const reportIdText = reportId("VAR");
+
+    const docDefinition = {
+        pageMargins: [50, 110, 50, 60],
+        header: buildReportLetterheadHeader(logoDataUrl),
+        footer: buildReportFooter("Vender Approval Report"),
+        defaultStyle: { fontSize: 12 },
+
+        content: [
+            { text: "Vender Approval Report", bold: true, fontSize: 18, alignment: "center", margin: [0, 0, 0, 10] },
+            reportMetadataBlock(generatedOn, staffName, reportIdText),
+
+            reportHeading("1. Executive Summary:"),
+            reportBodyItalic(
+                `During this report, a total of ${companies.length} vendors were evaluated in our Leeward Group Data base. ` +
+                `Of those reviewed, ${approved.length} vendors are approve venders, while ${notApproved.length} vendors were not approved based ` +
+                `on the organization's evaluation criteria. See 1.a for vender criteria*.`
+            ),
+            {
+                text: "This report supports ongoing efforts to maintain quality, manage risk, and ensure vendor performance aligns with organizational expectations.",
+                italics: true,
+                margin: [0, 0, 0, 8],
+            },
+
+            reportHeading("1.a. Vender Criteria:"),
+            reportBodyItalic(
+                "To be an Approve Vender in the Leeward Group database, then the following* must be met. Failure to do so will be flagged " +
+                "automatically in our system, resulting in not being automatically selected in the bid process."
+            ),
+            {
+                ul: ["Submitted W-9", "Valid SSN / FID", "Valid Address", "Proper internal tags", "Asset Specialty", "Trade code specialty"],
+                italics: true,
+                margin: [0, 0, 0, 10],
+            },
+
+            { text: "Approve Venders", bold: true, fontSize: 14, pageBreak: "before", margin: [0, 0, 0, 4] },
+            reportVendorNameList(approved),
+
+            { text: "Unapproved Venders", bold: true, fontSize: 14, margin: [0, 10, 0, 4] },
+            reportVendorNameList(notApproved),
+        ],
+    };
+
+    try {
+        const blob = await pdfMake.createPdf(docDefinition).getBlob();
+        const dateStamp = new Date().toISOString().slice(0, 10);
+
+        await logGeneratedReport(reportIdText, "approval", {
+            approvedCount: approved.length,
+            notApprovedCount: notApproved.length,
+        });
+
+        return {
+            ok: true,
+            blob,
+            fileName: `Vender-Approval-Report-${dateStamp}.pdf`,
+            reportId: reportIdText,
+            approvedCount: approved.length,
+            notApprovedCount: notApproved.length,
+        };
+    } catch (err) {
+        console.error("Failed to build approval status report:", err);
+        return { ok: false, error: "Couldn't build the report file." };
+    }
+}
+
+/* ===========================
+   REPORT: VENDORS BY SPECIALTY
+   Two flavors, both approved-vendors-only:
+     - General: one flat, alphabetical list of every approved vendor
+       (bold name) with all of its tags listed underneath — no category
+       grouping.
+     - Custom: driven by the wizard's selections, { [categoryId]: [tagId,...] }.
+       Only categories with at least one selected tag get a section; within
+       each, only the selected tags are shown, each with the approved
+       vendors that carry it.
+   Unapproved vendors are left out entirely from both, not shown with a
+   status marker.
+=========================== */
+
+// Builds the "General" specialty report as a PDF Blob (does NOT download
+// it — same preview-first pattern as the approval report). Returns
+// { ok, blob, fileName, approvedCount } on success, or { ok: false, error }.
+async function buildGeneralSpecialtyReportPdf() {
+
+    if (typeof pdfMake === "undefined") {
+        console.error("pdfmake failed to load");
+        return { ok: false, error: "Report library failed to load. Refresh and try again." };
+    }
+
+    const approved = [...allCompanies]
+        .filter(isVendorApproved)
+        .sort((a, b) => (a.Name || "").localeCompare(b.Name || ""));
+
+    const generatedOn = new Date().toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+    });
+    const staffName = currentStaffName();
+    const logoDataUrl = await loadReportLogoDataUrl();
+    const reportIdText = reportId("VSR");
+
+    const bodyContent = approved.length
+        ? approved.flatMap(company => {
+            const tags = tagsForCompany(company.id).sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+            return [
+                { text: company.Name || "Unnamed company", bold: true, fontSize: 13, margin: [0, 8, 0, 2] },
+                tags.length
+                    ? { ul: tags.map(t => t.name), italics: true, margin: [0, 0, 0, 0] }
+                    : { text: "No tags assigned.", italics: true },
+            ];
+        })
+        : [{ text: "No approved vendors to report.", italics: true }];
+
+    const docDefinition = {
+        pageMargins: [50, 110, 50, 60],
+        header: buildReportLetterheadHeader(logoDataUrl),
+        footer: buildReportFooter("Vender Specialty Report"),
+        defaultStyle: { fontSize: 12 },
+
+        content: [
+            { text: "Vender Specialty Report", bold: true, fontSize: 18, alignment: "center", margin: [0, 0, 0, 10] },
+            reportMetadataBlock(generatedOn, staffName, reportIdText),
+            {
+                text: "This report lists The Leeward Group's approved vendors along with all of their assigned specialty tags. " +
+                    "Only approved vendors are included below.",
+                italics: true,
+                margin: [0, 0, 0, 10],
+            },
+            ...bodyContent,
+        ],
+    };
+
+    try {
+        const blob = await pdfMake.createPdf(docDefinition).getBlob();
+        const dateStamp = new Date().toISOString().slice(0, 10);
+
+        await logGeneratedReport(reportIdText, "specialty_general", {
+            approvedCount: approved.length,
+        });
+
+        return {
+            ok: true,
+            blob,
+            fileName: `Vender-Specialty-Report-general-${dateStamp}.pdf`,
+            reportId: reportIdText,
+            approvedCount: approved.length,
+        };
+    } catch (err) {
+        console.error("Failed to build general specialty report:", err);
+        return { ok: false, error: "Couldn't build the report file." };
+    }
+}
+
+// Builds the "Custom" specialty report from the wizard's selections —
+// { [categoryId]: [tagId, ...] }. A vendor must carry at least one selected
+// tag from EVERY category that had a selection (so checking "Flex Space"
+// in Asset Specialty and "1010 - Temporary Electric" in Trade only returns
+// vendors that have both — categories with no selection just aren't used
+// as a filter). If nothing was selected anywhere, the report still
+// generates with a "No tags selected." body. If selections were made but
+// no approved vendor matches all of them, NO PDF is built at all — this
+// returns { ok: false, error, noMatches: true } so the wizard can show a
+// message instead of opening a preview. Returns
+// { ok, blob, fileName, approvedCount } on success, or { ok: false, error }.
+async function buildCustomSpecialtyReportPdf(selections) {
+
+    if (typeof pdfMake === "undefined") {
+        console.error("pdfmake failed to load");
+        return { ok: false, error: "Report library failed to load. Refresh and try again." };
+    }
+
+    const approved = [...allCompanies].filter(isVendorApproved);
+
+    const sortedCategories = [...allTagCategories].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+
+    const activeCategories = sortedCategories
+        .map(category => {
+            const selectedTagIds = new Set(((selections && selections[category.id]) || []).map(String));
+            const tags = allTags
+                .filter(t => String(t.category_id) === String(category.id) && selectedTagIds.has(String(t.id)))
+                .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+            return { category, tags };
+        })
+        .filter(group => group.tags.length > 0);
+
+    let matchedVendors = [];
+
+    if (activeCategories.length) {
+        // A vendor qualifies if, for every category with a selection, it
+        // carries at least one of that category's selected tags (OR within
+        // a category, AND across categories).
+        matchedVendors = approved
+            .filter(company => {
+                const companyTags = tagsForCompany(company.id);
+                return activeCategories.every(group =>
+                    group.tags.some(tag => companyTags.some(t => String(t.id) === String(tag.id)))
+                );
+            })
+            .sort((a, b) => (a.Name || "").localeCompare(b.Name || ""));
+
+        if (!matchedVendors.length) {
+            return {
+                ok: false,
+                noMatches: true,
+                error: "No approved vendor matches all of the selected tags.",
+            };
+        }
+    }
+
+    const generatedOn = new Date().toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+    });
+    const staffName = currentStaffName();
+    const logoDataUrl = await loadReportLogoDataUrl();
+    const reportIdText = reportId("VSR");
+
+    const bodyContent = [];
+
+    if (!activeCategories.length) {
+        bodyContent.push({ text: "No tags selected.", italics: true });
+    } else {
+        const filterDescription = activeCategories
+            .map(group => `${group.category.name}: ${group.tags.map(t => t.name).join(" or ")}`);
+
+        bodyContent.push({
+            text: "Matching all of the following:",
+            bold: true,
+            fontSize: 12,
+            margin: [0, 0, 0, 2],
+        });
+        bodyContent.push({ ul: filterDescription, margin: [0, 0, 0, 10] });
+        bodyContent.push(reportSubheading("Matching Venders"));
+        bodyContent.push(reportVendorNameList(matchedVendors));
+    }
+
+    const docDefinition = {
+        pageMargins: [50, 110, 50, 60],
+        header: buildReportLetterheadHeader(logoDataUrl),
+        footer: buildReportFooter("Vender Specialty Report"),
+        defaultStyle: { fontSize: 12 },
+
+        content: [
+            { text: "Vender Specialty Report — Custom", bold: true, fontSize: 18, alignment: "center", margin: [0, 0, 0, 10] },
+            reportMetadataBlock(generatedOn, staffName, reportIdText),
+            {
+                text: "This report includes only approved vendors matching the specialty tags selected when it was generated.",
+                italics: true,
+                margin: [0, 0, 0, 10],
+            },
+            ...bodyContent,
+        ],
+    };
+
+    try {
+        const blob = await pdfMake.createPdf(docDefinition).getBlob();
+        const dateStamp = new Date().toISOString().slice(0, 10);
+
+        await logGeneratedReport(reportIdText, "specialty_custom", {
+            approvedCount: matchedVendors.length,
+            selections,
+        });
+
+        return {
+            ok: true,
+            blob,
+            fileName: `Vender-Specialty-Report-custom-${dateStamp}.pdf`,
+            reportId: reportIdText,
+            approvedCount: matchedVendors.length,
+        };
+    } catch (err) {
+        console.error("Failed to build custom specialty report:", err);
+        return { ok: false, error: "Couldn't build the report file." };
+    }
+}
+
+/* ===========================
    INIT
 =========================== */
 

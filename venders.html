@@ -697,13 +697,16 @@
 
 <!-- Start A Report Modal -->
 <div class="popup-overlay hidden" id="startReportModalOverlay">
-    <div class="popup workbook-popup">
+    <div class="popup workbook-popup start-report-popup">
         <h2>Generate A Report</h2>
         <p class="auth-inline-copy">Here you can generate a report by vendor specialty or by whether the vendor is approved or not.</p>
 
         <div class="report-options-grid">
 
             <div class="report-option-card">
+                <div class="report-card-icon">
+                    <span class="report-card-icon-glyph report-card-icon-glyph--specialty"></span>
+                </div>
                 <h3>Report by Specialty</h3>
                 <p>Generate a report of vendors grouped by specialty.</p>
                 <button type="button" class="auth-button auth-button--secondary" id="reportBySpecialtyBtn">
@@ -712,13 +715,101 @@
             </div>
 
             <div class="report-option-card">
+                <div class="report-card-icon">
+                    <span class="report-card-icon-glyph report-card-icon-glyph--approval"></span>
+                </div>
                 <h3>Report by Approval Status</h3>
                 <p>Generate a report of vendors by whether they're approved or not.</p>
                 <button type="button" class="auth-button auth-button--secondary" id="reportByApprovalBtn">
-                    Start Report
+                    Generate Report
                 </button>
             </div>
 
+        </div>
+
+        <p id="startReportMessage" class="auth-message" style="display:none;"></p>
+    </div>
+</div>
+
+<!-- Report Preview Modal -->
+<div class="popup-overlay hidden" id="reportPreviewModalOverlay">
+    <div class="popup workbook-popup report-preview-popup">
+        <h2>Report Preview</h2>
+        <p class="auth-inline-copy">Review the report below, then download it or close this without saving.</p>
+
+        <div id="reportPreviewContainer" class="report-preview-container"></div>
+
+        <p id="reportPreviewMessage" class="auth-message" style="display:none;"></p>
+
+        <div class="report-preview-actions">
+            <button type="button" class="auth-button auth-button--secondary" id="closeReportPreviewBtn">
+                Close
+            </button>
+            <button type="button" class="auth-button" id="reportPreviewDownloadBtn">
+                Download
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Specialty Report: General vs Custom Modal -->
+<div class="popup-overlay hidden" id="specialtyReportTypeModalOverlay">
+    <div class="popup workbook-popup">
+        <h2>Specialty Report</h2>
+        <p class="auth-inline-copy">Choose how you'd like to generate this report.</p>
+
+        <div class="report-options-grid">
+
+            <div class="report-option-card">
+                <div class="report-card-icon">
+                    <span class="report-card-icon-glyph report-card-icon-glyph--general"></span>
+                </div>
+                <h3>General Report</h3>
+                <p>Every approved vendor, listed with all of their specialty tags.</p>
+                <button type="button" class="auth-button auth-button--secondary" id="specialtyGeneralReportBtn">
+                    Generate
+                </button>
+            </div>
+
+            <div class="report-option-card">
+                <div class="report-card-icon">
+                    <span class="report-card-icon-glyph report-card-icon-glyph--custom"></span>
+                </div>
+                <h3>Custom Report</h3>
+                <p>Step through each category and choose exactly which tags to include.</p>
+                <button type="button" class="auth-button auth-button--secondary" id="specialtyCustomReportBtn">
+                    Start
+                </button>
+            </div>
+
+        </div>
+
+        <p id="specialtyReportTypeMessage" class="auth-message" style="display:none;"></p>
+
+    
+    </div>
+</div>
+
+<!-- Specialty Report: Custom Wizard Modal (one step per tag category) -->
+<div class="popup-overlay hidden" id="specialtyWizardModalOverlay">
+    <div class="popup workbook-popup">
+        <h2 id="specialtyWizardTitle">Category</h2>
+        <p class="auth-inline-copy" id="specialtyWizardStepLabel">Step 1 of 1</p>
+
+        <div id="specialtyWizardTagList" class="specialty-wizard-tag-list"></div>
+
+        <p id="specialtyWizardMessage" class="auth-message" style="display:none;"></p>
+
+        <div class="report-preview-actions">
+            <button type="button" class="auth-button auth-button--secondary" id="specialtyWizardCancelBtn">
+                Cancel
+            </button>
+            <button type="button" class="auth-button auth-button--secondary" id="specialtyWizardBackBtn">
+                Back
+            </button>
+            <button type="button" class="auth-button" id="specialtyWizardNextBtn">
+                Next
+            </button>
         </div>
     </div>
 </div>
@@ -731,6 +822,13 @@
 <script src="auth-guard.js"></script>
 <script src="manager-nav.js"></script>
 <script src="timeout.js"></script>
+
+<!-- Report generation (pdfmake). vfs_fonts.js must load right after
+     pdfmake.min.js — it self-registers its bundled Roboto font data onto
+     window.pdfMake as soon as it runs. -->
+<script src="https://cdn.jsdelivr.net/npm/pdfmake@0.3.10/build/pdfmake.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfmake@0.3.10/build/vfs_fonts.js"></script>
+
 <script src="companies.js"></script>
 
 <script>
@@ -1064,6 +1162,7 @@ window.addEventListener("DOMContentLoaded", function() {
     initCompanySearch();
     initCompanyViewToggle();
     initStartReportModal();
+    initReportPreviewModal();
 
     if (typeof window.initCompaniesPage === "function") {
         window.initCompaniesPage();
@@ -1101,18 +1200,353 @@ function initStartReportModal() {
         if (e.target === overlay) overlay.classList.add("hidden");
     });
 
-    // TODO: point these at the real report pages once they exist.
     if (bySpecialtyBtn) {
         bySpecialtyBtn.addEventListener("click", () => {
-            console.log("Start report by specialty — page not built yet.");
+            overlay.classList.add("hidden");
+            openSpecialtyReportTypePopup();
+        });
+    }
+    wireReportButton(byApprovalBtn, buildApprovalStatusReportPdf, overlay);
+    initSpecialtyReportPopups();
+}
+
+// Generic "show/hide a status line" helper — every report-flow popup
+// (the main picker, the General/Custom choice, and each wizard step) has
+// its own <p class="auth-message"> element, so this just points at
+// whichever one is relevant instead of duplicating the same logic per popup.
+function makeMessageSetter(elementId) {
+    const messageEl = document.getElementById(elementId);
+    return (text, type) => {
+        if (!messageEl) return;
+        messageEl.textContent = text || "";
+        messageEl.className = `auth-message ${type || ""}`.trim();
+        messageEl.style.display = text ? "block" : "none";
+    };
+}
+
+function getStartReportMessageSetter() {
+    return makeMessageSetter("startReportMessage");
+}
+
+// Shared "build the PDF, then either open the preview or show an inline
+// error" flow — used by both the plain report buttons and the per-tag
+// chips, so neither has to duplicate the try/catch/message logic.
+async function generateAndPreviewReport(buildFn, pickerOverlay, setMessage) {
+    if (typeof buildFn !== "function") {
+        setMessage("Report tool isn't loaded. Refresh and try again.", "error");
+        return;
+    }
+    try {
+        const result = await buildFn();
+        if (result && result.ok) {
+            setMessage("", "");
+            pickerOverlay.classList.add("hidden");
+            await openReportPreview(result.blob, result.fileName);
+        } else {
+            setMessage((result && result.error) || "Couldn't generate the report.", "error");
+        }
+    } catch (err) {
+        console.error("Failed to generate report:", err);
+        setMessage("Couldn't generate the report. Check the console for details.", "error");
+    }
+}
+
+// Shared click handler for any "Start Report" button in the report-picker
+// popup: shows a loading state, builds the PDF, then hands it to the
+// preview modal (or shows an inline error if generation failed).
+function wireReportButton(btn, buildFn, pickerOverlay) {
+
+    if (!btn) return;
+
+    btn.addEventListener("click", async () => {
+        const setMessage = getStartReportMessageSetter();
+        const originalLabel = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Generating…";
+        setMessage("Generating report…", "");
+
+        await generateAndPreviewReport(buildFn, pickerOverlay, setMessage);
+
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+    });
+}
+
+/* ===========================
+   SPECIALTY REPORT — GENERAL / CUSTOM
+   "Report by Specialty" opens a choice popup: General Report generates
+   immediately (a flat list of every approved vendor with all of its tags).
+   Custom Report opens a step-by-step wizard — one popup per tag category,
+   in DB order, each showing that category's tags as checkboxes — and
+   generates a report scoped to just the tags checked along the way. The
+   wizard walks allTagCategories directly, so adding a category in the
+   database automatically adds another step next time it runs.
+=========================== */
+
+function initSpecialtyReportPopups() {
+
+    const typeOverlay = document.getElementById("specialtyReportTypeModalOverlay");
+    const closeTypeBtn = document.getElementById("closeSpecialtyReportTypeBtn");
+    const generalBtn = document.getElementById("specialtyGeneralReportBtn");
+    const customBtn = document.getElementById("specialtyCustomReportBtn");
+
+    if (typeOverlay) {
+        if (closeTypeBtn) {
+            closeTypeBtn.addEventListener("click", () => typeOverlay.classList.add("hidden"));
+        }
+        typeOverlay.addEventListener("click", (e) => {
+            if (e.target === typeOverlay) typeOverlay.classList.add("hidden");
         });
     }
 
-    if (byApprovalBtn) {
-        byApprovalBtn.addEventListener("click", () => {
-            console.log("Run report of approved or not — page not built yet.");
+    if (generalBtn) {
+        generalBtn.addEventListener("click", async () => {
+            const setMessage = makeMessageSetter("specialtyReportTypeMessage");
+            const originalLabel = generalBtn.textContent;
+            generalBtn.disabled = true;
+            generalBtn.textContent = "Generating…";
+            setMessage("Generating report…", "");
+
+            await generateAndPreviewReport(buildGeneralSpecialtyReportPdf, typeOverlay, setMessage);
+
+            generalBtn.disabled = false;
+            generalBtn.textContent = originalLabel;
         });
     }
+
+    if (customBtn) {
+        customBtn.addEventListener("click", () => {
+            if (typeOverlay) typeOverlay.classList.add("hidden");
+            startSpecialtyCustomWizard();
+        });
+    }
+
+    const wizardOverlay = document.getElementById("specialtyWizardModalOverlay");
+    const cancelBtn = document.getElementById("specialtyWizardCancelBtn");
+    const backBtn = document.getElementById("specialtyWizardBackBtn");
+    const nextBtn = document.getElementById("specialtyWizardNextBtn");
+
+    if (cancelBtn) cancelBtn.addEventListener("click", closeSpecialtyWizard);
+    if (wizardOverlay) {
+        wizardOverlay.addEventListener("click", (e) => {
+            if (e.target === wizardOverlay) closeSpecialtyWizard();
+        });
+    }
+    if (backBtn) backBtn.addEventListener("click", specialtyWizardBack);
+    if (nextBtn) nextBtn.addEventListener("click", specialtyWizardNext);
+}
+
+function openSpecialtyReportTypePopup() {
+    const overlay = document.getElementById("specialtyReportTypeModalOverlay");
+    if (!overlay) return;
+    const setMessage = makeMessageSetter("specialtyReportTypeMessage");
+    setMessage("", "");
+    overlay.classList.remove("hidden");
+}
+
+let specialtyWizardState = null; // { categories, stepIndex, selections: { [categoryId]: [tagId,...] } }
+
+async function startSpecialtyCustomWizard() {
+
+    const categories = (typeof allTagCategories !== "undefined" ? [...allTagCategories] : [])
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+
+    if (!categories.length) {
+        // Nothing to walk through — the wizard has no steps, so generate
+        // straight away (an empty-selections custom report).
+        const typeOverlay = document.getElementById("specialtyReportTypeModalOverlay");
+        const setMessage = makeMessageSetter("specialtyReportTypeMessage");
+        await generateAndPreviewReport(() => buildCustomSpecialtyReportPdf({}), typeOverlay, setMessage);
+        return;
+    }
+
+    specialtyWizardState = { categories, stepIndex: 0, selections: {} };
+    renderSpecialtyWizardStep();
+
+    const overlay = document.getElementById("specialtyWizardModalOverlay");
+    if (overlay) overlay.classList.remove("hidden");
+}
+
+function renderSpecialtyWizardStep() {
+
+    const state = specialtyWizardState;
+    if (!state) return;
+
+    const category = state.categories[state.stepIndex];
+    const titleEl = document.getElementById("specialtyWizardTitle");
+    const stepLabelEl = document.getElementById("specialtyWizardStepLabel");
+    const listEl = document.getElementById("specialtyWizardTagList");
+    const backBtn = document.getElementById("specialtyWizardBackBtn");
+    const nextBtn = document.getElementById("specialtyWizardNextBtn");
+    const setMessage = makeMessageSetter("specialtyWizardMessage");
+
+    if (titleEl) titleEl.textContent = category.name;
+    if (stepLabelEl) stepLabelEl.textContent = `Step ${state.stepIndex + 1} of ${state.categories.length}`;
+    setMessage("", "");
+
+    const tagsInCategory = allTags
+        .filter(t => String(t.category_id) === String(category.id))
+        .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+
+    const alreadyChecked = new Set((state.selections[category.id] || []).map(String));
+
+    if (listEl) {
+        listEl.innerHTML = tagsInCategory.length
+            ? tagsInCategory.map(tag => `
+                <label class="specialty-wizard-tag-option">
+                    <input type="checkbox" value="${tag.id}" ${alreadyChecked.has(String(tag.id)) ? "checked" : ""}>
+                    <span>${escapeHtmlLocal(tag.name)}</span>
+                </label>
+            `).join("")
+            : '<p class="report-tag-chip-empty">No tags in this category yet.</p>';
+    }
+
+    if (backBtn) backBtn.style.display = state.stepIndex === 0 ? "none" : "inline-flex";
+    if (nextBtn) nextBtn.textContent = state.stepIndex === state.categories.length - 1 ? "Generate Report" : "Next";
+}
+
+// Reads the checkboxes currently on screen into the wizard's selections,
+// so toggles survive going Back and then Next again.
+function saveCurrentWizardStepSelections() {
+    const state = specialtyWizardState;
+    if (!state) return;
+    const category = state.categories[state.stepIndex];
+    const listEl = document.getElementById("specialtyWizardTagList");
+    if (!listEl) return;
+    const checked = Array.from(listEl.querySelectorAll("input[type=checkbox]:checked")).map(cb => cb.value);
+    state.selections[category.id] = checked;
+}
+
+function specialtyWizardBack() {
+    const state = specialtyWizardState;
+    if (!state || state.stepIndex === 0) return;
+    saveCurrentWizardStepSelections();
+    state.stepIndex -= 1;
+    renderSpecialtyWizardStep();
+}
+
+async function specialtyWizardNext() {
+
+    const state = specialtyWizardState;
+    if (!state) return;
+
+    saveCurrentWizardStepSelections();
+
+    if (state.stepIndex < state.categories.length - 1) {
+        state.stepIndex += 1;
+        renderSpecialtyWizardStep();
+        return;
+    }
+
+    // Last step — build and preview the final report.
+    const nextBtn = document.getElementById("specialtyWizardNextBtn");
+    const backBtn = document.getElementById("specialtyWizardBackBtn");
+    const setMessage = makeMessageSetter("specialtyWizardMessage");
+    const originalLabel = nextBtn ? nextBtn.textContent : "";
+
+    if (nextBtn) { nextBtn.disabled = true; nextBtn.textContent = "Generating…"; }
+    if (backBtn) backBtn.disabled = true;
+    setMessage("Generating report…", "");
+
+    const selections = { ...state.selections };
+    const wizardOverlay = document.getElementById("specialtyWizardModalOverlay");
+
+    await generateAndPreviewReport(
+        () => buildCustomSpecialtyReportPdf(selections),
+        wizardOverlay,
+        setMessage
+    );
+
+    if (nextBtn) { nextBtn.disabled = false; nextBtn.textContent = originalLabel; }
+    if (backBtn) backBtn.disabled = false;
+    specialtyWizardState = null;
+}
+
+function closeSpecialtyWizard() {
+    const overlay = document.getElementById("specialtyWizardModalOverlay");
+    if (overlay) overlay.classList.add("hidden");
+    specialtyWizardState = null;
+}
+
+/* ===========================
+   REPORT PREVIEW MODAL
+   Renders the generated PDF Blob in-browser via a plain <iframe> — browsers
+   render PDFs natively, so no extra preview library is needed (unlike the
+   old .docx version). Download is a manual blob-URL anchor click, since
+   there's no FileSaver dependency loaded anymore either.
+=========================== */
+
+let currentReportBlob = null;
+let currentReportFileName = "report.pdf";
+let currentReportPreviewUrl = null;
+
+function downloadBlob(blob, fileName) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function initReportPreviewModal() {
+
+    const overlay = document.getElementById("reportPreviewModalOverlay");
+    const closeBtn = document.getElementById("closeReportPreviewBtn");
+    const downloadBtn = document.getElementById("reportPreviewDownloadBtn");
+
+    if (!overlay) return;
+
+    const hide = () => {
+        overlay.classList.add("hidden");
+        currentReportBlob = null;
+        if (currentReportPreviewUrl) {
+            URL.revokeObjectURL(currentReportPreviewUrl);
+            currentReportPreviewUrl = null;
+        }
+        const container = document.getElementById("reportPreviewContainer");
+        if (container) container.innerHTML = "";
+    };
+
+    if (closeBtn) closeBtn.addEventListener("click", hide);
+
+    overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) hide();
+    });
+
+    if (downloadBtn) {
+        downloadBtn.addEventListener("click", () => {
+            if (!currentReportBlob) return;
+            downloadBlob(currentReportBlob, currentReportFileName);
+        });
+    }
+}
+
+async function openReportPreview(blob, fileName) {
+
+    const overlay = document.getElementById("reportPreviewModalOverlay");
+    const container = document.getElementById("reportPreviewContainer");
+    const messageEl = document.getElementById("reportPreviewMessage");
+
+    if (!overlay || !container) return;
+
+    currentReportBlob = blob;
+    currentReportFileName = fileName || "report.pdf";
+
+    if (currentReportPreviewUrl) URL.revokeObjectURL(currentReportPreviewUrl);
+    currentReportPreviewUrl = URL.createObjectURL(blob);
+
+    container.innerHTML = "";
+    if (messageEl) messageEl.style.display = "none";
+
+    const iframe = document.createElement("iframe");
+    iframe.src = currentReportPreviewUrl;
+    iframe.title = "Report preview";
+    container.appendChild(iframe);
+
+    overlay.classList.remove("hidden");
 }
 
 

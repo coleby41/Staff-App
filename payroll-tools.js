@@ -486,13 +486,22 @@ async function renderEmployeeDetailTimesheet(emp) {
   if (totalEl) totalEl.textContent = `Status: ${ts.status} · Total hours: ${totalHours.toFixed(2)}`;
 
   if (actionsEl) {
+    const buttons = [];
     if (ts.status === 'Sent to Accounting') {
-      actionsEl.innerHTML = `<button type="button" class="auth-button auth-button--secondary auth-button--sm" onclick="markTimesheetProcessed('${ts.id}')">Mark Processed</button>`;
+      buttons.push(`<button type="button" class="auth-button auth-button--secondary auth-button--sm" onclick="markTimesheetProcessed('${ts.id}')">Mark Processed</button>`);
     } else if (ts.status === 'Processed') {
-      actionsEl.innerHTML = `<button type="button" class="auth-button auth-button--secondary auth-button--sm" onclick="markTimesheetComplete('${ts.id}')">Mark Complete</button>`;
-    } else {
-      actionsEl.innerHTML = `<p class="card-subtitle">This timesheet is still with the employee or their manager — no Accounting action yet.</p>`;
+      buttons.push(`<button type="button" class="auth-button auth-button--secondary auth-button--sm" onclick="markTimesheetComplete('${ts.id}')">Mark Complete</button>`);
     }
+    // Unapprove is available any time after manager approval — including
+    // after Accounting has processed or fully completed it — since Coleby
+    // confirmed Accounting should be able to send a timesheet back even
+    // that late in the workflow.
+    if (['Sent to Accounting', 'Processed', 'Complete'].includes(ts.status)) {
+      buttons.push(`<button type="button" class="auth-button auth-button--red auth-button--sm" onclick="unapproveTimesheet('${ts.id}')">Unapprove</button>`);
+    }
+    actionsEl.innerHTML = buttons.length
+      ? buttons.join('')
+      : `<p class="card-subtitle">This timesheet is still with the employee or their manager — no Accounting action yet.</p>`;
   }
 
   const eventRows = events || [];
@@ -549,8 +558,54 @@ async function markTimesheetComplete(timesheetId) {
 
   await supabaseClient.from('timesheet_events').insert({ timesheet_id: timesheetId, event_type: 'completed', actor_id: actorId });
 
-  generateFinalPdf(timesheetId); // stub today — see payroll-pdf-stub.js
+  // The timesheet's own status update above already succeeded regardless of
+  // what happens here, so a PDF failure shouldn't look like the whole action
+  // failed — just surface it separately so it's not silently lost.
+  try {
+    const filePath = await generateFinalPdf(timesheetId);
+    if (!filePath) {
+      console.warn('generateFinalPdf() did not return a file path — check the console for the underlying error.');
+      alert('Timesheet marked complete, but the PDF could not be generated. Check the browser console for details.');
+    }
+  } catch (pdfError) {
+    console.error('generateFinalPdf() threw:', pdfError);
+    alert('Timesheet marked complete, but generating the PDF failed. Check the browser console for details.');
+  }
 
+  await refreshAccountingDashboardAfterAction();
+}
+
+// Accounting can send a timesheet back to the employee for corrections even
+// after manager approval — including after it's been Processed or fully
+// Complete. Requires a comment (same rule as a manager's rejection) so the
+// employee knows what to fix. If a final PDF already exists (timesheet was
+// Complete), it gets invalidated first since it reflected numbers that are
+// about to change.
+async function unapproveTimesheet(timesheetId) {
+  const commentEl = document.getElementById('employeeDetailComment');
+  const comment = commentEl ? commentEl.value.trim() : '';
+  if (!comment) { alert('A comment is required so the employee knows what to fix.'); return; }
+  if (!confirm('Send this timesheet back to the employee for corrections? This clears its approval/processing/completion status, and removes its PDF if one was already generated.')) return;
+
+  const actorId = window.currentSupabaseProfile?.id || null;
+
+  await invalidateFinalPdf(timesheetId); // no-op if no final PDF exists yet — see payroll-pdf-stub.js
+
+  const { error } = await supabaseClient.from('timesheets').update({
+    status: 'Needs Corrections',
+    approved_by: null,
+    approved_at: null,
+    processed_by: null,
+    processed_at: null,
+    completed_at: null
+  }).eq('id', timesheetId);
+  if (error) { console.error('Failed to unapprove timesheet:', error); alert('Could not unapprove that timesheet.'); return; }
+
+  await supabaseClient.from('timesheet_events').insert({
+    timesheet_id: timesheetId, event_type: 'rejected', actor_id: actorId, comment: `Unapproved by Accounting: ${comment}`
+  });
+
+  if (commentEl) commentEl.value = '';
   await refreshAccountingDashboardAfterAction();
 }
 

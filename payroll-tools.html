@@ -498,6 +498,11 @@
           <div id="employeeDetailEntriesEmpty" class="empty-state" style="display:none;">No hours entered for this period yet.</div>
           <p class="employee-detail-total" id="employeeDetailTotal"></p>
 
+          <label class="auth-field">
+            Comment
+            <textarea id="employeeDetailComment" rows="2" placeholder="Required if you're unapproving this timesheet"></textarea>
+          </label>
+
           <div class="popup-buttons" id="employeeDetailActions" style="justify-content:flex-start;"></div>
         </section>
 
@@ -577,6 +582,8 @@
     <script src="manager-nav.js"></script>
     <script src="timeout.js"></script>
     <script src="pay-periods-shared.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="payroll-pdf-stub.js"></script>
     <script src="payroll-tools.js"></script>
 
