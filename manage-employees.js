@@ -54,8 +54,11 @@ async function initManagerPortal(profile) {
 }
 
 async function loadStaffDirectory() {
+  // Reads go through staff_users_directory (a view that omits password_hash)
+  // now that the base table's RLS no longer grants anon a direct SELECT —
+  // see supabase-staff-users-rls-setup.sql.
   const { data, error } = await supabaseClient
-    .from('staff_users')
+    .from('staff_users_directory')
     .select('id, full_name, username, manager_id, role');
   if (error) { console.error('Failed to load staff directory:', error); staffDirectory = []; staffDirectoryById = new Map(); return; }
   staffDirectory = data || [];

@@ -9,10 +9,16 @@ if (menuBtn && sidebar && mainContent) {
     });
 }
 
+// Keep this in sync with the "@media (max-width: 820px)" breakpoint in
+// styles.css where the sidebar switches to an overlay drawer — mismatched
+// breakpoints here is what made the sidebar look broken/unscalable between
+// ~768px and ~820px (CSS and JS disagreed on when "mobile" started).
+const SIDEBAR_MOBILE_BREAKPOINT = 820;
+
 function handleResize() {
     if (!sidebar || !mainContent) return;
 
-    if (window.innerWidth <= 768) {
+    if (window.innerWidth <= SIDEBAR_MOBILE_BREAKPOINT) {
         sidebar.classList.add('hidden');
         mainContent.classList.add('expanded');
     } else {
@@ -71,3 +77,45 @@ document.addEventListener("click", function(event) {
         notificationDropdown.classList.remove("active");
     }
 });
+
+/* ===========================
+   POPUP SCROLL LOCK (global safety net)
+   Most popups already add/remove body.popup-active themselves when they
+   open/close, but a few (e.g. the vendor page's report wizard) never did,
+   which let the page scroll behind the popup. Instead of patching every
+   open/close call site one by one, watch every .popup-overlay element for
+   visibility changes and keep body.popup-active in sync automatically.
+   This covers every popup on the page today and any added later, even if
+   whoever adds them forgets to wire the class manually.
+=========================== */
+(function () {
+    function isOverlayVisible(el) {
+        if (el.classList.contains("hidden")) return false;
+        return window.getComputedStyle(el).display !== "none";
+    }
+
+    function syncPopupActive() {
+        const anyVisible = Array.prototype.some.call(
+            document.querySelectorAll(".popup-overlay"),
+            isOverlayVisible
+        );
+        document.body.classList.toggle("popup-active", anyVisible);
+    }
+
+    const popupObserver = new MutationObserver(syncPopupActive);
+
+    function start() {
+        popupObserver.observe(document.body, {
+            attributes: true,
+            attributeFilter: ["class", "style"],
+            subtree: true
+        });
+        syncPopupActive();
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", start);
+    } else {
+        start();
+    }
+})();

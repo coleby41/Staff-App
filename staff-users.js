@@ -149,7 +149,11 @@ async function loadStaffUsers() {
   }
 
   const client = getSupabaseClient();
-  const { data, error } = await client.from('staff_users').select('*').order('created_at', { ascending: false });
+  // Reads go through staff_users_directory (a view that omits password_hash)
+  // now that the base table's RLS no longer grants anon a direct SELECT —
+  // see supabase-staff-users-rls-setup.sql. Writes below still target
+  // staff_users directly, which is unaffected by this.
+  const { data, error } = await client.from('staff_users_directory').select('*').order('created_at', { ascending: false });
 
   if (error) {
     setMessage(directoryMessage, error.message || 'Unable to load staff users.', 'error');

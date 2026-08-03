@@ -18,9 +18,27 @@
   --radius-lg: 20px;
   --radius-md: 14px;
   --radius-sm: 10px;
+
+  /* Sidebar width is a variable (not hardcoded in two places) so the
+     sidebar and .main-content's margin can never drift out of sync, and so
+     it can scale smoothly across screen sizes instead of one fixed value. */
+  --sidebar-width: clamp(210px, 17vw, 260px);
+
+  /* Header height, also referenced by .sidebar's top offset and
+     .main-content's top offset/scroll height, so the three can never drift
+     out of sync with each other. */
+  --header-height: 74px;
+}
+
+@media (max-width: 1100px) {
+  :root { --sidebar-width: clamp(190px, 22vw, 230px); }
 }
 
 * { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+}
 
 body {
   margin: 0;
@@ -28,17 +46,29 @@ body {
   background: linear-gradient(180deg, #f6f8fa 0%, var(--bg) 100%);
   color: var(--text);
   min-height: 100vh;
+  /* The page itself never scrolls — the header and sidebar are fixed in
+     place, and .main-content is its own independently-scrolling region
+     below/beside them (see .main-content). */
+  overflow: hidden;
 }
 
-body.popup-active { overflow: hidden; }
+/* When a popup is open, freeze the one thing that actually scrolls
+   (.main-content) along with the sidebar's own nav scroll — body itself is
+   already non-scrolling by default above, this just covers the rest. */
+body.popup-active .main-content,
+body.popup-active .sidebar {
+  overflow: hidden;
+}
 
 a { color: inherit; text-decoration: none; }
 
 button { font: inherit; }
 
 .header {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 100;
   display: flex;
   align-items: center;
@@ -123,21 +153,48 @@ button { font: inherit; }
 .sidebar {
   position: fixed;
   left: 0;
-  top: 74px;
+  top: var(--header-height);
   bottom: 0;
-  width: 260px;
+  width: var(--sidebar-width);
   padding: 24px 16px 20px;
   background: #0e2230;
   color: #f7fbff;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  transition: transform 0.2s ease;
+  overflow-y: auto;
+  transition: transform 0.2s ease, width 0.2s ease;
   box-shadow: 12px 0 24px rgba(5, 16, 24, 0.15);
 }
 
 .sidebar.hidden {
   transform: translateX(-100%);
+}
+
+/* Visible, theme-matched scrollbar for the sidebar (rather than relying on
+   the OS default, which can be nearly invisible against the dark
+   background, or auto-hidden entirely) — kicks in whenever the nav list is
+   taller than the viewport, on every page that has this sidebar. */
+.sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.45);
 }
 
 .sidebar-header {
@@ -226,7 +283,12 @@ button { font: inherit; }
 .version { font-size: 0.78rem; color: #6c98b0; margin-top: 4px; }
 
 .main-content {
-  margin-left: 260px;
+  margin-left: var(--sidebar-width);
+  margin-top: var(--header-height);
+  /* This is the one scrolling region on the page — header and sidebar are
+     both position: fixed above, so they never move. */
+  height: calc(100vh - var(--header-height));
+  overflow-y: auto;
   padding: 28px 24px 40px;
   transition: margin-left 0.2s ease;
 }
@@ -1196,13 +1258,19 @@ button { font: inherit; }
 }
 
 @media (max-width: 820px) {
+  /* Header is shorter at this size (smaller padding), so --header-height
+     drops too — .sidebar's top offset and .main-content's margin-top/
+     scroll-height both key off this variable and recompute automatically. */
+  :root { --header-height: 68px; }
   .header { padding: 14px 16px; }
   .header-center { display: none; }
   .sidebar {
-    top: 68px;
     width: min(86vw, 280px);
   }
-  .main-content { margin-left: 0; padding: 18px 16px 28px; }
+  /* Below this breakpoint the sidebar becomes an overlay drawer (toggled via
+     .hidden in script.js at the same 820px cutoff), so main-content never
+     reserves space for it regardless of --sidebar-width above. */
+  .main-content { margin-left: 0 !important; padding: 18px 16px 28px; }
   .hero-section { flex-direction: column; align-items: flex-start; padding: 20px; }
   .quick-links-grid { grid-template-columns: 1fr; }
   .stats-grid { grid-template-columns: 1fr; }
@@ -1488,6 +1556,18 @@ button { font: inherit; }
     font-size: 0.86rem;
     color: var(--text-soft);
     line-height: 1.5;
+}
+
+.notification-link {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.notification-link:hover {
+    text-decoration: underline;
 }
 
 .notification-footer {
@@ -2045,6 +2125,10 @@ button { font: inherit; }
   flex-direction: column;
   gap: 12px;
   padding: 4px 4px 14px;
+  /* Show roughly 2 contact cards at a time; the rest scroll into view
+     instead of the modal growing tall/unbounded with a long contact list. */
+  max-height: 320px;
+  overflow-y: auto;
 }
  
 .contact-item {
@@ -3195,4 +3279,248 @@ button { font: inherit; }
 
 .company-form-popup::-webkit-scrollbar-thumb:hover {
   background: var(--text-soft);
+}
+
+/* ===========================
+   FORM BUILDER (form-template.html / form-builder.js)
+   Reuses .workbook-card / .workbook-cover / .auth-field etc. for
+   consistency with the rest of the app; this block only adds what's new
+   (the blue card cover, the field-editor rows, and the fill-out inputs).
+=========================== */
+
+.form-template-cover {
+  height: 120px;
+  background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 55%, #3b82f6 100%);
+}
+
+.form-template-description {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  min-height: 1.4em;
+}
+
+.form-builder-popup {
+  width: min(94vw, 560px);
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.form-fields-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.form-field-editor-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-alt);
+  margin-bottom: 10px;
+}
+
+.form-field-editor-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.form-field-type-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.form-field-editor-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.form-field-move-btn,
+.form-field-remove-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.form-field-move-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.form-field-remove-btn {
+  color: var(--danger);
+  border-color: var(--danger-soft);
+}
+
+.form-field-remove-btn:hover {
+  background: var(--danger-soft);
+}
+
+.form-field-required-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.form-field-options-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.form-add-field-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.form-add-field-row select {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: white;
+  font-size: 0.9rem;
+}
+
+.form-section-heading {
+  margin: 10px 0 2px;
+  color: var(--accent-strong);
+  font-size: 1.05rem;
+}
+
+.form-required-mark {
+  color: var(--danger);
+}
+
+.form-check-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 400;
+}
+
+.form-check-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+  color: var(--text);
+  cursor: pointer;
+}
+
+#submissionPreviewContainer iframe {
+  width: 100%;
+  height: 60vh;
+  border: 0;
+  display: block;
+}
+
+/* Reset the padding/border/background that ".auth-field input" (higher up
+   in this file) would otherwise apply, since these checkboxes/radios live
+   inside .auth-field wrappers (same fix as .tag-picker-option above). */
+.auth-field .form-check-option input[type="checkbox"],
+.auth-field .form-check-option input[type="radio"],
+.form-field-required-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+.auth-field .form-check-option input[type="checkbox"] {
+  border-radius: 4px;
+}
+
+.auth-field .form-check-option input[type="radio"] {
+  border-radius: 50%;
+}
+
+/* ===========================
+   WORKGROUPS (workgroups.html / workgroups.js)
+=========================== */
+
+/* Shared across any page with a hardcoded-gate "you can't be here" message
+   (payroll-tools.html/manage-employees.html used to each define this inline
+   in their own <style> block; centralized here so new pages don't have to). */
+.restricted-wrap {
+  max-width: 520px;
+  margin: 60px auto;
+  text-align: center;
+}
+
+.workgroup-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.workgroup-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.workgroup-chip-remove {
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.75rem;
+  opacity: 0.7;
+  padding: 0;
+  line-height: 1;
+}
+
+.workgroup-chip-remove:hover {
+  opacity: 1;
+}
+
+.permission-grid-wrap {
+  overflow-x: auto;
+}
+
+.permission-grid th,
+.permission-grid td {
+  white-space: nowrap;
+}
+
+.permission-grid-workgroup-name {
+  font-weight: 700;
+}
+
+.permission-grid input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
 }

@@ -46,13 +46,6 @@
     return window.getSupabaseUserGroups(profile).includes(normalizedGroup);
   };
 
-  async function loadProfile(username) {
-    if (!supabaseClient) return null;
-    const { data, error } = await supabaseClient.from('staff_users').select('*').eq('username', username).maybeSingle();
-    if (error) throw error;
-    return data;
-  }
-
   window.isSupabaseConfigured = function () {
     return isConfigured;
   };
@@ -64,6 +57,13 @@
     redirectToLogin();
   };
 
+  // Login used to work by select('*')-ing the row by username and comparing
+  // the hash client-side — which meant password_hash had to be readable via
+  // the anon key for every row, not just the one signing in. Now the
+  // comparison happens inside a SECURITY DEFINER Postgres function
+  // (verify_staff_login, see supabase-staff-users-rls-setup.sql) that never
+  // hands password_hash back to the client. Same match logic as before
+  // (hash match, or the legacy plaintext-fallback match), just server-side.
   window.signInWithSupabase = async function (username, password, statusElement) {
     if (!isConfigured) {
       setStatusText(statusElement, 'Supabase is not configured yet. Add your URL and anon key to supabase-config.js.', 'error');
@@ -73,23 +73,26 @@
     const { createClient } = window.supabase;
     supabaseClient = window.supabaseClient = createClient(config.url, config.anonKey);
 
-    const profile = await loadProfile(username);
+    const enteredHash = (await hashPassword(password)).toLowerCase();
+
+    const { data: profile, error } = await supabaseClient.rpc('verify_staff_login', {
+      p_username: username,
+      p_entered_hash: enteredHash,
+      p_raw_password: password
+    });
+
+    if (error) {
+      setStatusText(statusElement, error.message || 'Unable to sign in right now.', 'error');
+      return null;
+    }
+
     if (!profile) {
-      setStatusText(statusElement, 'No matching staff account was found.', 'error');
+      setStatusText(statusElement, 'Incorrect username or password.', 'error');
       return null;
     }
 
     if (profile.active === false) {
       setStatusText(statusElement, 'This account has been deactivated. Please contact the IT department for assistance.', 'error');
-      return null;
-    }
-
-    const enteredHash = (await hashPassword(password)).toLowerCase();
-    const storedHash = String(profile.password_hash || '').trim().toLowerCase();
-    const passwordMatches = storedHash === enteredHash || storedHash === password.toLowerCase() || storedHash === password;
-
-    if (!passwordMatches) {
-      setStatusText(statusElement, 'Incorrect username or password.', 'error');
       return null;
     }
 

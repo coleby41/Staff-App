@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>The Leeward Group | Operations Dashboard</title>
+    <title>The Leeward Group | Workgroups</title>
 
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" type="image/png" href="logos/leewaed-logo.png">
@@ -60,7 +60,7 @@
                 <div class="notification-wrapper">
 
 
-                    <button 
+                    <button
                         class="notification-bell"
                         id="notificationBell"
                         aria-label="Notifications">
@@ -80,7 +80,8 @@
 
 
                         <div class="notification-header">
-                            Notifications
+                        <span>Notifications</span>
+                        <button class="mark-read-btn">Mark as read</button>
                         </div>
 
 
@@ -93,7 +94,7 @@
 
                         <div class="notification-footer">
 
-                            <a 
+                            <a
                                 class="report-bug-btn"
                                 href="https://tally.so/r/QKyGj8"
                                 target="_blank"
@@ -103,7 +104,7 @@
 
                             </a>
 
-                            <button 
+                            <button
                                 class="auth-button auth-button--secondary header-signout"
                                 id="signOutButton"
                                 type="button">
@@ -161,7 +162,11 @@
 
             <div class="subnav">
 
-                
+                <a href="new-project.html" class="subnav-item">
+                    <span class="nav-text">
+                        New Project Onboarding
+                    </span>
+                </a>
 
                 <a href="excel-workbook.html" class="subnav-item">
                     <span class="nav-text">
@@ -177,7 +182,7 @@
             </div>
         </div>
 
-       <a href="time sheet.html" class="nav-item active">
+       <a href="time sheet.html" class="nav-item">
             <span class="finance-nav-icon"></span>
             <span class="nav-text">
                 Personal Finance
@@ -230,7 +235,7 @@
              id="adminNavGroup"
              style="display:none;">
 
-            <a href="admin-users.html"
+            <a href="#"
                class="nav-item nav-parent"
                onclick="toggleSubnav(event, this)">
                 <span class="it-tools-nav-icon"></span>
@@ -240,7 +245,7 @@
                 <span class="nav-arrow"></span>
             </a>
 
-            <div class="subnav">
+            <div class="subnav expanded">
 
                 <a href="admin-users.html"
                    class="subnav-item">
@@ -257,7 +262,7 @@
                 </a>
 
                 <a href="workgroups.html"
-                   class="subnav-item">
+                   class="subnav-item active">
                     <span class="nav-text">
                         Workgroups
                     </span>
@@ -280,104 +285,201 @@
     </div>
 </aside>
 
+<main class="main-content">
 
-  <main class="main-content">
     <section class="hero-section">
-      <div>
-        <p class="eyebrow">Staff Portal</p>
-        <h1>Personal Finance</h1>
-        <p>Manage your personal financial records and documents.</p>
-      </div>
+        <div>
+            <p class="eyebrow">IT Tools</p>
+            <h1>Workgroups</h1>
+            <p>See every workgroup, add new ones, and control which tabs each one can access.</p>
+        </div>
     </section>
 
-    <div id="announcementsWrap" style="display:none;margin-bottom:16px;">
-      <div class="card-announcement" id="announcementsCard">
-        <div class="card-header">
-          <div>
-            <h2 class="card-title">Announcements</h2>
-            <p class="card-subtitle">Messages from Accounting</p>
-          </div>
-        </div>
-        <div id="announcementsList"></div>
-      </div>
+    <div id="restrictedView" class="restricted-wrap" style="display:none;">
+        <h2>Restricted</h2>
+        <p>Only IT and Super Admin accounts can manage workgroups.</p>
     </div>
 
-    <div class="metrics-grid">
-      <div class="metric-card-1"><span class="metric-value" id="metricHours">0.0</span><span class="metric-label">Hours this period</span></div>
-      <div class="metric-card-2"><span class="metric-value" id="metricPending">—</span><span class="metric-label">Hourly rate</span></div>
-      <div class="metric-card-3"><span class="metric-value" id="metricDocs">{Documents}</span><span class="metric-label">Documents on file</span></div>
+    <div id="workgroupsContent" style="display:none;">
+
+        <div id="workgroupsPageMessage" class="workbook-page-message" style="display:none;"></div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">Workgroups</h2>
+            </div>
+
+            <div id="workgroupsList" class="workgroup-chip-list"></div>
+
+            <form id="addWorkgroupForm" class="form-add-field-row" style="margin-top:14px;">
+                <input type="text" id="newWorkgroupNameInput" placeholder="New workgroup name (e.g. Field)" style="flex:1; padding:10px 12px; border-radius:10px; border:1px solid var(--border);">
+                <button type="submit" class="auth-button auth-button--secondary" style="width:auto; padding:10px 18px; margin-top:0;">+ Add Workgroup</button>
+            </form>
+        </div>
+
+        <div class="card" style="margin-top:20px;">
+            <div class="card-header">
+                <h2 class="card-title">Tab Access</h2>
+            </div>
+            <div id="permissionGridWrap" class="permission-grid-wrap"></div>
+        </div>
+
     </div>
 
-    <div class="card wide-card">
-      <div class="card-header">
-        <div>
-          <h2 class="card-title" id="timesheetTitle">Timesheet</h2>
-          <p class="card-subtitle" id="timesheetSubtitle">Clock in and out each day, then submit for manager approval</p>
+</main>
+
+
+<!-- Delete Workgroup Confirmation Modal -->
+<div class="popup-overlay hidden" id="deleteWorkgroupConfirmOverlay">
+    <div class="popup">
+        <h2>Delete this workgroup?</h2>
+        <p class="auth-inline-copy" id="deleteWorkgroupConfirmText"></p>
+
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteWorkgroupBtn">Cancel</button>
+            <button type="button" class="auth-button auth-button--red" id="confirmDeleteWorkgroupBtn">Delete</button>
         </div>
-        <span class="status ts-not-started" id="timesheetStatusChip">Not Started</span>
-      </div>
-
-      <div id="timesheetNoPayrollMsg" class="empty-state" style="display:none;">You haven't been added to payroll yet — contact Accounting.</div>
-      <div id="timesheetNoPeriodMsg" class="empty-state" style="display:none;">No pay period has been set up yet — contact Accounting.</div>
-
-      <div id="timesheetCorrectionsBanner" class="correction-banner" style="display:none;"></div>
-
-      <div id="timesheetGridWrap" style="display:none;">
-        <p class="card-subtitle" id="timesheetPeriodLabel"></p>
-        <div class="table-wrap">
-          <table class="dash-queue-table">
-            <thead>
-              <tr><th>Date</th><th>Clock In</th><th>Clock Out</th><th>Regular</th><th>Overtime</th><th>Notes</th></tr>
-            </thead>
-            <tbody id="timesheetGridBody"></tbody>
-          </table>
-        </div>
-        <p class="employee-detail-total" id="timesheetGridTotal"></p>
-
-        <div class="popup-buttons" style="justify-content:flex-start;">
-          <button type="button" class="auth-button auth-button--secondary auth-button--sm" id="saveDraftBtn" onclick="saveTimesheetDraft()">Save Draft</button>
-          <button type="button" class="auth-button auth-button--sm" id="submitTimesheetBtn" onclick="submitTimesheet()">Submit Timesheet</button>
-        </div>
-        <p id="timesheetMsg" class="auth-message"></p>
-      </div>
     </div>
-
-    <div class="card wide-card">
-      <div class="card-header">
-        <div>
-          <h2 class="card-title">My Documents - Not Working</h2>
-          <p class="card-subtitle">Pay stubs, forms, and files</p>
-        </div>
-      </div>
-      <div class="doc-list" id="docList"></div>
-      <div id="docEmpty" class="empty-state" style="display:none;">No documents uploaded yet.</div>
-      <div class="upload-row">
-        <select id="docCategory">
-            <option value="w2">W-2 Tax Form</option>
-            <option value="w4">W-4 Tax Form</option>
-            <option value="1099">1099 Tax Form</option>
-            <option value="other">Other Forms</option>
-        </select>
-        <input type="file" id="docFile">
-      </div>
-      <button class="btn secondary" style="margin-top:10px;width:100%;" onclick="uploadDoc()">Upload</button>
-      <p id="docMsg" class="msg"></p>
-    </div>
-  </main>
 </div>
+
+
 <script src="script.js"></script>
-<script src="notifications.js"></script>
-<script src="nav-access.js"></script>
-<script src="timesheet.js"></script>
 <script src="supabase-config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-auth.js"></script>
 <script src="auth-guard.js"></script>
 <script src="manager-nav.js"></script>
 <script src="timeout.js"></script>
-<script src="pay-periods-shared.js"></script>
-<script src="payroll-pdf-stub.js"></script>
+<script src="notifications.js"></script>
+<script src="workgroups.js"></script>
+<script src="nav-access.js"></script>
+
+
+<script>
+
+
+/* ===========================
+   SIGN OUT
+=========================== */
+
+
+const signOutButton =
+    document.getElementById("signOutButton");
+
+
+if (signOutButton) {
+
+    signOutButton.addEventListener("click", function(event) {
+
+        event.stopPropagation();
+
+
+        if (typeof window.signOutUser === "function") {
+
+            window.signOutUser();
+
+        } else {
+
+            console.error("signOutUser() is not available");
+
+        }
+
+    });
+
+}
+
+
+/* ===========================
+   ELEMENTS
+=========================== */
+
+
+const userNameElement =
+    document.getElementById("headerUserName");
+
+
+const brandInitials =
+    document.getElementById("brandInitials");
+
+
+/* ===========================
+   UPDATE STAFF NAME
+=========================== */
+
+
+function updateStaffName(profile) {
+
+    if (!profile) return;
+
+    const name =
+        profile.full_name ||
+        profile.username ||
+        "Staff";
+
+    if (userNameElement) {
+        userNameElement.textContent = name;
+    }
+
+    if (brandInitials) {
+
+        const words =
+            String(name)
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+
+        const initials =
+            words.length >= 2
+            ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
+            : words[0]?.substring(0,2).toUpperCase() || "ST";
+
+        brandInitials.textContent = initials;
+    }
+
+    const sidebarGroupPill =
+        document.getElementById("sidebarGroupPill");
+
+    if (sidebarGroupPill) {
+
+        const groups =
+            window.getSupabaseUserGroups
+            ? window.getSupabaseUserGroups(profile)
+            : [];
+
+        sidebarGroupPill.textContent =
+            groups.length
+            ? groups.map(g => g.charAt(0).toUpperCase() + g.slice(1)).join(", ")
+            : "No Group";
+    }
+}
+
+
+const storedProfile =
+    localStorage.getItem("staffProfile");
+
+if (storedProfile) {
+    try {
+        const parsedProfile = JSON.parse(storedProfile);
+        updateStaffName(parsedProfile);
+    } catch(error) {
+        console.warn("Unable to parse stored profile:", error);
+    }
+}
+
+window.addEventListener("DOMContentLoaded", function() {
+    const profile = window.currentSupabaseProfile || null;
+    if (profile) {
+        updateStaffName(profile);
+    }
+    // Nav item visibility (including the adminNavGroup wrapper) is handled
+    // by nav-access.js. This page's own IT/Super-Admin gate is handled by
+    // workgroups.js's enforceWorkgroupsAccess(), independent of that system.
+});
+
+
+</script>
 
 
 </body>
+
 </html>

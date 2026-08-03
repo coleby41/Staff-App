@@ -50,8 +50,41 @@ function enforceAccess() {
   return true;
 }
 
+// The dropdown ships with a hardcoded fallback list (Owner/Field/IT/Office/
+// Accounting) so account creation still works before supabase-workgroups-
+// setup.sql has been run. Once that migration exists, this swaps the
+// options for whatever's actually in the Workgroups tab, so adding a new
+// workgroup there makes it selectable here automatically.
+async function populateGroupOptionsFromWorkgroups() {
+  const select = document.getElementById('adminGroup');
+  const hint = document.getElementById('adminGroupHint');
+  if (!select || !window.supabaseClient) return;
+
+  const { data, error } = await window.supabaseClient
+    .from('workgroups')
+    .select('name')
+    .order('name', { ascending: true });
+
+  if (error || !data || !data.length) return; // fail open: keep the hardcoded fallback options
+
+  const escapeHtml = (str) => {
+    const d = document.createElement('div');
+    d.textContent = str ?? '';
+    return d.innerHTML;
+  };
+
+  const currentValue = select.value;
+  select.innerHTML = data
+    .map((wg) => `<option value="${escapeHtml(wg.name)}">${escapeHtml(wg.name)}</option>`)
+    .join('');
+  if (data.some((wg) => wg.name === currentValue)) select.value = currentValue;
+
+  if (hint) hint.style.display = 'block';
+}
+
 if (adminForm) {
   enforceAccess();
+  populateGroupOptionsFromWorkgroups();
 
   adminForm.addEventListener('submit', async function (event) {
     event.preventDefault();

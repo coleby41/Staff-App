@@ -258,8 +258,12 @@ async function generateFinalPdf(timesheetId) {
     .maybeSingle();
   if (periodError || !period) { console.error('[payroll-pdf-stub] Failed to load pay period:', periodError); return null; }
 
+  // Reads go through staff_users_directory (a view that omits password_hash)
+  // now that the base table's RLS no longer grants anon a direct SELECT —
+  // see supabase-staff-users-rls-setup.sql. Only full_name/username/id are
+  // used below, all of which the view still has.
   const { data: employeeStaff, error: empError } = await window.supabaseClient
-    .from('staff_users')
+    .from('staff_users_directory')
     .select('*')
     .eq('id', payrollEmployee.staff_id)
     .maybeSingle();
@@ -268,7 +272,7 @@ async function generateFinalPdf(timesheetId) {
   let managerStaff = null;
   if (timesheet.approved_by) {
     const { data: mgr, error: mgrError } = await window.supabaseClient
-      .from('staff_users')
+      .from('staff_users_directory')
       .select('*')
       .eq('id', timesheet.approved_by)
       .maybeSingle();
