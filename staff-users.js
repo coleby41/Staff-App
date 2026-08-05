@@ -177,19 +177,24 @@ async function loadStaffUsers() {
 async function updateSelectedUser(updates) {
   if (!selectedUserId) return false;
   const client = getSupabaseClient();
-  // .select() here is required, not cosmetic: without it Postgres/Supabase
-  // returns no error even when RLS silently matches zero rows (e.g. the
-  // "update" policy on staff_users is missing or misconfigured), so a
-  // blocked write would otherwise show "User updated successfully." while
-  // nothing was actually saved. Checking data.length is what catches that.
-  const { data, error } = await client.from('staff_users').update(updates).eq('id', selectedUserId).select();
+  // Use { count: 'exact' } rather than .select() to detect zero-row updates.
+  // .select() would ask PostgREST to read the row back after writing it,
+  // which needs its own SELECT RLS grant — and staff_users deliberately has
+  // none for anon (that's what keeps password_hash from being readable
+  // directly; see supabase-staff-users-rls-setup.sql). count instead reflects
+  // how many rows the UPDATE's own policy actually matched, with no read-back
+  // required, so it can't be fooled by the missing SELECT policy.
+  const { error, count } = await client
+    .from('staff_users')
+    .update(updates, { count: 'exact' })
+    .eq('id', selectedUserId);
   if (error) {
     setMessage(directoryMessage, error.message || 'Unable to update user.', 'error');
     return false;
   }
 
-  if (!data || data.length === 0) {
-    setMessage(directoryMessage, 'No changes were saved — the update was blocked (likely a Supabase RLS permission issue on staff_users), not a client error.', 'error');
+  if (!count) {
+    setMessage(directoryMessage, 'No changes were saved — the update matched 0 rows (likely a Supabase RLS permission issue on staff_users, or the selected user no longer exists).', 'error');
     return false;
   }
 
