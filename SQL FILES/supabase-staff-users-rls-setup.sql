@@ -138,3 +138,37 @@ select
 from public.staff_users;
 
 grant select on public.staff_users_directory to anon;
+
+
+-- ============================================================================
+-- FOLLOW-UP FIX (added after staff-users.html updates went silently to 0
+-- rows even though staff_users_update_anon above is fully permissive):
+--
+-- Postgres needs SELECT-level visibility on a row to identify it as a target
+-- for UPDATE/DELETE — this is separate from, and in addition to, the
+-- UPDATE policy's own using()/with check(). With RLS on and *no* SELECT
+-- policy at all (which is what "deliberately no SELECT policy" above set
+-- up), every row is invisible for this purpose, so any UPDATE's WHERE
+-- clause matches nothing: no error, just 0 rows affected. That's the actual
+-- cause of staff info not saving.
+--
+-- Fix: add the SELECT policy back so rows are visible, but keep
+-- password_hash hidden via column-level grants instead of via RLS. anon can
+-- only actually read the listed columns off the base table directly; a bare
+-- `select=*` or a request for password_hash specifically will fail with a
+-- column permission error. The admin directory continues reading through
+-- staff_users_directory (unaffected, granted above) — this just gives RLS
+-- something non-sensitive to check for write targeting.
+-- ============================================================================
+drop policy if exists "staff_users_select_anon" on public.staff_users;
+create policy "staff_users_select_anon"
+  on public.staff_users
+  for select
+  to anon
+  using (true);
+
+revoke select on public.staff_users from anon;
+grant select (
+  id, username, full_name, workgroup, role, manager_id,
+  employee_code, account_notes, active, created_at
+) on public.staff_users to anon;

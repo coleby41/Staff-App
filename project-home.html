@@ -5,9 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>The Leeward Group | Operations Dashboard</title>
+    <title>Leeward Staff Portal | Dashboard</title>
 
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dashboard-cards.css">
     <link rel="icon" type="image/png" href="logos/leewaed-logo.png">
 </head>
 
@@ -60,7 +61,7 @@
                 <div class="notification-wrapper">
 
 
-                    <button 
+                    <button
                         class="notification-bell"
                         id="notificationBell"
                         aria-label="Notifications">
@@ -80,7 +81,8 @@
 
 
                         <div class="notification-header">
-                            Notifications
+                        <span>Notifications</span>
+                        <button class="mark-read-btn">Mark as read</button>
                         </div>
 
 
@@ -93,7 +95,7 @@
 
                         <div class="notification-footer">
 
-                            <a 
+                            <a
                                 class="report-bug-btn"
                                 href="https://tally.so/r/QKyGj8"
                                 target="_blank"
@@ -103,7 +105,7 @@
 
                             </a>
 
-                            <button 
+                            <button
                                 class="auth-button auth-button--secondary header-signout"
                                 id="signOutButton"
                                 type="button">
@@ -113,8 +115,9 @@
                             </button>
 
                         </div>
-
-
+<p style="margin: 10px 0; padding: 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; text-align: center; font-size: 14px; color: #495057;">
+                            Change Password
+                        </p>
                     </div>
 
 
@@ -132,89 +135,178 @@
 
 </header>
 
+
+
+
+
 <aside class="sidebar" id="sidebar">
+
 
     <div class="sidebar-header">
         COMPANY WIDE
     </div>
 
+
+
     <nav class="sidebar-nav">
 
+
+
         <a href="dashboard.html" class="nav-item">
+
             <span class="home-nav-icon"></span>
+
             <span class="nav-text">
                 Dashboard
             </span>
+
         </a>
 
+        <a href="project-home.html" class="nav-item active">
+
+            <span class="home-nav-icon"></span>
+
+            <span class="nav-text">
+                Project Overview
+            </span>
+
+        </a>
+
+
         <div class="nav-item-group" id="companyDocsNavGroup">
+
 
             <a href="#"
                class="nav-item nav-parent"
                onclick="toggleSubnav(event, this)">
+
+
                 <span class="docs-nav-icon"></span>
+
+
                 <span class="nav-text">
                     Company docs
                 </span>
+
+
                 <span class="nav-arrow"></span>
+
+
             </a>
+
+
+
 
             <div class="subnav">
 
-                
+
+
+
+
 
                 <a href="excel-workbook.html" class="subnav-item">
+
                     <span class="nav-text">
                         Excel Workbook Templates
                     </span>
+
                 </a>
 
+
+
                 <a href="form-template.html" class="subnav-item">
+
                     <span class="nav-text">
                         Form Templates
                     </span>
+
                 </a>
+
+
+
             </div>
+
+
+
         </div>
 
-       <a href="time sheet.html" class="nav-item active">
+
+
+
+
+       <a href="time sheet.html" class="nav-item">
+
             <span class="finance-nav-icon"></span>
+
             <span class="nav-text">
                 Staff Finance
             </span>
+
         </a>
+
+
+
+
 
         <a href="https://www.theleewardgroup.us/"
            class="nav-item"
            target="_blank">
+
+
             <span class="website-nav-icon"></span>
+
+
             <span class="nav-text">
                 Company site
             </span>
+
+
         </a>
 
+
+
+
+
         <hr style="border:.5px solid rgba(255,255,255,0.14); margin:10px 0;">
+
+
+
 
         <div class="sidebar-header">
             Department Wide
         </div>
 
+
         <a href="venders.html" class="nav-item">
+
             <span class="companies-nav-icon"></span>
+
             <span class="nav-text">
                 Vendor Contacts
             </span>
+
         </a>
+
 
         <a href="payroll-tools.html"
            class="nav-item"
            id="payrollToolsNavItem"
            style="display:none;">
+
+
             <span class="docs-nav-icon"></span>
+
+
             <span class="nav-text">
                 Payroll Tools
             </span>
+
+
         </a>
+
+
+
+
 
         <a href="manage-employees.html"
            class="nav-item"
@@ -230,154 +322,482 @@
              id="adminNavGroup"
              style="display:none;">
 
+
+
             <a href="admin-users.html"
                class="nav-item nav-parent"
                onclick="toggleSubnav(event, this)">
+
+
+
                 <span class="it-tools-nav-icon"></span>
+
+
                 <span class="nav-text">
                     IT Tools
                 </span>
+
+
                 <span class="nav-arrow"></span>
+
+
+
             </a>
+
+
+
+
 
             <div class="subnav">
 
+
                 <a href="admin-users.html"
                    class="subnav-item">
+
+
                     <span class="nav-text">
                         Create account
                     </span>
+
+
                 </a>
+
+
+
 
                 <a href="staff-users.html"
                    class="subnav-item">
+
+
                     <span class="nav-text">
                         Staff users
                     </span>
+
+
                 </a>
+
 
                 <a href="workgroups.html"
                    class="subnav-item">
+
+
                     <span class="nav-text">
                         Workgroups
                     </span>
+
+
                 </a>
+
+
 
             </div>
 
+
+
         </div>
+
+
+
 
     </nav>
 
+
+
+
+
     <div class="sidebar-footer">
+
+
         <div class="footer-pill" id="sidebarGroupPill"></div>
+
+
         <div class="sidebar-brand">
             LeeWard Group
         </div>
+
+
         <div class="version">
             Version XF-729-BETA
         </div>
+
+
     </div>
+
+
 </aside>
 
+<main class="main-content">
 
-  <main class="main-content">
-    <section class="hero-section">
-      <div>
-        <p class="eyebrow">Company Wide</p>
-        <h1>Staff Finance</h1>
-        <p>Manage your personal financial records and documents.</p>
-      </div>
+<section class="hero-section">
+        <div>
+            <p class="eyebrow">Company Wide</p>
+            <h1>Project Overview</h1>
+            <p>See the latest project updates and information.</p>
+        </div>
     </section>
 
-    <div id="announcementsWrap" style="display:none;margin-bottom:16px;">
-      <div class="card-announcement" id="announcementsCard">
-        <div class="card-header">
-          <div>
-            <h2 class="card-title">Announcements</h2>
-            <p class="card-subtitle">Messages from Accounting</p>
-          </div>
-        </div>
-        <div id="announcementsList"></div>
-      </div>
-    </div>
 
-    <div class="metrics-grid">
-      <div class="metric-card-1"><span class="metric-value" id="metricHours">0.0</span><span class="metric-label">Hours this period</span></div>
-      <div class="metric-card-2"><span class="metric-value" id="metricPending">—</span><span class="metric-label">Hourly rate</span></div>
-      <div class="metric-card-3"><span class="metric-value" id="metricDocs">{Documents}</span><span class="metric-label">Documents on file</span></div>
-    </div>
 
-    <div class="card wide-card">
-      <div class="card-header">
-        <div>
-          <h2 class="card-title" id="timesheetTitle">Timesheet</h2>
-          <p class="card-subtitle" id="timesheetSubtitle">Clock in and out each day, then submit for manager approval</p>
-        </div>
-        <span class="status ts-not-started" id="timesheetStatusChip">Not Started</span>
-      </div>
 
-      <div id="timesheetNoPayrollMsg" class="empty-state" style="display:none;">You haven't been added to payroll yet — contact Accounting.</div>
-      <div id="timesheetNoPeriodMsg" class="empty-state" style="display:none;">No pay period has been set up yet — contact Accounting.</div>
+</main>
 
-      <div id="timesheetCorrectionsBanner" class="correction-banner" style="display:none;"></div>
 
-      <div id="timesheetGridWrap" style="display:none;">
-        <p class="card-subtitle" id="timesheetPeriodLabel"></p>
-        <div class="table-wrap">
-          <table class="dash-queue-table">
-            <thead>
-              <tr><th>Date</th><th>Clock In</th><th>Clock Out</th><th>Regular</th><th>Overtime</th><th>Notes</th></tr>
-            </thead>
-            <tbody id="timesheetGridBody"></tbody>
-          </table>
-        </div>
-        <p class="employee-detail-total" id="timesheetGridTotal"></p>
 
-        <div class="popup-buttons" style="justify-content:flex-start;">
-          <button type="button" class="auth-button auth-button--secondary auth-button--sm" id="saveDraftBtn" onclick="saveTimesheetDraft()">Save Draft</button>
-          <button type="button" class="auth-button auth-button--sm" id="submitTimesheetBtn" onclick="submitTimesheet()">Submit Timesheet</button>
-        </div>
-        <p id="timesheetMsg" class="auth-message"></p>
-      </div>
-    </div>
 
-    <div class="card wide-card">
-      <div class="card-header">
-        <div>
-          <h2 class="card-title">My Documents - Not Working</h2>
-          <p class="card-subtitle">Pay stubs, forms, and files</p>
-        </div>
-      </div>
-      <div class="doc-list" id="docList"></div>
-      <div id="docEmpty" class="empty-state" style="display:none;">No documents uploaded yet.</div>
-      <div class="upload-row">
-        <select id="docCategory">
-            <option value="w2">W-2 Tax Form</option>
-            <option value="w4">W-4 Tax Form</option>
-            <option value="1099">1099 Tax Form</option>
-            <option value="other">Other Forms</option>
-        </select>
-        <input type="file" id="docFile">
-      </div>
-      <button class="btn secondary" style="margin-top:10px;width:100%;" onclick="uploadDoc()">Upload</button>
-      <p id="docMsg" class="msg"></p>
-    </div>
-  </main>
-</div>
-<script src="script.js"></script>
-<script src="notifications.js"></script>
-<script src="nav-access.js"></script>
-<script src="timesheet.js"></script>
-<script src="supabase-config.js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
 <script src="supabase-auth.js"></script>
 <script src="auth-guard.js"></script>
 <script src="manager-nav.js"></script>
+<script src="script.js"></script>
 <script src="timeout.js"></script>
-<script src="pay-periods-shared.js"></script>
-<script src="payroll-pdf-stub.js"></script>
+<script src="notifications.js"></script>
+<script src="nav-access.js"></script>
+
+<!-- New dashboard card scripts — none of the files above were modified.
+     dashboard-shared.js must load first; the rest can be in any order. -->
+<script src="dashboard scripts/dashboard.js"></script>
+<script src="dashboard scripts/task.js"></script>
+<script src="dashboard scripts/quicklinks.js"></script>
+<script src="dashboard scripts/weather.js"></script>
+<script src="dashboard scripts/update.js"></script>
+<script src="dashboard scripts/projects.js"></script>
+<script src="dashboard scripts/calender-card.js"></script>
+<script src="dashboard scripts/contact-card.js"></script>
+
+
+
+
+<script>
+
+
+/* ===========================
+   SIGN OUT -- MOVED TO ITS OWN FILE
+=========================== */
+
+
+const signOutButton =
+    document.getElementById("signOutButton");
+
+
+if (signOutButton) {
+
+    signOutButton.addEventListener("click", function(event) {
+
+        event.stopPropagation();
+
+
+        if (typeof window.signOutUser === "function") {
+
+            window.signOutUser();
+
+        } else {
+
+            console.error("signOutUser() is not available");
+
+        }
+
+    });
+
+}
+
+
+
+
+
+/* ===========================
+   ELEMENTS -
+=========================== */
+
+
+const userNameElement =
+    document.getElementById("headerUserName");
+
+
+const welcomeHeading =
+    document.getElementById("welcomeHeading");
+
+
+const adminNavGroup =
+    document.getElementById("adminNavGroup");
+
+
+const brandInitials =
+    document.getElementById("brandInitials");
+
+
+
+
+
+
+
+/* ===========================
+   UPDATE STAFF NAME
+=========================== */
+
+
+function updateStaffName(profile) {
+
+
+    if (!profile) return;
+
+
+
+    const name =
+        profile.full_name ||
+        profile.username ||
+        "Staff";
+
+
+
+
+    // Update only the text
+    // so the bell does not disappear
+
+    if (userNameElement) {
+
+        userNameElement.textContent = name;
+
+    }
+
+
+
+
+
+    if (welcomeHeading) {
+
+        welcomeHeading.textContent =
+            `Welcome, ${name}`;
+
+    }
+
+
+
+
+
+
+    if (brandInitials) {
+
+
+        const words =
+            String(name)
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+
+
+
+        const initials =
+            words.length >= 2
+
+            ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
+
+            : words[0]
+                ?.substring(0,2)
+                .toUpperCase() || "ST";
+
+
+
+        brandInitials.textContent =
+            initials;
+
+
+    }
+
+
+
+
+
+
+    const sidebarGroupPill =
+        document.getElementById("sidebarGroupPill");
+
+
+
+    if (sidebarGroupPill) {
+
+
+        const groups =
+            window.getSupabaseUserGroups
+
+            ? window.getSupabaseUserGroups(profile)
+
+            : [];
+
+
+
+        sidebarGroupPill.textContent =
+            groups.length
+
+            ? groups
+                .map(
+                    g =>
+                    g.charAt(0).toUpperCase() +
+                    g.slice(1)
+                )
+                .join(", ")
+
+            : "No Group";
+
+
+    }
+
+
+}
+
+
+
+
+
+
+
+
+
+/* ===========================
+   NAV ACCESS
+=========================== */
+
+
+function updateNavAccess(profile) {
+
+
+    const shouldShowAdminNav =
+        window.isSupabaseUserInGroup
+
+        ? (
+            window.isSupabaseUserInGroup(profile, "IT") ||
+            window.isSupabaseUserInGroup(profile, "Super Admin")
+          )
+
+        : false;
+
+
+
+    if (adminNavGroup) {
+
+        adminNavGroup.style.display =
+            shouldShowAdminNav
+            ? "block"
+            : "none";
+
+    }
+
+
+
+    const payrollToolsNavItem =
+        document.getElementById("payrollToolsNavItem");
+
+
+    // Payroll Tools is visible to the Office and Accounting
+    // workgroups only (see permissions matrix).
+    const shouldShowPayrollTools =
+        window.isSupabaseUserInGroup
+
+        ? (
+            window.isSupabaseUserInGroup(profile, "Office") ||
+            window.isSupabaseUserInGroup(profile, "Accounting") ||
+            window.isSupabaseUserInGroup(profile, "Super Admin")
+          )
+
+        : false;
+
+
+
+    if (payrollToolsNavItem) {
+
+        payrollToolsNavItem.style.display =
+            shouldShowPayrollTools
+            ? "flex"
+            : "none";
+
+    }
+
+
+}
+
+
+
+
+
+
+
+/* ===========================
+   LOAD PROFILE
+=========================== */
+
+
+const storedProfile =
+    localStorage.getItem("staffProfile");
+
+
+
+if (storedProfile) {
+
+
+    try {
+
+
+        const parsedProfile =
+            JSON.parse(storedProfile);
+
+
+
+        updateStaffName(parsedProfile);
+
+        updateNavAccess(parsedProfile);
+
+
+
+    } catch(error) {
+
+
+        console.warn(
+            "Unable to parse stored profile:",
+            error
+        );
+
+
+    }
+
+
+}
+
+
+
+
+
+
+window.addEventListener("DOMContentLoaded", function() {
+
+
+    const profile =
+        window.currentSupabaseProfile || null;
+
+
+
+    if (profile) {
+
+
+        updateStaffName(profile);
+
+        updateNavAccess(profile);
+
+
+    }
+
+
+    // Notifications are now handled by the shared notifications.js
+    // (loaded via <script src> below), which self-initializes.
+
+
+});
+
+
+
+</script>
 
 
 </body>
+
 </html>
