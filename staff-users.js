@@ -177,9 +177,19 @@ async function loadStaffUsers() {
 async function updateSelectedUser(updates) {
   if (!selectedUserId) return false;
   const client = getSupabaseClient();
-  const { error } = await client.from('staff_users').update(updates).eq('id', selectedUserId);
+  // .select() here is required, not cosmetic: without it Postgres/Supabase
+  // returns no error even when RLS silently matches zero rows (e.g. the
+  // "update" policy on staff_users is missing or misconfigured), so a
+  // blocked write would otherwise show "User updated successfully." while
+  // nothing was actually saved. Checking data.length is what catches that.
+  const { data, error } = await client.from('staff_users').update(updates).eq('id', selectedUserId).select();
   if (error) {
     setMessage(directoryMessage, error.message || 'Unable to update user.', 'error');
+    return false;
+  }
+
+  if (!data || data.length === 0) {
+    setMessage(directoryMessage, 'No changes were saved — the update was blocked (likely a Supabase RLS permission issue on staff_users), not a client error.', 'error');
     return false;
   }
 
