@@ -234,12 +234,17 @@ button { font: inherit; }
 .video-nav-icon,
 .finance-nav-icon,
 .it-tools-nav-icon,
-.docs-nav-icon {
+.docs-nav-icon,
+.projects-nav-icon,
+.timeline-nav-icon,
+.todo-nav-icon,
+.site-plans-nav-icon,
+.contract-nav-icon {
   width: 18px;
   height: 18px;
   border-radius: 4px;
   background: currentColor;
-  opacity: 0.9; 
+  opacity: 0.9;
 }
 
 .home-nav-icon { mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 10.5 12 3l9 7.5'/%3E%3Cpath d='M5 9.5V21h14V9.5'/%3E%3C/svg%3E") center/contain no-repeat; }
@@ -249,6 +254,35 @@ button { font: inherit; }
 .docs-nav-icon { mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 3h9l4 4v14H7z'/%3E%3Cpath d='M16 3v5h5'/%3E%3Cpath d='M9 13h6'/%3E%3Cpath d='M9 17h4'/%3E%3C/svg%3E") center/contain no-repeat; }
 .finance-nav-icon { mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='6' width='18' height='12' rx='2'/%3E%3Ccircle cx='12' cy='12' r='2.5'/%3E%3Cpath d='M7 9h.01'/%3E%3Cpath d='M17 15h.01'/%3E%3C/svg%3E") center/contain no-repeat; }
 .it-tools-nav-icon { mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='5' width='16' height='10' rx='2'/%3E%3Cpath d='M2 19h20'/%3E%3C/svg%3E") center/contain no-repeat;}
+
+/* Blueprint / site-plan icon — used for the Project Overview nav item and
+   the New Project Onboard wizard. A folded plan sheet with a compass point,
+   distinct from the Dashboard house icon it used to share. */
+.projects-nav-icon {
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 4h12l4 4v12H4z'/%3E%3Cpath d='M16 4v4h4'/%3E%3Ccircle cx='11' cy='14' r='3'/%3E%3Cpath d='M11 9v2'/%3E%3Cpath d='M11 17v2'/%3E%3Cpath d='M6 14h2'/%3E%3Cpath d='M14 14h2'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 4h12l4 4v12H4z'/%3E%3Cpath d='M16 4v4h4'/%3E%3Ccircle cx='11' cy='14' r='3'/%3E%3Cpath d='M11 9v2'/%3E%3Cpath d='M11 17v2'/%3E%3Cpath d='M6 14h2'/%3E%3Cpath d='M14 14h2'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+/* Per-project dashboard sidebar icons (projects.html and friends) */
+.timeline-nav-icon {
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 12h18'/%3E%3Ccircle cx='6' cy='12' r='2'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3Ccircle cx='18' cy='12' r='2'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 12h18'/%3E%3Ccircle cx='6' cy='12' r='2'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3Ccircle cx='18' cy='12' r='2'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+.todo-nav-icon {
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6h11'/%3E%3Cpath d='M9 12h11'/%3E%3Cpath d='M9 18h11'/%3E%3Cpath d='m4 6 1 1 2-2'/%3E%3Cpath d='m4 12 1 1 2-2'/%3E%3Cpath d='m4 18 1 1 2-2'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6h11'/%3E%3Cpath d='M9 12h11'/%3E%3Cpath d='M9 18h11'/%3E%3Cpath d='m4 6 1 1 2-2'/%3E%3Cpath d='m4 12 1 1 2-2'/%3E%3Cpath d='m4 18 1 1 2-2'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+.site-plans-nav-icon {
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 20 3 17V5l6 3 6-3 6 3v12l-6-3-6 3z'/%3E%3Cpath d='M9 8v12'/%3E%3Cpath d='M15 5v12'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 20 3 17V5l6 3 6-3 6 3v12l-6-3-6 3z'/%3E%3Cpath d='M9 8v12'/%3E%3Cpath d='M15 5v12'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+.contract-nav-icon {
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h16'/%3E%3Cpath d='M6 16 15 7l3 3-9 9H6v-3z'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h16'/%3E%3Cpath d='M6 16 15 7l3 3-9 9H6v-3z'/%3E%3C/svg%3E") center/contain no-repeat;
+}
 
 .sidebar-footer {
   margin-top: auto;
@@ -3523,4 +3557,531 @@ button { font: inherit; }
   height: 16px;
   accent-color: var(--accent);
   cursor: pointer;
+}
+
+/* ===========================
+   NEW PROJECT WIZARD
+   (project-home.html / projects-page.js)
+   10 skippable sections, back/next, and a wide scrollable popup so
+   multi-field steps never get clipped by the viewport.
+=========================== */
+
+.project-wizard-popup {
+  width: min(94vw, 560px);
+  max-height: 90vh;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.project-wizard-popup::-webkit-scrollbar {
+  width: 10px;
+}
+
+.project-wizard-popup::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.project-wizard-popup::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+/* Top bar: "‹ Cancel" / "Skip ›" as lightweight text links, matching the
+   sketch — these used to be big buttons in the footer. */
+.wizard-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.wizard-topbar-link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 2px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.wizard-topbar-link:hover {
+  color: var(--accent-strong);
+}
+
+#projectWizardCancelBtn.wizard-topbar-link:hover {
+  color: var(--danger);
+}
+
+.wizard-progress {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.wizard-progress-dot {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--border);
+  transition: background 0.2s ease;
+}
+
+.wizard-progress-dot.is-complete {
+  background: var(--success);
+}
+
+.wizard-progress-dot.is-current {
+  background: var(--accent);
+}
+
+.wizard-step-title {
+  margin: 22px 0 4px;
+  color: var(--accent-strong);
+  font-size: 1.15rem;
+}
+
+.wizard-step-hint {
+  margin: 0 0 20px;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+}
+
+/* Give fields themselves a little more breathing room than the default
+   .auth-form gap, per the "space this!" annotations on the sketch. */
+#projectWizardStepBody .auth-field {
+  margin-bottom: 6px;
+}
+
+/* Primary action row: Save & Finish Later + Next, side by side. */
+.wizard-actions-primary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.wizard-actions-primary .auth-button {
+  flex: 1 1 auto;
+  margin-top: 0;
+  white-space: nowrap;
+}
+
+/* De-emphasized "Go back" link, centered below the primary row — hidden
+   entirely on step 1 via projects-page.js. */
+.wizard-delete-link {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-top: 18px;
+  padding: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--danger);
+  text-align: center;
+}
+
+.wizard-delete-link:hover {
+  text-decoration: underline;
+}
+
+.wizard-file-existing-note {
+  margin: -6px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-soft);
+}
+
+/* Address autocomplete (OpenStreetMap Nominatim) — owner_address on Step 1 */
+.address-autocomplete-field {
+  position: relative;
+}
+
+.address-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 6px;
+  z-index: 210;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.address-suggestions.hidden { display: none; }
+
+.address-suggestion-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  font-weight: 400;
+  color: var(--text);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.address-suggestion-option:hover {
+  background: var(--accent-soft);
+}
+
+.address-suggestion-empty {
+  padding: 9px 10px;
+  font-size: 0.85rem;
+  color: var(--text-soft);
+}
+
+.address-suggestion-attribution {
+  padding: 6px 10px 2px;
+  font-size: 0.68rem;
+  color: var(--text-soft);
+  text-align: right;
+}
+
+/* ===========================
+   PER-PROJECT DASHBOARD
+   (projects.html + project-files.html + project-timeline.html +
+   project-todo.html + project-accounting.html + project-site-plans.html +
+   project-contract.html, driven by project-shell.js)
+=========================== */
+
+/* Header-left: project name + switcher dropdown + breadcrumb, replacing
+   the plain brand-mark on these pages. */
+.project-switcher {
+  position: relative;
+}
+
+.project-switcher-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 10px;
+  text-align: left;
+}
+
+.project-switcher-toggle:hover {
+  background: var(--surface-alt);
+}
+
+.project-switcher-caret {
+  color: var(--text-soft);
+  font-size: 0.8rem;
+  transition: transform 0.15s ease;
+}
+
+.project-switcher.is-open .project-switcher-caret {
+  transform: rotate(180deg);
+}
+
+.project-breadcrumb {
+  font-size: 0.8rem;
+  color: var(--text-soft);
+}
+
+.project-breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.project-switcher-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 240px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 6px;
+  z-index: 200;
+}
+
+.project-switcher-dropdown.hidden { display: none; }
+
+.project-switcher-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  color: var(--text);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.project-switcher-option:hover {
+  background: var(--accent-soft);
+}
+
+.project-switcher-option.is-current {
+  font-weight: 700;
+  color: var(--accent-strong);
+}
+
+.project-switcher-empty {
+  padding: 9px 10px;
+  font-size: 0.85rem;
+  color: var(--text-soft);
+}
+
+/* Header-center: current section name (Overview / Site Plans / etc). */
+.header-page-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+/* Sidebar search — dark-theme variant of .workbook-search-input, since
+   the sidebar itself is dark. Carries a ⌘F/Ctrl+F shortcut hint badge
+   (project-shell.js intercepts that keystroke page-wide and focuses this
+   input instead of triggering the browser's native find bar, Vercel-style). */
+.sidebar-search-wrap {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.sidebar-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 9px 46px 9px 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a9c3d4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E") no-repeat 10px center;
+  background-size: 14px 14px;
+  color: #f7fbff;
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+
+.sidebar-search-input::placeholder {
+  color: #8fabbd;
+}
+
+.sidebar-search-input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.sidebar-search-shortcut-hint {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #a9c3d4;
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+/* Hidden once the field has focus or text — same pattern most command-bar
+   UIs use (nothing to hint at once you're already typing). */
+.sidebar-search-wrap:focus-within .sidebar-search-shortcut-hint,
+.sidebar-search-shortcut-hint.is-hidden {
+  opacity: 0;
+}
+
+.sidebar-search-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 6px;
+  z-index: 200;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.sidebar-search-results.hidden { display: none; }
+
+.sidebar-search-result {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.sidebar-search-result:hover {
+  background: var(--accent-soft);
+}
+
+.sidebar-search-result-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-soft);
+  display: block;
+}
+
+.sidebar-search-result-value {
+  font-size: 0.9rem;
+  display: block;
+}
+
+.sidebar-search-empty {
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  color: var(--text-soft);
+}
+
+/* Overview / Site Plans page content — reuses .vendor-profile-section /
+   .company-card-label from the vendor profile popup for a consistent
+   read-only summary look, just laid out full-width on the page. */
+.project-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.project-summary-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+  scroll-margin-top: calc(var(--header-height) + 16px);
+}
+
+.project-summary-section h3 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  color: var(--accent-strong);
+}
+
+.project-summary-section.is-highlighted {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow);
+}
+
+.project-summary-row {
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--border);
+  font-size: 0.92rem;
+}
+
+.project-summary-row:last-child { border-bottom: none; }
+
+.project-summary-empty-note {
+  font-size: 0.85rem;
+  color: var(--text-soft);
+}
+
+/* Placeholder "coming soon" pages (Project Files, Timeline, To-do,
+   Accounting, Contract) until each one gets real content/tables. */
+.project-placeholder {
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-soft);
+}
+
+.project-placeholder h2 {
+  color: var(--text);
+  margin: 0 0 8px;
+}
+
+/* Bigger project name in the header switcher (projects.html and friends
+   — scoped to this ancestor so it doesn't touch .brand-title elsewhere). */
+.project-switcher-toggle .brand-title {
+  font-size: 1.4rem;
+  line-height: 1.2;
+}
+
+/* Sidebar collapse toggle — a small round tab straddling the sidebar's
+   right edge, vertically centered on the first nav item (Overview), per
+   the sketch. Positioned via JS (project-shell.js) since it needs to
+   track the sidebar's actual edge, including through the collapse
+   animation. Replaces the old hamburger menu on this page. */
+/* A flat-left, rounded-right "bump" flush against the sidebar's edge,
+   matching the sketch — not a floating circle. left/top are set in JS
+   (project-shell.js) to the sidebar's real edge and the Overview row's
+   vertical center, so only translateY is needed here. */
+.sidebar-collapse-toggle {
+  position: fixed;
+  width: 24px;
+  height: 46px;
+  padding: 0;
+  border-radius: 0 999px 999px 0;
+  border: 1px solid var(--border);
+  border-left: none;
+  background: var(--surface);
+  color: var(--accent-strong);
+  box-shadow: 2px 2px 6px rgba(15, 35, 50, 0.12);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  z-index: 150;
+  transform: translateY(-50%);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sidebar-collapse-toggle:hover {
+  background: var(--accent-soft);
+}
+
+.sidebar-collapse-toggle-icon {
+  display: inline-block;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1;
+  transition: transform 0.25s ease;
+}
+
+/* Collapsed = arrow flips 180° in place (‹ reads as ›) — a smooth rotation
+   instead of swapping the character. */
+.sidebar-collapse-toggle.is-collapsed .sidebar-collapse-toggle-icon {
+  transform: rotate(180deg);
+}
+
+/* Collapsed state: shrink the shared --sidebar-width so .sidebar and
+   .main-content's margin both follow automatically, and hide everything
+   in the sidebar except the nav icons. */
+body.sidebar-collapsed {
+  --sidebar-width: 68px;
+}
+
+body.sidebar-collapsed .sidebar-search-wrap,
+body.sidebar-collapsed .sidebar-footer,
+body.sidebar-collapsed .nav-text {
+  display: none;
+}
+
+body.sidebar-collapsed .nav-item {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.main-content {
+  transition: margin-left 0.2s ease;
 }

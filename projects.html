@@ -5,22 +5,43 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Leeward Staff Portal | Projects</title>
+    <title>Project Dashboard | The Leeward Group</title>
 
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="dashboard-cards.css">
     <link rel="icon" type="image/png" href="logos/leewaed-logo.png">
 </head>
 
 <body>
 
-<!-- Header/sidebar copied from dashboard.html — keep in sync if you change
-     the shared nav there. -->
+<!-- Header/sidebar shell shared by every project-dashboard page
+     (project-shell.js). Keep this block in sync across projects.html,
+     project-files.html, project-timeline.html, project-todo.html,
+     project-accounting.html, project-site-plans.html, project-contract.html
+     if you change it here. -->
 
 <header class="header">
+
     <div class="header-left">
-        
+
+        <div class="project-switcher" id="projectSwitcher">
+            <button type="button" class="project-switcher-toggle" id="projectSwitcherToggle">
+                <div>
+                    <div class="brand-title" id="headerProjectName">Loading…</div>
+                    <div class="project-breadcrumb" id="headerProjectBreadcrumb">
+                        <a href="project-home.html">Home</a> → …
+                    </div>
+                </div>
+                <span class="project-switcher-caret">⌄</span>
+            </button>
+            <div class="project-switcher-dropdown hidden" id="projectSwitcherDropdown"></div>
+        </div>
+
     </div>
+
+    <div class="header-center">
+        <h1 class="header-page-name" id="headerPageName">Overview</h1>
+    </div>
+
     <div class="header-right">
         <div class="header-user-area">
             <div class="header-user-pill" id="headerUserPill">
@@ -48,43 +69,56 @@
             </div>
         </div>
     </div>
+
 </header>
 
 <aside class="sidebar" id="sidebar">
+
+    <div class="sidebar-search-wrap">
+        <input type="text" id="sidebarSearchInput" class="sidebar-search-input" placeholder="Search this project…" autocomplete="off">
+        <kbd class="sidebar-search-shortcut-hint" id="sidebarSearchShortcutHint">⌘F</kbd>
+        <div class="sidebar-search-results hidden" id="sidebarSearchResults"></div>
+    </div>
+
     <nav class="sidebar-nav">
-        <a href="#" class="nav-item">
-            <span class="home-nav-icon"></span>
+
+        <a href="#" class="nav-item" data-nav-page="projects.html">
+            <span class="projects-nav-icon"></span>
             <span class="nav-text">Overview</span>
         </a>
-        
-        <a href="#" class="nav-item">
-            <span class="finance-nav-icon"></span>
+
+        <a href="#" class="nav-item" data-nav-page="project-files.html">
+            <span class="docs-nav-icon"></span>
             <span class="nav-text">Project Files</span>
         </a>
-        <a href="#" class="nav-item" target="_blank">
-            <span class="website-nav-icon"></span>
+
+        <a href="#" class="nav-item" data-nav-page="project-timeline.html">
+            <span class="timeline-nav-icon"></span>
             <span class="nav-text">Project Timeline</span>
         </a>
 
-        <a href="#" class="nav-item">
-            <span class="companies-nav-icon"></span>
-            <span class="nav-text">Project To-Do</span>
+        <a href="#" class="nav-item" data-nav-page="project-todo.html">
+            <span class="todo-nav-icon"></span>
+            <span class="nav-text">To-do</span>
         </a>
-        <a href="#" class="nav-item">
-            <span class="docs-nav-icon"></span>
-            <span class="nav-text">Project Accounting</span>
+
+        <hr style="border:.5px solid rgba(255,255,255,0.14); margin:10px 0;">
+
+        <a href="#" class="nav-item" data-nav-page="project-accounting.html">
+            <span class="finance-nav-icon"></span>
+            <span class="nav-text">Accounting</span>
         </a>
-        <a href="#" class="nav-item">
-            <span class="docs-nav-icon"></span>
+
+        <a href="#" class="nav-item" data-nav-page="project-site-plans.html">
+            <span class="site-plans-nav-icon"></span>
             <span class="nav-text">Site Plans</span>
         </a>
-        
-        <a href="#" class="nav-item">
-            <span class="docs-nav-icon"></span>
-            <span class="nav-text">Project Contracts</span>
+
+        <a href="#" class="nav-item" data-nav-page="project-contract.html">
+            <span class="contract-nav-icon"></span>
+            <span class="nav-text">Contract</span>
         </a>
-        
-        
+
     </nav>
 
     <div class="sidebar-footer">
@@ -96,7 +130,22 @@
 
 <main class="main-content">
 
-    
+    <section class="hero-section">
+        <div>
+            <p class="eyebrow">Project Dashboard</p>
+            <h1>Overview</h1>
+            <p>Everything on file for this project, grouped by section. Nothing shown here was required — sections fill in as the onboarding wizard gets completed.</p>
+        </div>
+        <div class="hero-actions">
+            <button type="button" class="auth-button auth-button--secondary" id="editProjectBtn" style="display:none;">
+                Edit Project
+            </button>
+        </div>
+    </section>
+
+    <div id="projectOverviewMessage" class="workbook-page-message" style="display:none;"></div>
+
+    <div class="project-summary-grid" id="projectSummaryGrid"></div>
 
 </main>
 
@@ -109,6 +158,137 @@
 <script src="timeout.js"></script>
 <script src="notifications.js"></script>
 <script src="nav-access.js"></script>
+<script src="project-fields.js"></script>
+<script src="project-shell.js"></script>
+
+<script>
+
+/* ===========================
+   SIGN OUT
+=========================== */
+
+const signOutButton = document.getElementById("signOutButton");
+if (signOutButton) {
+    signOutButton.addEventListener("click", function (event) {
+        event.stopPropagation();
+        if (typeof window.signOutUser === "function") {
+            window.signOutUser();
+        } else {
+            console.error("signOutUser() is not available");
+        }
+    });
+}
+
+/* ===========================
+   HEADER NAME / NAV ACCESS
+   (same pattern as every other page — project-shell.js owns the project
+   name/breadcrumb, this owns the signed-in staff member's own name)
+=========================== */
+
+const userNameElement = document.getElementById("headerUserName");
+const adminNavGroup = document.getElementById("adminNavGroup");
+
+function updateStaffName(profile) {
+    if (!profile) return;
+    const name = profile.full_name || profile.username || "Staff";
+    if (userNameElement) userNameElement.textContent = name;
+
+    const sidebarGroupPill = document.getElementById("sidebarGroupPill");
+    if (sidebarGroupPill) {
+        const groups = window.getSupabaseUserGroups ? window.getSupabaseUserGroups(profile) : [];
+        sidebarGroupPill.textContent = groups.length
+            ? groups.map(g => g.charAt(0).toUpperCase() + g.slice(1)).join(", ")
+            : "No Group";
+    }
+}
+
+const storedProfile = localStorage.getItem("staffProfile");
+if (storedProfile) {
+    try {
+        updateStaffName(JSON.parse(storedProfile));
+    } catch (error) {
+        console.warn("Unable to parse stored profile:", error);
+    }
+}
+
+window.addEventListener("DOMContentLoaded", function () {
+    const profile = window.currentSupabaseProfile || null;
+    if (profile) updateStaffName(profile);
+});
+
+/* ===========================
+   OVERVIEW CONTENT
+   Renders once project-shell.js has loaded the project (or failed to).
+=========================== */
+
+function escapeHtmlOverview(str) {
+    const d = document.createElement("div");
+    d.textContent = str ?? "";
+    return d.innerHTML;
+}
+
+function setOverviewMessage(text, type) {
+    const el = document.getElementById("projectOverviewMessage");
+    if (!el) return;
+    if (!text) { el.style.display = "none"; return; }
+    el.textContent = text;
+    el.className = `workbook-page-message ${type || ""}`.trim();
+    el.style.display = "block";
+}
+
+function renderProjectOverview(project) {
+    const grid = document.getElementById("projectSummaryGrid");
+    const editBtn = document.getElementById("editProjectBtn");
+    const heroName = document.querySelector(".hero-section h1");
+
+    if (!project) {
+        setOverviewMessage("No project selected. Pick one from Project Overview.", "error");
+        if (grid) grid.innerHTML = "";
+        if (editBtn) editBtn.style.display = "none";
+        return;
+    }
+
+    if (heroName) heroName.textContent = `Overview — ${project.name || "Untitled project"}`;
+    if (editBtn) {
+        editBtn.style.display = "inline-block";
+        editBtn.onclick = () => {
+            window.location.href = `project-home.html?openWizard=${encodeURIComponent(project.id)}`;
+        };
+    }
+
+    const steps = window.ProjectFields.WIZARD_STEPS.filter(step => step.page === "projects.html");
+
+    grid.innerHTML = steps.map(step => {
+        const rows = step.fields.map(field => {
+            const key = field.type === "file" ? field.pathField : field.name;
+            const raw = project[key];
+            if (window.ProjectFields.isBlank(raw)) return "";
+            const value = field.type === "file" ? String(raw).split("/").pop() : raw;
+            return `
+                <div class="project-summary-row">
+                    <span class="company-card-label">${escapeHtmlOverview(field.label)}</span><br>
+                    ${escapeHtmlOverview(value)}
+                </div>
+            `;
+        }).filter(Boolean).join("");
+
+        return `
+            <div class="project-summary-section" id="field-${step.fields[0].name}">
+                <h3>${escapeHtmlOverview(step.title)}</h3>
+                ${rows || `<p class="project-summary-empty-note">Nothing on file yet.</p>`}
+            </div>
+        `;
+    }).join("");
+}
+
+window.addEventListener("project-shell:ready", (event) => {
+    const { project, error } = event.detail;
+    if (error) console.error("project-shell: failed to load project", error);
+    setOverviewMessage("", "");
+    renderProjectOverview(project);
+});
+
+</script>
 
 </body>
 </html>

@@ -37,7 +37,8 @@ const NAV_ITEMS = [
     { key: "manage_employees", selector: 'a[href="manage-employees.html"]' },
     { key: "create_account", selector: '.subnav a[href="admin-users.html"]' },
     { key: "staff_users", selector: 'a[href="staff-users.html"]' },
-    { key: "workgroups", selector: 'a[href="workgroups.html"]' }
+    { key: "workgroups", selector: 'a[href="workgroups.html"]' },
+    { key: "project_overview", selector: 'a[href="project-home.html"]' }
 ];
 
 // Filename (as it appears in location.pathname) -> the nav key that page
@@ -54,7 +55,8 @@ const PATH_TO_KEY = {
     "manage-employees.html": "manage_employees",
     "admin-users.html": "create_account",
     "staff-users.html": "staff_users",
-    "workgroups.html": "workgroups"
+    "workgroups.html": "workgroups",
+    "project-home.html": "project_overview"
 };
 
 // A few pages already have their own "restricted view" markup (built before

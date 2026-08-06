@@ -164,7 +164,7 @@
 
         <a href="project-home.html" class="nav-item active">
 
-            <span class="home-nav-icon"></span>
+            <span class="projects-nav-icon"></span>
 
             <span class="nav-text">
                 Project Overview
@@ -436,10 +436,94 @@
         </div>
     </section>
 
+    <div class="workbook-toolbar">
 
+        <input
+            type="text"
+            id="projectSearchInput"
+            class="workbook-search-input"
+            placeholder="Search Projects…"
+            autocomplete="off">
 
+        <button class="auth-button auth-button--secondary" id="addProjectBtn" type="button">
+            + New Project Onboard
+        </button>
+
+    </div>
+
+    <div id="projectMessage" class="workbook-page-message" style="display:none;"></div>
+
+    <div class="workbook-loading" id="projectLoadingState">
+        <p>Loading projects…</p>
+    </div>
+
+    <div class="workbook-empty" id="projectEmptyState" style="display:none;">
+        <p>No projects yet. Click "+ New Project Onboard" to start the first one.</p>
+    </div>
+
+    <div class="workbook-empty" id="projectNoResultsState" style="display:none;">
+        <p>No projects match your search.</p>
+    </div>
+
+    <div class="workbook-grid" id="projectsGrid"></div>
 
 </main>
+
+
+<!-- New / Edit Project Wizard — 10 skippable sections, back/next, and a
+     Save & Finish Later option so nothing typed is lost if it's closed
+     early. projects-page.js drives all the step content and state. -->
+<div class="popup-overlay hidden" id="projectWizardModalOverlay">
+    <div class="popup workbook-popup project-wizard-popup">
+
+        <div class="wizard-topbar">
+            <button type="button" class="wizard-topbar-link" id="projectWizardCancelBtn">&lsaquo; Cancel</button>
+            <button type="button" class="wizard-topbar-link" id="projectWizardBackBtn" style="display:none;">&lsaquo; Go back</button>
+            <button type="button" class="wizard-topbar-link" id="projectWizardSkipBtn">Skip &rsaquo;</button>
+        </div>
+
+        <div class="wizard-progress" id="projectWizardProgress"></div>
+
+        <h2 id="projectWizardTitle">New Project Onboarding</h2>
+        <p class="auth-inline-copy" id="projectWizardStepLabel">Step 1 of 10</p>
+
+        <form class="auth-form" id="projectWizardForm" autocomplete="off">
+
+            <input type="hidden" id="projectIdInput">
+
+            <div id="projectWizardStepBody"></div>
+
+            <p class="auth-message" id="projectWizardMessage"></p>
+
+        </form>
+
+        <div class="wizard-actions-primary">
+            <button type="button" class="auth-button auth-button--secondary" id="projectWizardSaveLaterBtn">Save &amp; Finish Later</button>
+            <button type="button" class="auth-button" id="projectWizardNextBtn">Next</button>
+        </div>
+
+        <button type="button" class="wizard-delete-link" id="deleteProjectBtn" style="display:none;">
+            Delete Project
+        </button>
+
+    </div>
+</div>
+
+
+<!-- Delete Project Confirmation -->
+<div class="popup-overlay hidden" id="deleteProjectConfirmOverlay">
+    <div class="popup">
+        <h2>Delete this project?</h2>
+        <p class="auth-inline-copy">This will permanently remove the project record and any uploaded plan files. This can't be undone.</p>
+
+        <p class="auth-message" id="deleteProjectConfirmMessage"></p>
+
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteProjectBtn">Cancel</button>
+            <button type="button" class="auth-button auth-button--red" id="confirmDeleteProjectBtn">Delete</button>
+        </div>
+    </div>
+</div>
 
 
 
@@ -466,6 +550,9 @@
 <script src="dashboard scripts/calender-card.js"></script>
 <script src="dashboard scripts/contact-card.js"></script>
 
+<!-- Project Overview grid + New Project Onboard wizard -->
+<script src="project-fields.js"></script>
+<script src="projects-page.js"></script>
 
 
 

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Leeward Staff Portal | Projects</title>
+
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dashboard-cards.css">
+    <link rel="icon" type="image/png" href="logos/leewaed-logo.png">
+</head>
+
+<body>
+
+<!-- Header/sidebar copied from dashboard.html — keep in sync if you change
+     the shared nav there. -->
+
+<header class="header">
+    <div class="header-left">
+        
+    </div>
+    <div class="header-right">
+        <div class="header-user-area">
+            <div class="header-user-pill" id="headerUserPill">
+                <span id="headerUserName">Staff</span>
+                <div class="notification-wrapper">
+                    <button class="notification-bell" id="notificationBell" aria-label="Notifications">
+                        🔔
+                        <span class="notification-count">0</span>
+                    </button>
+                    <div class="notification-dropdown" id="notificationDropdown">
+                        <div class="notification-header">
+                            <span>Notifications</span>
+                            <button class="mark-read-btn">Mark as read</button>
+                        </div>
+                        <div id="notificationList"></div>
+                        <div id="notificationEmpty" class="notification-item" style="display:none;">
+                            <p>No notifications yet.</p>
+                        </div>
+                        <div class="notification-footer">
+                            <a class="report-bug-btn" href="https://tally.so/r/QKyGj8" target="_blank" rel="noopener">Report bug</a>
+                            <button class="auth-button auth-button--secondary header-signout" id="signOutButton" type="button">Sign out</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<aside class="sidebar" id="sidebar">
+    <nav class="sidebar-nav">
+        <div class="workbook-loading" id="projectLoadingState">
+        <p>Loading projects…</p>
+    </div>
+        <a href="#" class="nav-item">
+            <span class="home-nav-icon"></span>
+            <span class="nav-text">Overview</span>
+        </a>
+        
+        <a href="#" class="nav-item">
+            <span class="finance-nav-icon"></span>
+            <span class="nav-text">Project Files</span>
+        </a>
+        <a href="#" class="nav-item" target="_blank">
+            <span class="website-nav-icon"></span>
+            <span class="nav-text">Project Timeline</span>
+        </a>
+
+        <a href="#" class="nav-item">
+            <span class="companies-nav-icon"></span>
+            <span class="nav-text">Project To-Do</span>
+        </a>
+        <a href="#" class="nav-item">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">Project Accounting</span>
+        </a>
+        <a href="#" class="nav-item">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">Site Plans</span>
+        </a>
+        
+        <a href="#" class="nav-item">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">Project Contracts</span>
+        </a>
+        
+        
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="footer-pill" id="sidebarGroupPill"></div>
+        <div class="sidebar-brand">Leeward Group</div>
+        <div class="version">Version XF-729-BETA</div>
+    </div>
+</aside>
+
+<main class="main-content">
+
+    
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="supabase-auth.js"></script>
+<script src="auth-guard.js"></script>
+<script src="manager-nav.js"></script>
+<script src="script.js"></script>
+<script src="timeout.js"></script>
+<script src="notifications.js"></script>
+<script src="nav-access.js"></script>
+
+</body>
+</html>
