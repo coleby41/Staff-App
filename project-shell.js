@@ -1,6 +1,6 @@
 /* ===========================================================
    PROJECT DASHBOARD SHELL (shared by projects.html, project-files.html,
-   project-timeline.html, project-todo.html, project-accounting.html,
+   project-timeline.html, project-to-do.html, project-accounting.html,
    project-site-plans.html, project-contract.html)
 
    Handles everything these pages have in common:

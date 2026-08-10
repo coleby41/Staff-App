@@ -6,11 +6,19 @@
      <div class="card">
        <div class="card-header">
          <h2 class="card-title">My Tasks</h2>
-         <a href="tasks.html" class="chip">View all</a>
+         <a href="staff-to-do.html" class="chip">View all</a>
        </div>
-       <div id="myTasksList" class="info-list"></div>
-       <a href="#" id="addTaskLink" class="auth-link">+ Add new task</a>
+       <div id="myTasksList" class="mytask-list"></div>
+       <div class="todo-item-row todo-item-add-row">
+         <span class="todo-item-add-icon">+</span>
+         <input type="text" id="newTaskInlineInput" class="todo-item-add-input" placeholder="New task">
+         <input type="date" id="newTaskDueDateInput" class="todo-item-add-date" aria-label="Due date">
+       </div>
      </div>
+
+   Card rows with a colored left-edge accent + due-date pill for anything
+   overdue/today/tomorrow (plain muted date otherwise), and an inline
+   "+ New task" row instead of a popup modal for adding one.
 
    Table: public.tasks (user_id, task_name, due_date, description, completed)
 ============================================================================ */
@@ -25,21 +33,22 @@
 
   document.addEventListener("DOMContentLoaded", async () => {
     const listEl = document.getElementById("myTasksList");
-    const addLink = document.getElementById("addTaskLink");
+    const addInput = document.getElementById("newTaskInlineInput");
+    const dueDateInput = document.getElementById("newTaskDueDateInput");
     if (!listEl) return; // card not on this page
 
     currentProfile = await DS.getStaffProfile();
     if (!currentProfile) {
       listEl.innerHTML = `<p class="card-subtitle">Sign in to see your tasks.</p>`;
+      if (addInput) addInput.disabled = true;
       return;
     }
 
     await loadTasks();
 
-    if (addLink) {
-      addLink.addEventListener("click", (e) => {
-        e.preventDefault();
-        openAddTaskModal();
+    if (addInput) {
+      addInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); createTaskInline(addInput, dueDateInput); }
       });
     }
   });
@@ -67,6 +76,12 @@
     renderTasks(data || []);
   }
 
+  // due.cls (from DS.formatDueLabel) is one of: "due-overdue", "due-today",
+  // "due-tomorrow", "due-upcoming", or "" (no due date). Overdue/today/
+  // tomorrow get the colored row accent + pill; everything else is plain
+  // muted text, matching Option B from the mockups.
+  const DUE_TIERS = { "due-overdue": "overdue", "due-today": "today", "due-tomorrow": "tomorrow" };
+
   function renderTasks(tasks) {
     const listEl = document.getElementById("myTasksList");
 
@@ -78,25 +93,23 @@
     listEl.innerHTML = tasks
       .map((task) => {
         const due = DS.formatDueLabel(task.due_date);
+        const tier = DUE_TIERS[due.cls];
+        const dueHtml = tier
+          ? `<span class="mytask-due-pill mytask-due-pill--${tier}">${due.text}</span>`
+          : `<span class="mytask-due-plain">${due.text}</span>`;
+
         return `
-          <div class="info-item task-item" data-task-id="${task.id}">
-            <div class="task-item__left">
-              <button
-                type="button"
-                class="task-check"
-                aria-label="Mark '${DS.escapeHtml(task.task_name)}' complete"
-                data-task-id="${task.id}"
-              ></button>
-              <span class="task-name">${DS.escapeHtml(task.task_name)}</span>
-            </div>
-            <span class="task-due ${due.cls}">${due.text}</span>
+          <div class="mytask-row ${tier ? `mytask-row--${tier}` : ""}" data-task-id="${task.id}">
+            <input type="checkbox" class="todo-item-checkbox" data-action="complete" aria-label="Mark '${DS.escapeHtml(task.task_name)}' complete">
+            <span class="mytask-row-title">${DS.escapeHtml(task.task_name)}</span>
+            ${dueHtml}
           </div>
         `;
       })
       .join("");
 
-    listEl.querySelectorAll(".task-check").forEach((btn) => {
-      btn.addEventListener("click", () => completeTask(btn.dataset.taskId));
+    listEl.querySelectorAll('[data-action="complete"]').forEach((checkbox) => {
+      checkbox.addEventListener("change", () => completeTask(checkbox.closest(".mytask-row").dataset.taskId));
     });
   }
 
@@ -108,67 +121,30 @@
     if (!error) loadTasks();
   }
 
-  function openAddTaskModal() {
-    const overlay = DS.buildPopup(
-      "addTaskModal",
-      `
-      <h2>Add new task</h2>
-      <form id="addTaskForm" class="auth-form">
-        <label class="auth-field">
-          Task name
-          <input type="text" id="taskNameInput" required maxlength="120" placeholder="e.g. Submit weekly time sheet" />
-        </label>
-        <label class="auth-field">
-          Due date
-          <input type="date" id="taskDueDateInput" />
-        </label>
-        <label class="auth-field">
-          Description
-          <textarea id="taskDescriptionInput" placeholder="Optional details"></textarea>
-        </label>
-        <p id="addTaskMessage" class="auth-message"></p>
-        <div class="popup-buttons">
-          <button type="button" class="auth-button auth-button--secondary" id="cancelAddTaskBtn">Cancel</button>
-          <button type="submit" class="auth-button">Add task</button>
-        </div>
-      </form>
-      `
+  async function createTaskInline(input, dueDateInput) {
+    const taskName = input.value.trim();
+    if (!taskName) return;
+
+    input.disabled = true;
+
+    const { error } = await DS.safeQuery(
+      "create task",
+      window.supabaseClient.from("tasks").insert({
+        user_id: DS.getUserId(currentProfile),
+        task_name: taskName,
+        due_date: dueDateInput?.value || null,
+        description: null,
+        completed: false,
+      })
     );
 
-    DS.openPopup(overlay);
+    input.disabled = false;
 
-    overlay.querySelector("#cancelAddTaskBtn").addEventListener("click", () => DS.closePopup(overlay));
+    if (error) return;
 
-    overlay.querySelector("#addTaskForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const messageEl = overlay.querySelector("#addTaskMessage");
-      const taskName = overlay.querySelector("#taskNameInput").value.trim();
-      const dueDate = overlay.querySelector("#taskDueDateInput").value || null;
-      const description = overlay.querySelector("#taskDescriptionInput").value.trim() || null;
-
-      if (!taskName) {
-        DS.setFormMessage(messageEl, "Task name is required.", "error");
-        return;
-      }
-
-      const { error } = await DS.safeQuery(
-        "create task",
-        window.supabaseClient.from("tasks").insert({
-          user_id: DS.getUserId(currentProfile),
-          task_name: taskName,
-          due_date: dueDate,
-          description,
-          completed: false,
-        })
-      );
-
-      if (error) {
-        DS.setFormMessage(messageEl, "Couldn't add task. Try again.", "error");
-        return;
-      }
-
-      DS.closePopup(overlay);
-      loadTasks();
-    });
+    input.value = "";
+    if (dueDateInput) dueDateInput.value = "";
+    input.focus();
+    loadTasks();
   }
 })();

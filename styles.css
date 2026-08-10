@@ -2800,6 +2800,18 @@ button { font: inherit; }
   margin-bottom: 20px;
 }
 
+/* My Tasks takes the space the old Company Updates card left behind —
+   double width instead of a fourth same-size card. */
+.dashboard-card--wide {
+  grid-column: span 2;
+}
+
+@media (max-width: 640px) {
+  .dashboard-card--wide {
+    grid-column: span 1;
+  }
+}
+
 .dashboard-bottom-grid {
   display: grid;
   grid-template-columns: 1.3fr 1fr 1fr;
@@ -2980,25 +2992,6 @@ button { font: inherit; }
 
 @media (max-width: 480px) {
   .quick-links-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-/* ---------- Company Updates ------------------------------------------------ */
-
-#companyUpdatesList .info-item h3 {
-  font-size: 0.94rem;
-}
-
-#makeUpdateBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 12px;
-  color: var(--accent);
-  font-weight: 700;
-}
-
-#makeUpdateBtn:hover {
-  color: var(--accent-strong);
 }
 
 /* ---------- Calendar -------------------------------------------------------- */
@@ -3487,6 +3480,593 @@ button { font: inherit; }
   font-size: 0.9rem;
 }
 
+/* ===========================
+   PDF FORM BUILDER (form-template.html / form-builder.js)
+   Upload-a-PDF-and-place-fields builder, and the matching fill-out overlay.
+=========================== */
+
+/* Builder modal grows to fit a real document instead of the narrow
+   question-list layout. */
+.form-builder-popup.form-builder-popup--pdf {
+  width: min(96vw, 900px);
+  position: relative;
+}
+
+.pdf-upload-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 24px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-alt);
+}
+
+.pdf-upload-btn {
+  display: inline-block;
+  cursor: pointer;
+  width: auto;
+  padding: 10px 18px;
+}
+
+.pdf-workspace-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.pdf-workspace-meta {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.pdf-pages-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  max-height: 60vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-alt);
+  margin-top: 10px;
+}
+
+.pdf-page {
+  position: relative;
+  max-width: 100%;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
+  background: white;
+}
+
+.pdf-page-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 2px;
+}
+
+.pdf-page-overlay {
+  position: absolute;
+  inset: 0;
+  cursor: crosshair;
+}
+
+.pdf-page-overlay--fill {
+  cursor: default;
+}
+
+.pdf-field-box {
+  position: absolute;
+  border: 2px solid var(--accent);
+  background: var(--accent-soft);
+  opacity: 0.85;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-end;
+  min-width: 4px;
+  min-height: 4px;
+}
+
+.pdf-field-box--drawing {
+  border-style: dashed;
+  cursor: crosshair;
+}
+
+.pdf-field-box-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--accent-strong);
+  background: rgba(255, 255, 255, 0.85);
+  padding: 1px 4px;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  pointer-events: none;
+}
+
+.pdf-field-popover {
+  position: fixed;
+  z-index: 2100;
+  width: min(90vw, 300px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.22);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pdf-field-popover.hidden {
+  display: none;
+}
+
+.pdf-field-popover-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.pdf-field-popover-buttons .auth-button {
+  width: auto;
+  padding: 8px 14px;
+  font-size: 0.84rem;
+}
+
+/* Fill-out mode: real inputs positioned exactly where the admin placed
+   each field, sized to fill the box drawn on the document. */
+.pdf-fill-field {
+  position: absolute;
+  display: flex;
+}
+
+.pdf-fill-input {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(37, 99, 235, 0.45);
+  background: rgba(219, 234, 254, 0.35);
+  border-radius: 3px;
+  font-size: 0.82rem;
+  padding: 0 4px;
+  font-family: inherit;
+  color: #1d2530;
+}
+
+.pdf-fill-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(219, 234, 254, 0.7);
+}
+
+.pdf-fill-input--checkbox {
+  width: auto;
+  height: auto;
+  accent-color: var(--accent);
+}
+
+.pdf-fill-input--signature {
+  font-family: "Brush Script MT", cursive;
+  font-size: 1.1rem;
+}
+
+@media (max-width: 640px) {
+  .pdf-pages-container {
+    max-height: 50vh;
+  }
+}
+
+/* ===========================
+   PROJECT TO-DO (project-to-do.html / project-todo.js)
+   Notion-style flat list of "big items": checkbox + title rows, no card
+   chrome, a blue outline on whichever row's side panel is currently open,
+   and a "+ New task" row at the bottom to add more.
+=========================== */
+
+.todo-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.todo-item-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.todo-item-row:hover {
+  background: var(--surface-alt);
+}
+
+.todo-item-row.is-open {
+  border-color: var(--accent);
+  background: var(--surface-alt);
+}
+
+.todo-item-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 0 0 auto;
+  width: 19px;
+  height: 19px;
+  margin: 0;
+  border: 2px solid var(--border);
+  border-radius: 5px;
+  background: white;
+  cursor: pointer;
+  position: relative;
+}
+
+.todo-item-checkbox:hover {
+  border-color: var(--accent);
+}
+
+.todo-item-checkbox:checked {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.todo-item-checkbox:checked::after {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 5px;
+  height: 9px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.todo-item-row-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.95rem;
+  color: var(--text);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todo-item-row.is-completed .todo-item-row-title {
+  text-decoration: line-through;
+  color: var(--text-soft);
+}
+
+.todo-item-add-row {
+  border: 1px solid transparent;
+  padding: 9px 10px;
+  margin-top: 2px;
+}
+
+.todo-item-add-icon {
+  flex: 0 0 auto;
+  width: 19px;
+  text-align: center;
+  color: var(--text-soft);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.todo-item-add-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--text);
+  padding: 0;
+}
+
+.todo-item-add-input::placeholder {
+  color: var(--text-soft);
+}
+
+.todo-item-add-date {
+  flex: 0 0 auto;
+  width: 132px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  outline: none;
+  font-family: inherit;
+  font-size: 0.8rem;
+  color: var(--text-soft);
+  padding: 5px 8px;
+}
+
+.todo-item-add-date:focus {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+@media (max-width: 480px) {
+  .todo-item-add-date {
+    width: 118px;
+  }
+}
+
+/* -- Side panel --
+   Notion-style side peek, not a modal: no dimmed backdrop, the page behind
+   it stays fully interactive and scrollable (clicking another row just
+   swaps this panel's content — see openTodoPanel in project-todo.js). */
+
+.todo-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(92vw, 460px);
+  background: var(--surface);
+  box-shadow: -8px 0 30px rgba(0, 0, 0, 0.2);
+  border-left: 1px solid var(--border);
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  overflow-y: auto;
+  z-index: 500;
+}
+
+.todo-panel.hidden {
+  display: none;
+}
+
+.todo-panel.is-open {
+  transform: translateX(0);
+}
+
+.todo-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.todo-panel-header h2 {
+  margin: 0;
+  color: var(--accent-strong);
+  font-size: 1.25rem;
+  word-break: break-word;
+}
+
+.todo-panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.todo-panel-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.todo-subitem-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-alt);
+}
+
+.todo-subitem-row.is-completed .todo-subitem-label {
+  text-decoration: line-through;
+  color: var(--text-soft);
+}
+
+.todo-subitem-check {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: white;
+  cursor: pointer;
+  padding: 0;
+}
+
+.todo-subitem-check:hover {
+  border-color: var(--accent);
+}
+
+.todo-subitem-check.is-checked {
+  border-color: var(--success);
+  background: var(--success);
+}
+
+.todo-subitem-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.9rem;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.todo-subitem-assignee {
+  flex: 0 0 auto;
+  max-width: 138px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: white;
+  font-size: 0.78rem;
+  font-family: inherit;
+  color: var(--text);
+}
+
+.todo-subitem-remove {
+  flex: 0 0 auto;
+  border: none;
+  background: none;
+  color: var(--text-soft);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+
+.todo-subitem-remove:hover {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.todo-add-subitem-row {
+  display: flex;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  flex: 0 0 auto;
+}
+
+.todo-add-subitem-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  font-size: 0.88rem;
+  font-family: inherit;
+}
+
+.todo-add-subitem-row select {
+  flex: 0 0 auto;
+  width: 130px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: white;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 640px) {
+  .todo-add-subitem-row {
+    flex-wrap: wrap;
+  }
+  .todo-add-subitem-row select {
+    width: auto;
+    flex: 1;
+  }
+}
+
+/* ===========================
+   STAFF TO-DO (staff-to-do.html / staff-todo.js)
+   "Project To-Do" section — items assigned to the signed-in staff member
+   across every project. Reuses .info-item / .task-check.
+=========================== */
+
+.project-todo-item {
+  align-items: flex-start;
+}
+
+.project-todo-item__left {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.project-todo-item__left .task-check {
+  margin-top: 3px;
+}
+
+.project-todo-item__project {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  margin-bottom: 2px;
+}
+
+/* ===========================
+   MY TASKS — card rows with a due-date pill (dashboard scripts/task.js and
+   staff-todo.js). A colored left-edge accent + pill for anything due soon,
+   plain muted text for everything else.
+=========================== */
+
+.mytask-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mytask-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-alt);
+  border-left: 3px solid transparent;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  padding: 10px 12px;
+}
+
+.mytask-row--overdue { border-left-color: var(--danger); }
+.mytask-row--today { border-left-color: var(--warning); }
+.mytask-row--tomorrow { border-left-color: var(--accent); }
+
+.mytask-row-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.92rem;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mytask-due-pill {
+  flex: 0 0 auto;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.mytask-due-pill--overdue { background: var(--danger-soft); color: var(--danger); }
+.mytask-due-pill--today { background: var(--warning-soft); color: var(--warning); }
+.mytask-due-pill--tomorrow { background: var(--accent-soft); color: var(--accent); }
+
+.mytask-due-plain {
+  flex: 0 0 auto;
+  font-size: 0.8rem;
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+
 .form-section-heading {
   margin: 10px 0 2px;
   color: var(--accent-strong);
@@ -3795,7 +4375,7 @@ button { font: inherit; }
 /* ===========================
    PER-PROJECT DASHBOARD
    (projects.html + project-files.html + project-timeline.html +
-   project-todo.html + project-accounting.html + project-site-plans.html +
+   project-to-do.html + project-accounting.html + project-site-plans.html +
    project-contract.html, driven by project-shell.js)
 =========================== */
 
@@ -4128,5 +4708,11 @@ body.sidebar-collapsed .nav-item {
 }
 
 .main-content {
-  transition: margin-left 0.2s ease;
+  transition: margin-left 0.2s ease, margin-right 0.25s ease;
+}
+
+/* Project To-Do side panel pushes the list over instead of floating on top
+   of it — see body.todo-panel-open, toggled in project-todo.js. */
+body.todo-panel-open .main-content {
+  margin-right: min(92vw, 460px);
 }

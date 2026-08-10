@@ -19,7 +19,10 @@
 const FORM_TEMPLATES_TABLE = "form_templates";
 const FORM_SUBMISSIONS_TABLE = "form_submissions";
 const FORM_SUBMISSIONS_BUCKET = "form-submissions";
+const FORM_TEMPLATE_SOURCES_BUCKET = "form-template-sources";
 
+// Legacy (pre-PDF) field types — still used to edit older forms that were
+// built the manual way (record.pdf_path is null).
 const FORM_FIELD_TYPES = [
     { value: "short_text", label: "Short text" },
     { value: "paragraph", label: "Paragraph text" },
@@ -33,11 +36,39 @@ const FORM_FIELD_TYPES = [
 
 const FORM_FIELD_TYPES_WITH_OPTIONS = ["dropdown", "checkboxes", "radio"];
 
+// PDF-based field types — placed by click-dragging directly on the uploaded
+// source PDF. New forms are always built this way.
+const PDF_FIELD_TYPES = [
+    { value: "text", label: "Text" },
+    { value: "number", label: "Number" },
+    { value: "date", label: "Date" },
+    { value: "checkbox", label: "Checkbox" },
+    { value: "dropdown", label: "Dropdown" },
+    { value: "signature", label: "Signature" }
+];
+
+const PDF_RENDER_SCALE = 1.4;
+
 let formRecords = [];
 let editingFormRecord = null;   // the form_templates row being edited, or null for a new form
 let editingFields = [];         // working copy of the fields array while the builder modal is open
 let fillFormRecord = null;      // the form currently open in the fill-out modal
 let responsesFormRecord = null; // the form currently open in the Responses modal
+
+// PDF builder state (form-template.html "New Form" / editing a PDF-based form)
+let pdfBuilderDoc = null;         // pdf.js PDFDocumentProxy currently loaded in the builder
+let pdfBuilderBytes = null;       // ArrayBuffer copy of that PDF, kept for upload (pdf.js consumes its own copy)
+let pdfBuilderIsNewUpload = false; // true if pdfBuilderBytes came from a file picked this session (vs. an existing form's stored PDF)
+let pdfBuilderPageCount = 0;
+let pdfPopoverState = null;       // { pageIndex, overlay, x, y, width, height, fieldId } for the field currently being added/edited
+
+// PDF fill-out state (form-template.html fill-out modal)
+let fillPdfDoc = null; // pdf.js PDFDocumentProxy currently loaded in the fill-out modal
+
+if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+}
 
 /* ---------- helpers ---------- */
 
@@ -83,6 +114,11 @@ function canManageThisForm(record) {
 
 function fieldTypeLabel(type) {
     const match = FORM_FIELD_TYPES.find(t => t.value === type);
+    return match ? match.label : type;
+}
+
+function pdfFieldTypeLabel(type) {
+    const match = PDF_FIELD_TYPES.find(t => t.value === type);
     return match ? match.label : type;
 }
 
@@ -335,13 +371,316 @@ function addFieldOfType(type) {
     renderFieldEditorList();
 }
 
+/* ---------- PDF builder: upload + render + place fields ---------- */
+
+async function handlePdfFileSelected(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const messageEl = document.getElementById("formBuilderMessage");
+
+    if (file.type !== "application/pdf") {
+        if (messageEl) { messageEl.textContent = "Please choose a PDF file."; messageEl.className = "auth-message error"; }
+        event.target.value = "";
+        return;
+    }
+
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        await loadPdfIntoBuilder(arrayBuffer, true);
+    } catch (error) {
+        console.error("Failed to read PDF file:", error);
+        if (messageEl) { messageEl.textContent = "Couldn't read that PDF. Please try a different file."; messageEl.className = "auth-message error"; }
+    } finally {
+        event.target.value = ""; // allow re-selecting the same file later
+    }
+}
+
+async function loadPdfIntoBuilder(arrayBuffer, isNewUpload) {
+    const messageEl = document.getElementById("formBuilderMessage");
+
+    if (typeof pdfjsLib === "undefined") {
+        if (messageEl) { messageEl.textContent = "The PDF viewer failed to load. Refresh and try again."; messageEl.className = "auth-message error"; }
+        return;
+    }
+
+    try {
+        // pdf.js takes ownership of the buffer it's given, so keep our own
+        // independent copy around for uploading to storage later.
+        pdfBuilderBytes = arrayBuffer.slice(0);
+        pdfBuilderIsNewUpload = isNewUpload;
+
+        pdfBuilderDoc = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
+        pdfBuilderPageCount = pdfBuilderDoc.numPages;
+
+        if (isNewUpload) {
+            // A freshly uploaded PDF replaces whatever fields were placed
+            // against the previous document (their coordinates wouldn't
+            // line up with a different layout).
+            editingFields = [];
+        }
+
+        const uploadPrompt = document.getElementById("formPdfUploadPrompt");
+        const workspace = document.getElementById("formPdfWorkspace");
+        const metaEl = document.getElementById("formPdfFileMeta");
+        if (uploadPrompt) uploadPrompt.style.display = "none";
+        if (workspace) workspace.style.display = "block";
+        if (metaEl) metaEl.textContent = `${pdfBuilderPageCount} page${pdfBuilderPageCount === 1 ? "" : "s"}`;
+
+        await renderPdfBuilderPages();
+    } catch (error) {
+        console.error("Failed to load PDF:", error);
+        if (messageEl) { messageEl.textContent = "Couldn't read that PDF. Please try a different file."; messageEl.className = "auth-message error"; }
+    }
+}
+
+async function loadExistingPdfIntoBuilder(path) {
+    const messageEl = document.getElementById("formBuilderMessage");
+    try {
+        const { data, error } = await window.supabaseClient
+            .storage
+            .from(FORM_TEMPLATE_SOURCES_BUCKET)
+            .download(path);
+        if (error) throw error;
+
+        const arrayBuffer = await data.arrayBuffer();
+        await loadPdfIntoBuilder(arrayBuffer, false);
+    } catch (error) {
+        console.error("Failed to load existing form PDF:", error);
+        if (messageEl) { messageEl.textContent = "Couldn't load this form's PDF. Please try again."; messageEl.className = "auth-message error"; }
+    }
+}
+
+async function renderPdfBuilderPages() {
+    const container = document.getElementById("formPdfPagesContainer");
+    if (!container || !pdfBuilderDoc) return;
+    container.innerHTML = "";
+
+    for (let pageNum = 1; pageNum <= pdfBuilderPageCount; pageNum++) {
+        const pageIndex = pageNum - 1;
+        const page = await pdfBuilderDoc.getPage(pageNum);
+        const viewport = page.getViewport({ scale: PDF_RENDER_SCALE });
+
+        const pageWrap = document.createElement("div");
+        pageWrap.className = "pdf-page";
+        // Only width is set inline — height is left to flow from the canvas
+        // (which preserves its own aspect ratio via CSS), so the whole page
+        // scales down responsively if the popup is narrower than the PDF's
+        // native render width (see .pdf-page / .pdf-page-canvas in styles.css).
+        pageWrap.style.width = `${viewport.width}px`;
+
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        canvas.className = "pdf-page-canvas";
+
+        const overlay = document.createElement("div");
+        overlay.className = "pdf-page-overlay";
+
+        pageWrap.appendChild(canvas);
+        pageWrap.appendChild(overlay);
+        container.appendChild(pageWrap);
+
+        await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+
+        wireBuilderPageDrawing(overlay, pageIndex);
+        renderFieldBoxesForPage(overlay, pageIndex);
+    }
+}
+
+// Click-and-drag on a page's overlay to draw a new field box.
+function wireBuilderPageDrawing(overlay, pageIndex) {
+    overlay.addEventListener("pointerdown", (e) => {
+        if (e.target !== overlay) return; // let clicks on existing boxes open the edit popover instead
+        e.preventDefault();
+
+        const rect = overlay.getBoundingClientRect();
+        const startX = e.clientX - rect.left;
+        const startY = e.clientY - rect.top;
+
+        const dragBox = document.createElement("div");
+        dragBox.className = "pdf-field-box pdf-field-box--drawing";
+        dragBox.style.left = `${startX}px`;
+        dragBox.style.top = `${startY}px`;
+        dragBox.style.width = "0px";
+        dragBox.style.height = "0px";
+        overlay.appendChild(dragBox);
+
+        function onMove(moveEvt) {
+            const r = overlay.getBoundingClientRect();
+            const curX = moveEvt.clientX - r.left;
+            const curY = moveEvt.clientY - r.top;
+            const left = Math.min(startX, curX);
+            const top = Math.min(startY, curY);
+            dragBox.style.left = `${left}px`;
+            dragBox.style.top = `${top}px`;
+            dragBox.style.width = `${Math.abs(curX - startX)}px`;
+            dragBox.style.height = `${Math.abs(curY - startY)}px`;
+        }
+
+        function onUp(upEvt) {
+            overlay.removeEventListener("pointermove", onMove);
+            overlay.removeEventListener("pointerup", onUp);
+
+            const r = overlay.getBoundingClientRect();
+            const left = parseFloat(dragBox.style.left);
+            const top = parseFloat(dragBox.style.top);
+            const width = parseFloat(dragBox.style.width);
+            const height = parseFloat(dragBox.style.height);
+            dragBox.remove();
+
+            if (width < 12 || height < 10) return; // too small — treat as an accidental click
+
+            openPdfFieldPopover(
+                {
+                    pageIndex,
+                    overlay,
+                    x: left / r.width,
+                    y: top / r.height,
+                    width: width / r.width,
+                    height: height / r.height,
+                    fieldId: null
+                },
+                { clientX: upEvt.clientX, clientY: upEvt.clientY }
+            );
+        }
+
+        overlay.addEventListener("pointermove", onMove);
+        overlay.addEventListener("pointerup", onUp);
+    });
+}
+
+function renderFieldBoxesForPage(overlay, pageIndex) {
+    overlay.querySelectorAll(".pdf-field-box:not(.pdf-field-box--drawing)").forEach(el => el.remove());
+
+    editingFields
+        .filter(f => f.page === pageIndex)
+        .forEach(field => {
+            const box = document.createElement("div");
+            box.className = "pdf-field-box";
+            box.style.left = `${field.x * 100}%`;
+            box.style.top = `${field.y * 100}%`;
+            box.style.width = `${field.width * 100}%`;
+            box.style.height = `${field.height * 100}%`;
+            box.innerHTML = `<span class="pdf-field-box-label">${formEscapeHtml(field.label || pdfFieldTypeLabel(field.type))}</span>`;
+
+            box.addEventListener("click", (e) => {
+                e.stopPropagation();
+                openPdfFieldPopover(
+                    { pageIndex, overlay, x: field.x, y: field.y, width: field.width, height: field.height, fieldId: field.id },
+                    { clientX: e.clientX, clientY: e.clientY }
+                );
+            });
+
+            overlay.appendChild(box);
+        });
+}
+
+function openPdfFieldPopover(state, pointerPos) {
+    pdfPopoverState = state;
+
+    const popover = document.getElementById("pdfFieldPopover");
+    const typeSelect = document.getElementById("pdfFieldTypeSelect");
+    const labelInput = document.getElementById("pdfFieldLabelInput");
+    const requiredInput = document.getElementById("pdfFieldRequiredInput");
+    const optionsWrap = document.getElementById("pdfFieldOptionsWrap");
+    const optionsInput = document.getElementById("pdfFieldOptionsInput");
+    const deleteBtn = document.getElementById("pdfFieldDeleteBtn");
+    if (!popover) return;
+
+    const existing = state.fieldId ? editingFields.find(f => f.id === state.fieldId) : null;
+
+    typeSelect.value = existing?.type || "text";
+    labelInput.value = existing?.label || "";
+    requiredInput.checked = Boolean(existing?.required);
+    optionsInput.value = (existing?.options || []).join("\n");
+    optionsWrap.style.display = typeSelect.value === "dropdown" ? "block" : "none";
+    deleteBtn.style.display = existing ? "inline-block" : "none";
+
+    popover.classList.remove("hidden");
+    positionPdfPopover(popover, pointerPos.clientX, pointerPos.clientY);
+
+    labelInput.focus();
+}
+
+function positionPdfPopover(popover, clientX, clientY) {
+    const margin = 12;
+    const popRect = popover.getBoundingClientRect();
+    let left = clientX + margin;
+    let top = clientY + margin;
+    if (left + popRect.width > window.innerWidth - margin) left = window.innerWidth - popRect.width - margin;
+    if (top + popRect.height > window.innerHeight - margin) top = window.innerHeight - popRect.height - margin;
+    popover.style.left = `${Math.max(margin, left)}px`;
+    popover.style.top = `${Math.max(margin, top)}px`;
+}
+
+function closePdfFieldPopover() {
+    document.getElementById("pdfFieldPopover")?.classList.add("hidden");
+    pdfPopoverState = null;
+}
+
+function handlePdfFieldSave() {
+    if (!pdfPopoverState) return;
+
+    const typeSelect = document.getElementById("pdfFieldTypeSelect");
+    const labelInput = document.getElementById("pdfFieldLabelInput");
+    const requiredInput = document.getElementById("pdfFieldRequiredInput");
+    const optionsInput = document.getElementById("pdfFieldOptionsInput");
+
+    const label = labelInput.value.trim();
+    if (!label) { labelInput.focus(); return; }
+
+    const type = typeSelect.value;
+    const options = type === "dropdown"
+        ? optionsInput.value.split("\n").map(s => s.trim()).filter(Boolean)
+        : [];
+
+    const { pageIndex, x, y, width, height, fieldId, overlay } = pdfPopoverState;
+
+    if (fieldId) {
+        const existing = editingFields.find(f => f.id === fieldId);
+        if (existing) {
+            existing.type = type;
+            existing.label = label;
+            existing.required = requiredInput.checked;
+            existing.options = options;
+        }
+    } else {
+        editingFields.push({
+            id: makeFieldId(),
+            type,
+            label,
+            required: requiredInput.checked,
+            options,
+            page: pageIndex,
+            x, y, width, height
+        });
+    }
+
+    renderFieldBoxesForPage(overlay, pageIndex);
+    closePdfFieldPopover();
+}
+
+function handlePdfFieldDelete() {
+    if (!pdfPopoverState?.fieldId) return;
+    const { fieldId, overlay, pageIndex } = pdfPopoverState;
+    editingFields = editingFields.filter(f => f.id !== fieldId);
+    renderFieldBoxesForPage(overlay, pageIndex);
+    closePdfFieldPopover();
+}
+
 /* ---------- builder modal: open/close/save/delete ---------- */
 
-function openFormBuilderModal(record) {
+async function openFormBuilderModal(record) {
     editingFormRecord = record || null;
     editingFields = record && Array.isArray(record.fields)
         ? JSON.parse(JSON.stringify(record.fields))
         : [];
+
+    pdfBuilderDoc = null;
+    pdfBuilderBytes = null;
+    pdfBuilderIsNewUpload = false;
+    pdfBuilderPageCount = 0;
+    closePdfFieldPopover();
 
     const titleEl = document.getElementById("formBuilderModalTitle");
     const subtitleEl = document.getElementById("formBuilderModalSubtitle");
@@ -351,12 +690,37 @@ function openFormBuilderModal(record) {
     const messageEl = document.getElementById("formBuilderMessage");
     const saveBtn = document.getElementById("saveFormBtn");
     const deleteBtn = document.getElementById("deleteFormBtn");
+    const legacySection = document.getElementById("formLegacyFieldsSection");
+    const pdfSection = document.getElementById("formPdfBuilderSection");
+    const popupEl = document.querySelector(".form-builder-popup");
 
     if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
 
+    // Older forms built the manual way (no pdf_path) keep editing through
+    // the legacy field list. Everything else — new forms, and existing
+    // PDF-based forms — uses the PDF builder.
+    const isLegacyEdit = Boolean(record && !record.pdf_path);
+
+    if (legacySection) legacySection.style.display = isLegacyEdit ? "flex" : "none";
+    if (pdfSection) pdfSection.style.display = isLegacyEdit ? "none" : "block";
+    popupEl?.classList.toggle("form-builder-popup--pdf", !isLegacyEdit);
+
+    // Reset the PDF upload UI to its empty state; loadExistingPdfIntoBuilder
+    // (below) repopulates it if this form already has a source PDF.
+    const uploadPrompt = document.getElementById("formPdfUploadPrompt");
+    const workspace = document.getElementById("formPdfWorkspace");
+    const pagesContainer = document.getElementById("formPdfPagesContainer");
+    if (uploadPrompt) uploadPrompt.style.display = "block";
+    if (workspace) workspace.style.display = "none";
+    if (pagesContainer) pagesContainer.innerHTML = "";
+
     if (record) {
         if (titleEl) titleEl.textContent = "Edit Form";
-        if (subtitleEl) subtitleEl.textContent = "Update the form's questions, or delete it below.";
+        if (subtitleEl) {
+            subtitleEl.textContent = isLegacyEdit
+                ? "Update the form's questions, or delete it below."
+                : "Add, edit, or remove fields on the document, or delete this form below.";
+        }
         if (idInput) idInput.value = record.id;
         if (titleInput) titleInput.value = record.title || "";
         if (descriptionInput) descriptionInput.value = record.description || "";
@@ -364,7 +728,7 @@ function openFormBuilderModal(record) {
         if (deleteBtn) deleteBtn.style.display = "block";
     } else {
         if (titleEl) titleEl.textContent = "New Form";
-        if (subtitleEl) subtitleEl.textContent = "Build the form by adding questions below.";
+        if (subtitleEl) subtitleEl.textContent = "Upload the form's PDF, then click and drag on it to add fields.";
         if (idInput) idInput.value = "";
         if (titleInput) titleInput.value = "";
         if (descriptionInput) descriptionInput.value = "";
@@ -372,10 +736,14 @@ function openFormBuilderModal(record) {
         if (deleteBtn) deleteBtn.style.display = "none";
     }
 
-    renderFieldEditorList();
+    if (isLegacyEdit) renderFieldEditorList();
 
     document.getElementById("formBuilderModalOverlay")?.classList.remove("hidden");
     document.body.classList.add("popup-active");
+
+    if (record && record.pdf_path) {
+        await loadExistingPdfIntoBuilder(record.pdf_path);
+    }
 }
 
 function closeFormBuilderModal() {
@@ -383,6 +751,11 @@ function closeFormBuilderModal() {
     document.body.classList.remove("popup-active");
     editingFormRecord = null;
     editingFields = [];
+    pdfBuilderDoc = null;
+    pdfBuilderBytes = null;
+    pdfBuilderIsNewUpload = false;
+    pdfBuilderPageCount = 0;
+    closePdfFieldPopover();
 }
 
 function setFormBuilderSaving(isSaving) {
@@ -408,6 +781,21 @@ async function handleSaveForm(event) {
         return;
     }
 
+    if (!window.supabaseClient) {
+        if (messageEl) { messageEl.textContent = "Couldn't connect to Supabase. Please refresh and try again."; messageEl.className = "auth-message error"; }
+        return;
+    }
+
+    const isLegacyEdit = Boolean(editingFormRecord && !editingFormRecord.pdf_path);
+
+    if (isLegacyEdit) {
+        await saveLegacyForm(title, description, messageEl);
+    } else {
+        await savePdfForm(title, description, messageEl);
+    }
+}
+
+async function saveLegacyForm(title, description, messageEl) {
     const cleanedFields = editingFields
         .map(f => ({ ...f, label: (f.label || "").trim() }))
         .filter(f => f.label);
@@ -417,8 +805,42 @@ async function handleSaveForm(event) {
         return;
     }
 
-    if (!window.supabaseClient) {
-        if (messageEl) { messageEl.textContent = "Couldn't connect to Supabase. Please refresh and try again."; messageEl.className = "auth-message error"; }
+    setFormBuilderSaving(true);
+    if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
+
+    try {
+        const { data: updated, error } = await window.supabaseClient
+            .from(FORM_TEMPLATES_TABLE)
+            .update({ title, description, fields: cleanedFields, updated_at: new Date().toISOString() })
+            .eq("id", editingFormRecord.id)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        replaceFormCard(updated);
+        closeFormBuilderModal();
+        showFormPageMessage(`"${title}" was updated.`, "success");
+    } catch (error) {
+        console.error("Failed to save form:", error);
+        if (messageEl) { messageEl.textContent = "Something went wrong saving this form. Please try again."; messageEl.className = "auth-message error"; }
+    } finally {
+        setFormBuilderSaving(false);
+    }
+}
+
+async function savePdfForm(title, description, messageEl) {
+    if (!pdfBuilderDoc || !pdfBuilderBytes) {
+        if (messageEl) { messageEl.textContent = "Upload a PDF for this form first."; messageEl.className = "auth-message error"; }
+        return;
+    }
+
+    const cleanedFields = editingFields
+        .map(f => ({ ...f, label: (f.label || "").trim() }))
+        .filter(f => f.label);
+
+    if (!cleanedFields.length) {
+        if (messageEl) { messageEl.textContent = "Click and drag on the document to add at least one field."; messageEl.className = "auth-message error"; }
         return;
     }
 
@@ -426,10 +848,36 @@ async function handleSaveForm(event) {
     if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
 
     try {
-        if (editingFormRecord) {
+        const isEditing = Boolean(editingFormRecord);
+        const formId = isEditing ? editingFormRecord.id : crypto.randomUUID();
+        const needsUpload = pdfBuilderIsNewUpload || !isEditing;
+        let pdfPath = isEditing ? editingFormRecord.pdf_path : null;
+
+        if (needsUpload) {
+            pdfPath = `${formId}/source.pdf`;
+            const { error: uploadError } = await window.supabaseClient
+                .storage
+                .from(FORM_TEMPLATE_SOURCES_BUCKET)
+                .upload(pdfPath, new Blob([pdfBuilderBytes], { type: "application/pdf" }), {
+                    cacheControl: "3600",
+                    upsert: true,
+                    contentType: "application/pdf"
+                });
+            if (uploadError) throw uploadError;
+        }
+
+        const payload = {
+            title,
+            description,
+            fields: cleanedFields,
+            pdf_path: pdfPath,
+            page_count: pdfBuilderPageCount
+        };
+
+        if (isEditing) {
             const { data: updated, error } = await window.supabaseClient
                 .from(FORM_TEMPLATES_TABLE)
-                .update({ title, description, fields: cleanedFields, updated_at: new Date().toISOString() })
+                .update({ ...payload, updated_at: new Date().toISOString() })
                 .eq("id", editingFormRecord.id)
                 .select()
                 .single();
@@ -443,9 +891,8 @@ async function handleSaveForm(event) {
             const { data: inserted, error } = await window.supabaseClient
                 .from(FORM_TEMPLATES_TABLE)
                 .insert({
-                    title,
-                    description,
-                    fields: cleanedFields,
+                    id: formId,
+                    ...payload,
                     created_by: getFormStaffId(),
                     created_by_name: getFormStaffName()
                 })
@@ -581,30 +1028,149 @@ function renderFillField(field) {
     `;
 }
 
-function openFillFormModal(record) {
+async function openFillFormModal(record) {
     fillFormRecord = record;
+    fillPdfDoc = null;
 
     const titleEl = document.getElementById("fillFormTitle");
     const descriptionEl = document.getElementById("fillFormDescription");
-    const container = document.getElementById("fillFormFieldsContainer");
+    const legacyContainer = document.getElementById("fillFormFieldsContainer");
+    const pdfContainer = document.getElementById("fillFormPdfContainer");
     const messageEl = document.getElementById("fillFormMessage");
 
     if (titleEl) titleEl.textContent = record.title;
     if (descriptionEl) descriptionEl.textContent = record.description || "";
     if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
 
-    if (container) {
-        container.innerHTML = (record.fields || []).map(renderFillField).join("");
-    }
-
     document.getElementById("fillFormModalOverlay")?.classList.remove("hidden");
     document.body.classList.add("popup-active");
+
+    if (record.pdf_path) {
+        if (legacyContainer) { legacyContainer.style.display = "none"; legacyContainer.innerHTML = ""; }
+        if (pdfContainer) {
+            pdfContainer.style.display = "flex";
+            pdfContainer.innerHTML = `<p class="workbook-preview-loading">Loading form…</p>`;
+        }
+
+        try {
+            if (typeof pdfjsLib === "undefined") throw new Error("pdfjsLib not loaded");
+
+            const { data, error } = await window.supabaseClient
+                .storage
+                .from(FORM_TEMPLATE_SOURCES_BUCKET)
+                .download(record.pdf_path);
+            if (error) throw error;
+
+            const arrayBuffer = await data.arrayBuffer();
+            fillPdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            await renderFillPdfPages(record);
+        } catch (error) {
+            console.error("Failed to load form PDF:", error);
+            if (pdfContainer) pdfContainer.innerHTML = `<p class="workbook-preview-empty">Couldn't load this form. Please try again.</p>`;
+        }
+    } else {
+        if (pdfContainer) { pdfContainer.style.display = "none"; pdfContainer.innerHTML = ""; }
+        if (legacyContainer) {
+            legacyContainer.style.display = "block";
+            legacyContainer.innerHTML = (record.fields || []).map(renderFillField).join("");
+        }
+    }
+}
+
+async function renderFillPdfPages(record) {
+    const container = document.getElementById("fillFormPdfContainer");
+    if (!container || !fillPdfDoc) return;
+    container.innerHTML = "";
+
+    const fieldsByPage = {};
+    (record.fields || []).forEach(f => {
+        if (typeof f.page !== "number") return;
+        (fieldsByPage[f.page] = fieldsByPage[f.page] || []).push(f);
+    });
+
+    for (let pageNum = 1; pageNum <= fillPdfDoc.numPages; pageNum++) {
+        const pageIndex = pageNum - 1;
+        const page = await fillPdfDoc.getPage(pageNum);
+        const viewport = page.getViewport({ scale: PDF_RENDER_SCALE });
+
+        const pageWrap = document.createElement("div");
+        pageWrap.className = "pdf-page";
+        // Only width is set inline — height is left to flow from the canvas
+        // (which preserves its own aspect ratio via CSS), so the whole page
+        // scales down responsively if the popup is narrower than the PDF's
+        // native render width (see .pdf-page / .pdf-page-canvas in styles.css).
+        pageWrap.style.width = `${viewport.width}px`;
+
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        canvas.className = "pdf-page-canvas";
+
+        const overlay = document.createElement("div");
+        overlay.className = "pdf-page-overlay pdf-page-overlay--fill";
+
+        pageWrap.appendChild(canvas);
+        pageWrap.appendChild(overlay);
+        container.appendChild(pageWrap);
+
+        await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+
+        (fieldsByPage[pageIndex] || []).forEach(field => {
+            overlay.appendChild(buildFillPdfFieldInput(field));
+        });
+    }
+}
+
+function buildFillPdfFieldInput(field) {
+    const wrap = document.createElement("div");
+    wrap.className = "pdf-fill-field";
+    wrap.style.left = `${field.x * 100}%`;
+    wrap.style.top = `${field.y * 100}%`;
+    wrap.style.width = `${field.width * 100}%`;
+    wrap.style.height = `${field.height * 100}%`;
+    if (field.label) wrap.title = field.label;
+
+    let inputEl;
+    if (field.type === "checkbox") {
+        inputEl = document.createElement("input");
+        inputEl.type = "checkbox";
+        inputEl.className = "pdf-fill-input pdf-fill-input--checkbox";
+    } else if (field.type === "dropdown") {
+        inputEl = document.createElement("select");
+        inputEl.className = "pdf-fill-input";
+        inputEl.innerHTML = `<option value="">Select…</option>` +
+            (field.options || []).map(o => `<option value="${formEscapeHtml(o)}">${formEscapeHtml(o)}</option>`).join("");
+    } else if (field.type === "date") {
+        inputEl = document.createElement("input");
+        inputEl.type = "date";
+        inputEl.className = "pdf-fill-input";
+    } else if (field.type === "number") {
+        inputEl = document.createElement("input");
+        inputEl.type = "number";
+        inputEl.className = "pdf-fill-input";
+    } else if (field.type === "signature") {
+        inputEl = document.createElement("input");
+        inputEl.type = "text";
+        inputEl.placeholder = "Type your name";
+        inputEl.className = "pdf-fill-input pdf-fill-input--signature";
+    } else {
+        inputEl = document.createElement("input");
+        inputEl.type = "text";
+        inputEl.className = "pdf-fill-input";
+    }
+
+    inputEl.dataset.fieldId = field.id;
+    inputEl.dataset.fieldType = field.type;
+
+    wrap.appendChild(inputEl);
+    return wrap;
 }
 
 function closeFillFormModal() {
     document.getElementById("fillFormModalOverlay")?.classList.add("hidden");
     document.body.classList.remove("popup-active");
     fillFormRecord = null;
+    fillPdfDoc = null;
 }
 
 // Reads the currently-rendered fill-out inputs back into { fieldId: value }.
@@ -628,6 +1194,30 @@ function collectFillAnswers(record) {
         }
 
         const isBlank = Array.isArray(value) ? value.length === 0 : !value;
+        if (field.required && isBlank) {
+            return { ok: false, missingLabel: field.label };
+        }
+
+        answers[field.id] = value;
+    }
+
+    return { ok: true, answers };
+}
+
+// Same contract as collectFillAnswers, but reads the overlaid real inputs
+// used for PDF-based forms instead of the generic-question inputs.
+function collectFillPdfAnswers(record) {
+    const container = document.getElementById("fillFormPdfContainer");
+    const answers = {};
+
+    for (const field of record.fields || []) {
+        if (typeof field.page !== "number") continue;
+        const input = container?.querySelector(`.pdf-fill-input[data-field-id="${field.id}"]`);
+        if (!input) continue;
+
+        const value = field.type === "checkbox" ? input.checked : input.value.trim();
+        const isBlank = field.type === "checkbox" ? !value : !value;
+
         if (field.required && isBlank) {
             return { ok: false, missingLabel: field.label };
         }
@@ -673,6 +1263,69 @@ function buildSubmissionPdfDocDefinition(record, answers, submittedByName) {
     };
 }
 
+// Draws the submitted answers directly onto the source PDF's pages (at each
+// field's stored page/x/y/width/height) and flattens to a new PDF — so the
+// output looks like the real form, filled in, instead of a freshly
+// generated document.
+async function buildPdfSubmissionBlob(record, answers) {
+    const { data, error } = await window.supabaseClient
+        .storage
+        .from(FORM_TEMPLATE_SOURCES_BUCKET)
+        .download(record.pdf_path);
+    if (error) throw error;
+
+    const templateBytes = await data.arrayBuffer();
+    const pdfDoc = await PDFLib.PDFDocument.load(templateBytes);
+    const helvetica = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+    const helveticaOblique = await pdfDoc.embedFont(PDFLib.StandardFonts.HelveticaOblique);
+    const pages = pdfDoc.getPages();
+
+    (record.fields || []).forEach(field => {
+        if (typeof field.page !== "number") return;
+        const page = pages[field.page];
+        if (!page) return;
+
+        const value = answers[field.id];
+        const { width: pageWidth, height: pageHeight } = page.getSize();
+
+        const boxX = field.x * pageWidth;
+        const boxTopY = pageHeight - field.y * pageHeight; // PDF y-axis is bottom-up; field.y is measured from the top
+        const boxWidth = field.width * pageWidth;
+        const boxHeight = field.height * pageHeight;
+
+        if (field.type === "checkbox") {
+            if (!value) return;
+            const fontSize = Math.max(9, Math.min(boxHeight * 0.75, 14));
+            page.drawText("X", {
+                x: boxX + boxWidth * 0.25,
+                y: boxTopY - boxHeight * 0.8,
+                size: fontSize,
+                font: helvetica,
+                color: PDFLib.rgb(0.1, 0.1, 0.1)
+            });
+            return;
+        }
+
+        const text = Array.isArray(value) ? value.join(", ") : String(value || "").trim();
+        if (!text) return;
+
+        const font = field.type === "signature" ? helveticaOblique : helvetica;
+        const fontSize = Math.max(8, Math.min(boxHeight * 0.65, 12));
+
+        page.drawText(text, {
+            x: boxX + 2,
+            y: boxTopY - boxHeight * 0.75,
+            size: fontSize,
+            font,
+            color: PDFLib.rgb(0.05, 0.05, 0.45),
+            maxWidth: Math.max(boxWidth - 4, 10)
+        });
+    });
+
+    const finalBytes = await pdfDoc.save();
+    return new Blob([finalBytes], { type: "application/pdf" });
+}
+
 async function handleSubmitFillForm(event) {
     event.preventDefault();
     if (!fillFormRecord) return;
@@ -680,8 +1333,9 @@ async function handleSubmitFillForm(event) {
     const record = fillFormRecord;
     const messageEl = document.getElementById("fillFormMessage");
     const submitBtn = document.getElementById("submitFillFormBtn");
+    const isPdfForm = Boolean(record.pdf_path);
 
-    const result = collectFillAnswers(record);
+    const result = isPdfForm ? collectFillPdfAnswers(record) : collectFillAnswers(record);
     if (!result.ok) {
         if (messageEl) {
             messageEl.textContent = `Please answer "${result.missingLabel}" before submitting.`;
@@ -690,7 +1344,15 @@ async function handleSubmitFillForm(event) {
         return;
     }
 
-    if (typeof pdfMake === "undefined") {
+    if (!isPdfForm && typeof pdfMake === "undefined") {
+        if (messageEl) {
+            messageEl.textContent = "The PDF library failed to load. Refresh and try again.";
+            messageEl.className = "auth-message error";
+        }
+        return;
+    }
+
+    if (isPdfForm && typeof PDFLib === "undefined") {
         if (messageEl) {
             messageEl.textContent = "The PDF library failed to load. Refresh and try again.";
             messageEl.className = "auth-message error";
@@ -705,8 +1367,9 @@ async function handleSubmitFillForm(event) {
     const submittedById = getFormStaffId();
 
     try {
-        const docDefinition = buildSubmissionPdfDocDefinition(record, result.answers, submittedByName);
-        const blob = await pdfMake.createPdf(docDefinition).getBlob();
+        const blob = isPdfForm
+            ? await buildPdfSubmissionBlob(record, result.answers)
+            : await pdfMake.createPdf(buildSubmissionPdfDocDefinition(record, result.answers, submittedByName)).getBlob();
 
         const submissionId = crypto.randomUUID();
         const pdfPath = `${record.id}/${submissionId}.pdf`;
@@ -932,6 +1595,15 @@ window.addEventListener("DOMContentLoaded", function () {
         }
         addFieldBtn.addEventListener("click", () => addFieldOfType(addFieldTypeSelect.value));
     }
+
+    document.getElementById("formPdfFileInput")?.addEventListener("change", handlePdfFileSelected);
+    document.getElementById("pdfFieldTypeSelect")?.addEventListener("change", (e) => {
+        const optionsWrap = document.getElementById("pdfFieldOptionsWrap");
+        if (optionsWrap) optionsWrap.style.display = e.target.value === "dropdown" ? "block" : "none";
+    });
+    document.getElementById("pdfFieldSaveBtn")?.addEventListener("click", handlePdfFieldSave);
+    document.getElementById("pdfFieldDeleteBtn")?.addEventListener("click", handlePdfFieldDelete);
+    document.getElementById("pdfFieldCancelBtn")?.addEventListener("click", closePdfFieldPopover);
 
     document.getElementById("cancelFillFormBtn")?.addEventListener("click", closeFillFormModal);
     document.getElementById("fillForm")?.addEventListener("submit", handleSubmitFillForm);

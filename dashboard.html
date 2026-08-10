@@ -454,13 +454,17 @@
     <div class="dashboard-top-grid">
 
         <!-- My Tasks -->
-        <div class="card">
+        <div class="card dashboard-card--wide">
             <div class="card-header">
                 <h2 class="card-title"><svg class="card-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>My Tasks</h2>
-                <a href="tasks.html" class="chip">View all</a>
+                <a href="staff-to-do.html" class="chip">View all</a>
             </div>
-            <div id="myTasksList" class="info-list"></div>
-            <a href="#" id="addTaskLink" class="auth-link" style="display:block; margin-top:12px;">+ Add new task</a>
+            <div id="myTasksList" class="mytask-list"></div>
+            <div class="todo-item-row todo-item-add-row">
+                <span class="todo-item-add-icon">+</span>
+                <input type="text" id="newTaskInlineInput" class="todo-item-add-input" placeholder="New task" maxlength="120">
+                <input type="date" id="newTaskDueDateInput" class="todo-item-add-date" aria-label="Due date">
+            </div>
         </div>
 
         <!-- Quick Links -->
@@ -482,17 +486,6 @@
             </div>
             <div id="weatherBody"></div>
             <a href="#" id="viewFullForecastLink" class="auth-link" target="_blank" rel="noopener" style="display:block; margin-top:12px;">View full forecast</a>
-        </div>
-
-        <!-- Company Updates -->
-        <div class="card">
-            <div class="card-header">
-                <h2 class="card-title"><svg class="card-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"></path><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path></svg>Company Updates</h2>
-            </div>
-            <div id="companyUpdatesList" class="info-list"></div>
-            <button type="button" id="makeUpdateBtn" style="display:none; background:none; border:none; padding:0; cursor:pointer;">
-                + Make a Company Update
-            </button>
         </div>
 
     </div>
@@ -558,7 +551,6 @@
 <script src="dashboard scripts/task.js"></script>
 <script src="dashboard scripts/quicklinks.js"></script>
 <script src="dashboard scripts/weather.js"></script>
-<script src="dashboard scripts/update.js"></script>
 <script src="dashboard scripts/projects.js"></script>
 <script src="dashboard scripts/calender-card.js"></script>
 <script src="dashboard scripts/contact-card.js"></script>

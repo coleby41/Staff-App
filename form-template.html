@@ -343,7 +343,10 @@
                 <textarea id="formDescriptionInput" name="description" rows="2" placeholder="A sentence or two about what this form is for."></textarea>
             </label>
 
-            <div class="form-fields-section">
+            <!-- Legacy field editor — only shown when editing an older form that
+                 was built the manual way (record has no pdf_path). New forms are
+                 always PDF-based; see #formPdfBuilderSection below. -->
+            <div class="form-fields-section" id="formLegacyFieldsSection" style="display:none;">
                 <span class="company-card-label">Questions</span>
                 <div id="formFieldsList"></div>
 
@@ -352,6 +355,62 @@
                     <button type="button" class="auth-button auth-button--secondary" id="addFieldBtn" style="width:auto; padding:10px 18px;">
                         + Add question
                     </button>
+                </div>
+            </div>
+
+            <!-- PDF-based builder: upload the real form, then click-drag on the
+                 rendered pages to drop fields onto it. -->
+            <div class="form-fields-section" id="formPdfBuilderSection" style="display:none;">
+                <span class="company-card-label">Form PDF</span>
+
+                <div id="formPdfUploadPrompt" class="pdf-upload-prompt">
+                    <label class="auth-button auth-button--secondary pdf-upload-btn" for="formPdfFileInput">
+                        Upload PDF
+                    </label>
+                    <input type="file" id="formPdfFileInput" accept="application/pdf" hidden>
+                    <p class="auth-inline-copy">Upload the actual form. You'll click and drag on it to drop in fillable fields.</p>
+                </div>
+
+                <div id="formPdfWorkspace" class="pdf-workspace" style="display:none;">
+                    <div class="pdf-workspace-toolbar">
+                        <span id="formPdfFileMeta" class="pdf-workspace-meta"></span>
+                        <label class="auth-link pdf-upload-btn" for="formPdfFileInput">Replace PDF</label>
+                    </div>
+                    <p class="auth-inline-copy">Click and drag anywhere on the document to place a field.</p>
+                    <div id="formPdfPagesContainer" class="pdf-pages-container"></div>
+                </div>
+            </div>
+
+            <!-- Floating popover for adding/editing a single field, positioned
+                 near whatever box was just drawn or clicked. -->
+            <div id="pdfFieldPopover" class="pdf-field-popover hidden">
+                <label class="auth-field">
+                    Field type
+                    <select id="pdfFieldTypeSelect">
+                        <option value="text">Text</option>
+                        <option value="number">Number</option>
+                        <option value="date">Date</option>
+                        <option value="checkbox">Checkbox</option>
+                        <option value="dropdown">Dropdown</option>
+                        <option value="signature">Signature</option>
+                    </select>
+                </label>
+                <label class="auth-field">
+                    Label
+                    <input type="text" id="pdfFieldLabelInput" placeholder="e.g. Full name">
+                </label>
+                <label class="auth-field" id="pdfFieldOptionsWrap" style="display:none;">
+                    Options (one per line)
+                    <textarea id="pdfFieldOptionsInput" rows="3" placeholder="Option A&#10;Option B"></textarea>
+                </label>
+                <label class="form-field-required-row">
+                    <input type="checkbox" id="pdfFieldRequiredInput">
+                    Required
+                </label>
+                <div class="pdf-field-popover-buttons">
+                    <button type="button" class="auth-button auth-button--red" id="pdfFieldDeleteBtn" style="display:none;">Delete</button>
+                    <button type="button" class="auth-button auth-button--secondary" id="pdfFieldSaveBtn">Save field</button>
+                    <button type="button" class="auth-button auth-button--red" id="pdfFieldCancelBtn">Cancel</button>
                 </div>
             </div>
 
@@ -399,7 +458,12 @@
         <p class="auth-inline-copy" id="fillFormDescription"></p>
 
         <form class="auth-form" id="fillForm">
+            <!-- Legacy forms (no source PDF): plain generic-question inputs. -->
             <div id="fillFormFieldsContainer"></div>
+
+            <!-- PDF-based forms: the real document rendered page by page, with
+                 real inputs overlaid exactly where the admin placed them. -->
+            <div id="fillFormPdfContainer" class="pdf-pages-container" style="display:none;"></div>
 
             <p class="auth-message" id="fillFormMessage"></p>
 
@@ -447,6 +511,12 @@
 <script src="nav-access.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfmake@0.3.10/build/pdfmake.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfmake@0.3.10/build/vfs_fonts.js"></script>
+<!-- pdf.js: renders the uploaded/source PDF to canvas so fields can be
+     placed on it (builder) or filled in on top of it (fill-out). -->
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<!-- pdf-lib: draws submitted answers directly onto the source PDF's pages
+     to produce the final filled-in submission PDF. -->
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 <script src="form-builder.js"></script>
 
 
