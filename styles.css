@@ -2884,8 +2884,13 @@ button { font: inherit; }
 }
 
 .weather-icon {
-  width: 56px;
-  height: 56px;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3.8rem;
+  line-height: 1;
 }
 
 .weather-desc {
@@ -2923,6 +2928,46 @@ button { font: inherit; }
 
 .weather-stat-label {
   font-size: 0.76rem;
+  color: var(--text-soft);
+}
+
+.weather-week {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.weather-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.weather-day-name {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.weather-day-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.weather-day-high {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.weather-day-low {
+  font-size: 0.78rem;
   color: var(--text-soft);
 }
 
