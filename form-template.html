@@ -360,24 +360,36 @@
 
             <!-- PDF-based builder: upload the real form, then click-drag on the
                  rendered pages to drop fields onto it. -->
-            <div class="form-fields-section" id="formPdfBuilderSection" style="display:none;">
-                <span class="company-card-label">Form PDF</span>
+            <div class="form-fields-section mobile-unavailable" id="formPdfBuilderSection" style="display:none;">
 
-                <div id="formPdfUploadPrompt" class="pdf-upload-prompt">
-                    <label class="auth-button auth-button--secondary pdf-upload-btn" for="formPdfFileInput">
-                        Upload PDF
-                    </label>
-                    <input type="file" id="formPdfFileInput" accept="application/pdf" hidden>
-                    <p class="auth-inline-copy">Upload the actual form. You'll click and drag on it to drop in fillable fields.</p>
+                <div class="mobile-unavailable__notice">
+                    <span class="mobile-unavailable__notice-icon" aria-hidden="true">⚠️</span>
+                    <div class="mobile-unavailable__notice-body">
+                        <strong>Form builder needs a bigger screen</strong>
+                        <p>Placing fields onto a PDF by click-and-drag isn't practical on a phone or small tablet. Switch to a laptop or desktop to build this form.</p>
+                        <a class="mobile-unavailable__notice-cta" href="dashboard.html">Back to Dashboard</a>
+                    </div>
                 </div>
 
-                <div id="formPdfWorkspace" class="pdf-workspace" style="display:none;">
-                    <div class="pdf-workspace-toolbar">
-                        <span id="formPdfFileMeta" class="pdf-workspace-meta"></span>
-                        <label class="auth-link pdf-upload-btn" for="formPdfFileInput">Replace PDF</label>
+                <div class="mobile-unavailable__content">
+                    <span class="company-card-label">Form PDF</span>
+
+                    <div id="formPdfUploadPrompt" class="pdf-upload-prompt">
+                        <label class="auth-button auth-button--secondary pdf-upload-btn" for="formPdfFileInput">
+                            Upload PDF
+                        </label>
+                        <input type="file" id="formPdfFileInput" accept="application/pdf" hidden>
+                        <p class="auth-inline-copy">Upload the actual form. You'll click and drag on it to drop in fillable fields.</p>
                     </div>
-                    <p class="auth-inline-copy">Click and drag anywhere on the document to place a field.</p>
-                    <div id="formPdfPagesContainer" class="pdf-pages-container"></div>
+
+                    <div id="formPdfWorkspace" class="pdf-workspace" style="display:none;">
+                        <div class="pdf-workspace-toolbar">
+                            <span id="formPdfFileMeta" class="pdf-workspace-meta"></span>
+                            <label class="auth-link pdf-upload-btn" for="formPdfFileInput">Replace PDF</label>
+                        </div>
+                        <p class="auth-inline-copy">Click and drag anywhere on the document to place a field.</p>
+                        <div id="formPdfPagesContainer" class="pdf-pages-container"></div>
+                    </div>
                 </div>
             </div>
 

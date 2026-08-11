@@ -2,28 +2,84 @@ const menuBtn = document.getElementById('menuBtn');
 const sidebar = document.getElementById('sidebar');
 const mainContent = document.querySelector('.main-content');
 
-if (menuBtn && sidebar && mainContent) {
-    menuBtn.addEventListener('click', () => {
-        sidebar.classList.toggle('hidden');
-        mainContent.classList.toggle('expanded');
-    });
-}
-
 // Keep this in sync with the "@media (max-width: 820px)" breakpoint in
 // styles.css where the sidebar switches to an overlay drawer — mismatched
 // breakpoints here is what made the sidebar look broken/unscalable between
 // ~768px and ~820px (CSS and JS disagreed on when "mobile" started).
 const SIDEBAR_MOBILE_BREAKPOINT = 820;
 
+function isMobileNav() {
+    return window.innerWidth <= SIDEBAR_MOBILE_BREAKPOINT;
+}
+
+/* On mobile the sidebar becomes a temporary overlay drawer rather than
+   permanently-docked chrome, so it needs a dimmed scrim behind it (so the
+   page underneath reads as "inactive") and a way to dismiss it by tapping
+   outside or pressing Escape — without this, opening the drawer stranded a
+   mobile user with no obvious way to close it besides re-finding the same
+   menu button. This backdrop element is created once and reused; it's only
+   ever visible while both isMobileNav() is true and the drawer is open. */
+let sidebarBackdrop = null;
+function getSidebarBackdrop() {
+    if (sidebarBackdrop) return sidebarBackdrop;
+    sidebarBackdrop = document.createElement('div');
+    sidebarBackdrop.className = 'sidebar-backdrop';
+    sidebarBackdrop.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(sidebarBackdrop);
+    sidebarBackdrop.addEventListener('click', closeMobileSidebar);
+    return sidebarBackdrop;
+}
+
+function openMobileSidebar() {
+    if (!sidebar || !mainContent) return;
+    sidebar.classList.remove('hidden');
+    mainContent.classList.remove('expanded');
+    getSidebarBackdrop().classList.add('visible');
+    if (menuBtn) menuBtn.setAttribute('aria-expanded', 'true');
+}
+
+function closeMobileSidebar() {
+    if (!sidebar || !mainContent) return;
+    sidebar.classList.add('hidden');
+    mainContent.classList.add('expanded');
+    if (sidebarBackdrop) sidebarBackdrop.classList.remove('visible');
+    if (menuBtn) menuBtn.setAttribute('aria-expanded', 'false');
+}
+
+if (menuBtn && sidebar && mainContent) {
+    menuBtn.addEventListener('click', () => {
+        if (isMobileNav()) {
+            // On mobile, toggle through the backdrop-aware open/close so the
+            // scrim always stays in sync with the drawer.
+            if (sidebar.classList.contains('hidden')) {
+                openMobileSidebar();
+            } else {
+                closeMobileSidebar();
+            }
+        } else {
+            sidebar.classList.toggle('hidden');
+            mainContent.classList.toggle('expanded');
+        }
+    });
+}
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && isMobileNav() && sidebar && !sidebar.classList.contains('hidden')) {
+        closeMobileSidebar();
+    }
+});
+
 function handleResize() {
     if (!sidebar || !mainContent) return;
 
-    if (window.innerWidth <= SIDEBAR_MOBILE_BREAKPOINT) {
+    if (isMobileNav()) {
         sidebar.classList.add('hidden');
         mainContent.classList.add('expanded');
+        if (sidebarBackdrop) sidebarBackdrop.classList.remove('visible');
     } else {
         sidebar.classList.remove('hidden');
         mainContent.classList.remove('expanded');
+        if (sidebarBackdrop) sidebarBackdrop.classList.remove('visible');
     }
 }
 

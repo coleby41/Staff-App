@@ -8,9 +8,17 @@
     <link rel="icon" type="image/png" href="logos/leewaed-logo.png">
     <style>
         .restricted-wrap { max-width: 520px; margin: 60px auto; text-align: center; }
-        .announcement-item { padding: 12px; border: 1px solid var(--border-color, #e2e2e2); border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
-        .announcement-item h3 { margin: 0 0 4px; font-size: 1em; }
-        .announcement-item p { margin: 0 0 6px; white-space: pre-wrap; }
+        .announcement-item { padding: 12px; border: 1px solid var(--border-color, #e2e2e2); border-radius: 8px; margin-bottom: 10px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: flex-start; }
+        /* The text block and the Delete button are flex siblings in a row.
+           Without min-width: 0 a flex item won't shrink below its content's
+           natural width, so a long title/message just pushed the Delete
+           button off the edge on a phone-width screen instead of wrapping.
+           flex-wrap above plus this lets the button drop to its own line
+           once the text block can't shrink any further. */
+        .announcement-item > div { min-width: 0; flex: 1 1 220px; }
+        .announcement-item > button { flex: 0 0 auto; }
+        .announcement-item h3 { margin: 0 0 4px; font-size: 1em; overflow-wrap: break-word; }
+        .announcement-item p { margin: 0 0 6px; white-space: pre-wrap; overflow-wrap: break-word; }
         .announcement-item .announcement-date { font-size: 0.8em; opacity: 0.65; }
         .announcement-badges { margin-bottom: 6px; }
         .announcement-type-row { display: flex; flex-direction: column; gap: 8px; }

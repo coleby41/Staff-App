@@ -28,6 +28,23 @@
      .main-content's top offset/scroll height, so the three can never drift
      out of sync with each other. */
   --header-height: 74px;
+
+  /* Global stacking-order scale. Every position:fixed/absolute element that
+     needs to sit above page content should pull its z-index from here
+     instead of a one-off number, so it's always obvious what's meant to sit
+     above what. Small local layers (e.g. a button pinned above its own card)
+     stay as plain low numbers (0-2) since they only stack within their own
+     component and never need to compete with anything on this list. */
+  --z-nav: 100;              /* header + sidebar chrome */
+  --z-floating-control: 150; /* small controls pinned to the chrome, e.g. sidebar collapse toggle */
+  --z-dropdown: 200;         /* in-page dropdowns/autocomplete menus */
+  --z-notification: 300;     /* header notification dropdown */
+  --z-mobile-nav-backdrop: 900;  /* dimmed scrim behind the sidebar when it opens as a mobile drawer */
+  --z-mobile-nav: 950;           /* the sidebar itself while acting as a mobile drawer */
+  --z-drawer-backdrop: 990;      /* dimmed scrim behind a slide-in side panel (e.g. to-do panel) */
+  --z-drawer: 1000;              /* slide-in side panel */
+  --z-modal-backdrop: 2000;      /* full-screen popup overlay */
+  --z-modal-popover: 2100;       /* a popover launched from within an open modal, must sit above it */
 }
 
 @media (max-width: 1100px) {
@@ -69,7 +86,7 @@ button { font: inherit; }
   top: 0;
   left: 0;
   right: 0;
-  z-index: 100;
+  z-index: var(--z-nav);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -165,10 +182,40 @@ button { font: inherit; }
   overflow-y: auto;
   transition: transform 0.2s ease, width 0.2s ease;
   box-shadow: 12px 0 24px rgba(5, 16, 24, 0.15);
+  z-index: var(--z-nav);
 }
 
 .sidebar.hidden {
   transform: translateX(-100%);
+}
+
+/* Below the mobile drawer breakpoint (see the max-width: 820px block) the
+   sidebar stops being permanently-docked chrome and becomes a temporary
+   overlay drawer that floats above page content, so it needs to outrank
+   everything except a fully modal popup. .sidebar-backdrop is the dimmed
+   scrim behind it (added by script.js) — without a backdrop + a way to
+   dismiss by tapping outside, a mobile user could open the drawer and have
+   no obvious way to close it short of hunting for the same menu button. */
+@media (max-width: 820px) {
+  .sidebar:not(.hidden) {
+    z-index: var(--z-mobile-nav);
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    top: var(--header-height);
+    background: rgba(7, 20, 30, 0.55);
+    z-index: var(--z-mobile-nav-backdrop);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .sidebar-backdrop.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 /* Visible, theme-matched scrollbar for the sidebar (rather than relying on
@@ -721,7 +768,7 @@ button { font: inherit; }
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2000;
+  z-index: var(--z-modal-backdrop);
 }
 
 .popup-overlay.hidden { display: none; }
@@ -736,7 +783,8 @@ button { font: inherit; }
 }
 
 .popup-icon { width: 54px; height: 54px; margin-bottom: 12px; border-radius: 16px; background: var(--accent-soft); }
-.popup-buttons { display: flex; gap: 10px; justify-content: center; margin-top: 16px; }
+.popup-buttons { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 16px; }
+.popup-buttons > * { flex: 1 1 auto; min-width: 120px; }
 
 .report-options-grid {
   display: flex;
@@ -1306,7 +1354,9 @@ button { font: inherit; }
      reserves space for it regardless of --sidebar-width above. */
   .main-content { margin-left: 0 !important; padding: 18px 16px 28px; }
   .hero-section { flex-direction: column; align-items: flex-start; padding: 20px; }
-  .quick-links-grid { grid-template-columns: 1fr; }
+  /* .quick-links-grid's responsive breakpoints live next to its actual
+     (later, unconditional) declaration further down the file — see the
+     comment there — since a rule here would just get silently overridden. */
   .stats-grid { grid-template-columns: 1fr; }
   .auth-shell { grid-template-columns: 1fr; }
   .auth-card, .auth-panel { padding: 24px; }
@@ -1546,7 +1596,7 @@ button { font: inherit; }
     border-radius: 16px;
     box-shadow: 0 18px 40px rgba(7, 20, 30, 0.2);
     overflow: hidden;
-    z-index: 9999;
+    z-index: var(--z-notification);
     display: none;
 }
 
@@ -1700,6 +1750,24 @@ button { font: inherit; }
     font-family: inherit;
     box-shadow: var(--shadow);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Search bar + "+ Add" button toolbar, reused on excel-workbook.html,
+   form-template.html, project-home.html, and venders.html. Neither
+   .workbook-toolbar nor the search input's 260px floor left any room to
+   shrink, so below ~420px (search input's floor + the button's own width +
+   gap) the button got pushed out past the edge of the screen, reachable
+   only by scrolling the toolbar sideways. Let the row wrap instead. */
+@media (max-width: 480px) {
+    .workbook-toolbar {
+        flex-wrap: wrap;
+    }
+
+    .workbook-search-input {
+        min-width: 0;
+        flex: 1 1 100%;
+        max-width: none;
+    }
 }
 
 .workbook-search-input::placeholder {
@@ -2553,8 +2621,21 @@ button { font: inherit; }
     min-width: 0;
 }
 
+/* .table-wrap was already in the markup on the payroll, employee, and
+   timesheet tables (manage-employees.html, payroll-tools.html, time
+   sheet.html) but had no matching rule — meaning the table inside had
+   nothing to scroll within and just overflowed the page horizontally on
+   any screen too narrow for all its columns. Give it somewhere to scroll
+   instead of breaking the layout. */
+.table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 .dash-queue-table {
     width: 100%;
+    min-width: 480px;
     border-collapse: collapse;
     font-size: 0.9rem;
 }
@@ -2609,10 +2690,19 @@ button { font: inherit; }
 
 /* Announcement cards — was previously only defined inline on payroll-tools.html,
    so it never rendered on time sheet.html's Announcements card. Defining it
-   globally here fixes that without duplicating it per-page. */
-.announcement-item { padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
-.announcement-item h3 { margin: 0 0 4px; font-size: 1em; }
-.announcement-item p { margin: 0 0 6px; white-space: pre-wrap; }
+   globally here fixes that without duplicating it per-page.
+
+   time sheet.html's version (timesheet.js renderAnnouncements) renders three
+   direct children — <h3>, <p>, and the date <div> — with no wrapping element,
+   so flex-direction: row (the original copy-pasted layout) put the title,
+   message, and date side by side in one cramped line at every screen size,
+   not just mobile. Stacked column reads correctly for that structure.
+   payroll-tools.html's admin "sent announcements" list uses a different,
+   two-child row structure (text block + Delete button) and has its own
+   inline override for that — this rule doesn't apply there. */
+.announcement-item { padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 2px; }
+.announcement-item h3 { margin: 0 0 4px; font-size: 1em; overflow-wrap: break-word; }
+.announcement-item p { margin: 0 0 6px; white-space: pre-wrap; overflow-wrap: break-word; }
 .announcement-item .announcement-date { font-size: 0.8em; opacity: 0.65; }
 
 .correction-banner {
@@ -2990,8 +3080,21 @@ button { font: inherit; }
   grid-template-rows: repeat(2, auto);
 }
 
-@media (max-width: 480px) {
+/* This redeclaration of .quick-links-grid comes after the general one near
+   .quick-link-item above, and after the "@media (max-width: 820px)"
+   collapse-to-1fr rule near the top of the file — since it's unconditional
+   and later in the file, it silently beat both of them at every width down
+   to 480px (where the old rule below took over at 2 columns). Net real
+   behavior before this fix: 3 columns all the way down to 480px, then a
+   sudden jump to 2 — the intended single-column stack on mobile never
+   actually happened. Redoing the breakpoints here, after this declaration,
+   so they're the ones that actually win. */
+@media (max-width: 820px) {
   .quick-links-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 400px) {
+  .quick-links-grid { grid-template-columns: 1fr; }
 }
 
 /* ---------- Calendar -------------------------------------------------------- */
@@ -3596,7 +3699,7 @@ button { font: inherit; }
 
 .pdf-field-popover {
   position: fixed;
-  z-index: 2100;
+  z-index: var(--z-modal-popover);
   width: min(90vw, 300px);
   background: var(--surface);
   border: 1px solid var(--border);
@@ -3830,7 +3933,7 @@ button { font: inherit; }
   flex-direction: column;
   padding: 24px;
   overflow-y: auto;
-  z-index: 500;
+  z-index: var(--z-drawer);
 }
 
 .todo-panel.hidden {
@@ -4334,7 +4437,7 @@ button { font: inherit; }
   border-radius: 12px;
   box-shadow: var(--shadow);
   padding: 6px;
-  z-index: 210;
+  z-index: var(--z-dropdown);
   max-height: 260px;
   overflow-y: auto;
 }
@@ -4432,7 +4535,7 @@ button { font: inherit; }
   border-radius: 12px;
   box-shadow: var(--shadow);
   padding: 6px;
-  z-index: 200;
+  z-index: var(--z-dropdown);
 }
 
 .project-switcher-dropdown.hidden { display: none; }
@@ -4540,7 +4643,7 @@ button { font: inherit; }
   border-radius: 10px;
   box-shadow: var(--shadow);
   padding: 6px;
-  z-index: 200;
+  z-index: var(--z-dropdown);
   max-height: 320px;
   overflow-y: auto;
 }
@@ -4665,7 +4768,7 @@ button { font: inherit; }
   display: grid;
   place-items: center;
   cursor: pointer;
-  z-index: 150;
+  z-index: var(--z-floating-control);
   transform: translateY(-50%);
   transition: background 0.15s ease, box-shadow 0.15s ease;
 }
@@ -4715,4 +4818,101 @@ body.sidebar-collapsed .nav-item {
    of it — see body.todo-panel-open, toggled in project-todo.js. */
 body.todo-panel-open .main-content {
   margin-right: min(92vw, 460px);
+}
+
+/* ============================================================
+   MOBILE-UNAVAILABLE COMPONENT
+
+   For a section of a page that fundamentally cannot work at small sizes
+   (an editable spreadsheet grid, a drag-and-drop canvas, a click-and-drag
+   PDF field placement tool) — rather than letting it render broken or
+   unusably cramped, hide it and show a plain-language notice with a link
+   back to somewhere useful instead.
+
+   Markup:
+     <div class="mobile-unavailable">
+       <div class="mobile-unavailable__notice">
+         <span class="mobile-unavailable__notice-icon" aria-hidden="true">⚠️</span>
+         <div class="mobile-unavailable__notice-body">
+           <strong>Not available on this screen size</strong>
+           <p>[Feature name] needs a larger screen. Switch to a tablet or
+              desktop, or head back to something you can use here.</p>
+           <a class="mobile-unavailable__notice-cta" href="dashboard.html">Back to Dashboard</a>
+         </div>
+       </div>
+       <div class="mobile-unavailable__content">
+         ... the real feature, untouched ...
+       </div>
+     </div>
+
+   Default cutoff is 768px (phones and small tablets). Add the
+   `mobile-unavailable--tablet` modifier class to the wrapper for
+   features that need a full desktop-sized canvas and should stay hidden
+   all the way up through 1024px too.
+============================================================ */
+.mobile-unavailable__notice {
+  display: none;
+  align-items: flex-start;
+  gap: 14px;
+  margin: 16px 0;
+  padding: 18px 20px;
+  border-radius: var(--radius-md);
+  background: var(--warning-soft);
+  border: 1px solid rgba(165, 102, 30, 0.35);
+}
+
+.mobile-unavailable__notice-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.mobile-unavailable__notice-body strong {
+  display: block;
+  color: var(--text);
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+
+.mobile-unavailable__notice-body p {
+  margin: 0 0 12px;
+  color: var(--text-soft);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.mobile-unavailable__notice-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: white;
+  font-weight: 600;
+  font-size: 0.88rem;
+}
+
+.mobile-unavailable__notice-cta:hover {
+  background: var(--accent-strong);
+}
+
+@media (max-width: 768px) {
+  .mobile-unavailable .mobile-unavailable__content {
+    display: none !important;
+  }
+
+  .mobile-unavailable .mobile-unavailable__notice {
+    display: flex;
+  }
+}
+
+@media (max-width: 1024px) {
+  .mobile-unavailable--tablet .mobile-unavailable__content {
+    display: none !important;
+  }
+
+  .mobile-unavailable--tablet .mobile-unavailable__notice {
+    display: flex;
+  }
 }
