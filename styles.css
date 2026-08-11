@@ -3916,22 +3916,37 @@ button { font: inherit; }
 /* -- Side panel --
    Notion-style side peek, not a modal: no dimmed backdrop, the page behind
    it stays fully interactive and scrollable (clicking another row just
-   swaps this panel's content — see openTodoPanel in project-todo.js). */
+   swaps this panel's content — see openTodoPanel in project-todo.js).
+
+   Deliberately restyled to actually look and feel like Notion — flat
+   hover-highlighted rows, hover-revealed row actions, a near-black/gray
+   text palette instead of the portal's navy/teal brand colors, thin
+   borders instead of card chrome — scoped to just this panel (and the
+   flat item list above it, which was already written this way) rather
+   than the rest of the app. --todo-text/--todo-text-soft/--todo-border/
+   --todo-hover/--todo-accent are a small local palette for that, not part
+   of the shared design tokens at the top of this file. */
 
 .todo-panel {
+  --todo-text: #2f3437;
+  --todo-text-soft: #8a8f98;
+  --todo-border: #e9e9e7;
+  --todo-hover: #f1f1ef;
+  --todo-accent: #2383e2;
+
   position: fixed;
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(92vw, 460px);
+  width: min(92vw, var(--todo-panel-width, 460px));
   background: var(--surface);
-  box-shadow: -8px 0 30px rgba(0, 0, 0, 0.2);
-  border-left: 1px solid var(--border);
+  box-shadow: -1px 0 0 rgba(15, 15, 15, 0.05), -16px 0 24px -12px rgba(15, 15, 15, 0.08);
+  border-left: 1px solid var(--todo-border);
   transform: translateX(100%);
   transition: transform 0.25s ease;
   display: flex;
   flex-direction: column;
-  padding: 24px;
+  padding: 24px 24px 24px 30px;
   overflow-y: auto;
   z-index: var(--z-drawer);
 }
@@ -3944,6 +3959,40 @@ button { font: inherit; }
   transform: translateX(0);
 }
 
+/* Drag strip along the panel's left edge. Kept fully inside the panel's
+   own box (rather than straddling the border with a negative offset) so
+   it can't get clipped — .todo-panel scrolls vertically, and per the CSS
+   overflow spec, setting overflow-y without overflow-x makes overflow-x
+   compute to auto too, which would've clipped anything hanging outside
+   the box on the x-axis. */
+.todo-panel-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 1;
+}
+
+.todo-panel-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.todo-panel-resize-handle:hover::after,
+body.todo-panel-resizing .todo-panel-resize-handle::after {
+  background: var(--todo-accent);
+}
+
 .todo-panel-header {
   display: flex;
   align-items: flex-start;
@@ -3953,22 +4002,54 @@ button { font: inherit; }
 
 .todo-panel-header h2 {
   margin: 0;
-  color: var(--accent-strong);
-  font-size: 1.25rem;
+  color: var(--todo-text);
+  font-size: 1.3rem;
+  font-weight: 700;
   word-break: break-word;
 }
 
 .todo-panel-header-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   flex-shrink: 0;
+}
+
+/* Ghost/ text-style header actions instead of the shared app's solid
+   button chrome — Notion keeps page-level actions like this quiet until
+   you reach for them. */
+.todo-panel-header-actions .workbook-btn--danger {
+  border: none;
+  background: none;
+  box-shadow: none;
+  color: var(--todo-text-soft);
+  font-size: 0.85rem;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.todo-panel-header-actions .workbook-btn--danger:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.todo-panel-header-actions .menu-btn {
+  background: none;
+  color: var(--todo-text-soft);
+  width: 30px;
+  height: 30px;
+  font-size: 0.95rem;
+}
+
+.todo-panel-header-actions .menu-btn:hover {
+  background: var(--todo-hover);
+  color: var(--todo-text);
 }
 
 .todo-panel-checklist {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 1px;
   margin: 16px 0;
   flex: 1 1 auto;
   min-height: 0;
@@ -3978,30 +4059,35 @@ button { font: inherit; }
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-alt);
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  transition: background 0.1s ease;
+}
+
+.todo-subitem-row:hover {
+  background: var(--todo-hover);
 }
 
 .todo-subitem-row.is-completed .todo-subitem-label {
   text-decoration: line-through;
-  color: var(--text-soft);
+  color: var(--todo-text-soft);
 }
 
 .todo-subitem-check {
   flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  border: 2px solid var(--border);
+  border: 1.5px solid var(--todo-border);
   background: white;
   cursor: pointer;
   padding: 0;
 }
 
 .todo-subitem-check:hover {
-  border-color: var(--accent);
+  border-color: var(--todo-accent);
 }
 
 .todo-subitem-check.is-checked {
@@ -4013,31 +4099,108 @@ button { font: inherit; }
   flex: 1;
   min-width: 0;
   font-size: 0.9rem;
-  color: var(--text);
+  color: var(--todo-text);
   overflow-wrap: anywhere;
+}
+
+/* Due date — a quiet pill that shows the relative label ("Today",
+   "Tomorrow", "Overdue", a plain date), colored only when it's worth
+   drawing the eye. Click it to swap in a real date input in its place
+   (see the due-pill / due-input wiring in project-todo.js). An unset
+   date ("No date") stays invisible until the row is hovered/focused, the
+   same hover-reveal treatment as the delete button below — Notion hides
+   empty properties until you're actually looking at the row. */
+.todo-subitem-due-wrap {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+}
+
+.todo-subitem-due-pill {
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--todo-text-soft);
+}
+
+.todo-subitem-due-wrap.due-none .todo-subitem-due-pill {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.todo-subitem-row:hover .todo-subitem-due-wrap.due-none .todo-subitem-due-pill,
+.todo-subitem-due-wrap.due-none .todo-subitem-due-pill:focus-visible {
+  opacity: 1;
+}
+
+.todo-subitem-due-wrap:not(.due-none) .todo-subitem-due-pill:hover,
+.todo-subitem-due-wrap.due-none .todo-subitem-due-pill:hover {
+  background: var(--todo-hover);
+}
+
+.todo-subitem-due-wrap.due-overdue .todo-subitem-due-pill { color: var(--danger); background: var(--danger-soft); }
+.todo-subitem-due-wrap.due-today .todo-subitem-due-pill { color: var(--warning); background: var(--warning-soft); }
+.todo-subitem-due-wrap.due-tomorrow .todo-subitem-due-pill { color: var(--accent); background: var(--accent-soft); }
+.todo-subitem-due-wrap.due-upcoming .todo-subitem-due-pill { color: var(--todo-text-soft); background: var(--todo-hover); }
+
+.todo-subitem-due-input {
+  border: 1px solid var(--todo-border);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.76rem;
+  padding: 3px 6px;
+  color: var(--todo-text);
+  background: white;
+}
+
+.todo-subitem-due-input.hidden {
+  display: none;
 }
 
 .todo-subitem-assignee {
   flex: 0 0 auto;
-  max-width: 138px;
-  padding: 6px 8px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: white;
+  max-width: 130px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: none;
   font-size: 0.78rem;
   font-family: inherit;
-  color: var(--text);
+  color: var(--todo-text-soft);
 }
 
+.todo-subitem-assignee:hover,
+.todo-subitem-assignee:focus {
+  border-color: var(--todo-border);
+  background: white;
+  color: var(--todo-text);
+  outline: none;
+}
+
+/* Hidden until the row is hovered/focused — Notion doesn't clutter every
+   row with a visible delete control, only the one you're currently on. */
 .todo-subitem-remove {
   flex: 0 0 auto;
   border: none;
   background: none;
-  color: var(--text-soft);
+  color: var(--todo-text-soft);
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   padding: 4px 6px;
   border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.todo-subitem-row:hover .todo-subitem-remove,
+.todo-subitem-remove:focus-visible {
+  opacity: 1;
 }
 
 .todo-subitem-remove:hover {
@@ -4047,36 +4210,41 @@ button { font: inherit; }
 
 .todo-add-subitem-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   padding-top: 14px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--todo-border);
   flex: 0 0 auto;
 }
 
-.todo-add-subitem-row input {
-  flex: 1;
+.todo-add-subitem-row input[type="text"] {
+  flex: 1 1 160px;
   min-width: 0;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--todo-border);
   font-size: 0.88rem;
   font-family: inherit;
+  color: var(--todo-text);
+}
+
+.todo-add-subitem-row input[type="text"]:focus {
+  outline: none;
+  border-color: var(--todo-accent);
 }
 
 .todo-add-subitem-row select {
   flex: 0 0 auto;
   width: 130px;
-  padding: 10px 8px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
+  padding: 9px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--todo-border);
   background: white;
   font-size: 0.82rem;
+  color: var(--todo-text);
 }
 
 @media (max-width: 640px) {
-  .todo-add-subitem-row {
-    flex-wrap: wrap;
-  }
   .todo-add-subitem-row select {
     width: auto;
     flex: 1;
@@ -4112,6 +4280,18 @@ button { font: inherit; }
   letter-spacing: 0.05em;
   color: var(--accent);
   margin-bottom: 2px;
+}
+
+/* Groups the due-date pill (set on project-to-do.html's side panel) above
+   the "Open" link so both count as a single flex item on the right —
+   otherwise .info-item's justify-content: space-between would spread three
+   children apart instead of keeping these two clustered together. */
+.project-todo-item__right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 /* ===========================
@@ -4815,9 +4995,24 @@ body.sidebar-collapsed .nav-item {
 }
 
 /* Project To-Do side panel pushes the list over instead of floating on top
-   of it — see body.todo-panel-open, toggled in project-todo.js. */
+   of it — see body.todo-panel-open, toggled in project-todo.js.
+   --todo-panel-width is the same variable .todo-panel reads for its own
+   width (set/dragged in project-todo.js's initTodoPanelResize), so the
+   list always makes exactly as much room as the panel currently takes up,
+   not a fixed guess. */
 body.todo-panel-open .main-content {
-  margin-right: min(92vw, 460px);
+  margin-right: min(92vw, var(--todo-panel-width, 460px));
+}
+
+/* While actively dragging the resize handle: kill text selection and force
+   the resize cursor everywhere, not just over the handle itself, since the
+   pointer routinely gets ahead of the handle during a fast drag. */
+body.todo-panel-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+body.todo-panel-resizing .main-content {
+  transition: none;
 }
 
 /* ============================================================

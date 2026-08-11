@@ -180,8 +180,14 @@
      pushes/resizes .main-content over to make room (body.todo-panel-open in
      styles.css) rather than floating on top of it. No dimmed backdrop, and
      the list stays fully interactive while it's open — clicking another row
-     just swaps what's shown here. Closes via the ✕ or Esc. -->
+     just swaps what's shown here. Closes via the ✕ or Esc.
+
+     Drag #todoPanelResizeHandle (the strip along its left edge) to resize —
+     the width is saved to localStorage (see project-todo.js) so it's
+     remembered next time this panel is opened, on any project. -->
 <aside class="todo-panel hidden" id="todoPanel">
+    <div class="todo-panel-resize-handle" id="todoPanelResizeHandle" aria-hidden="true"></div>
+
     <div class="todo-panel-header">
         <h2 id="todoPanelTitle">Item</h2>
         <div class="todo-panel-header-actions">
@@ -196,6 +202,7 @@
 
     <div class="todo-add-subitem-row">
         <input type="text" id="newSubitemLabelInput" placeholder="Add a checklist item…" maxlength="200">
+        <input type="date" id="newSubitemDueDateInput" class="todo-item-add-date" aria-label="Due date">
         <select id="newSubitemAssigneeSelect"></select>
         <button type="button" class="auth-button auth-button--secondary" id="addSubitemBtn" style="width:auto; padding:10px 18px;">
             + Add

@@ -194,9 +194,10 @@
 
         const { data: subitems, error } = await window.supabaseClient
             .from(TODO_SUBITEMS_TABLE)
-            .select("id, label, project_id, todo_item_id, created_at")
+            .select("id, label, project_id, todo_item_id, due_date, created_at")
             .eq("assigned_to", staffId)
             .eq("completed", false)
+            .order("due_date", { ascending: true, nullsFirst: false })
             .order("created_at", { ascending: true });
 
         if (error) {
@@ -230,7 +231,16 @@
 
         if (subtitleEl) subtitleEl.textContent = `${subitems.length} open item${subitems.length === 1 ? "" : "s"}`;
 
-        listEl.innerHTML = subitems.map(sub => `
+        listEl.innerHTML = subitems.map(sub => {
+            const due = formatDueLabel(sub.due_date);
+            const tier = MY_TASKS_DUE_TIERS[due.cls];
+            const dueHtml = sub.due_date
+                ? (tier
+                    ? `<span class="mytask-due-pill mytask-due-pill--${tier}">${escapeHtmlStaffTodo(due.text)}</span>`
+                    : `<span class="mytask-due-plain">${escapeHtmlStaffTodo(due.text)}</span>`)
+                : "";
+
+            return `
             <div class="info-item project-todo-item">
                 <div class="project-todo-item__left">
                     <button type="button" class="task-check" data-subitem-id="${sub.id}" aria-label="Mark complete"></button>
@@ -240,9 +250,13 @@
                         <p>${escapeHtmlStaffTodo(itemTitleById[sub.todo_item_id] || "")}</p>
                     </div>
                 </div>
-                <a class="workbook-btn workbook-btn--preview" href="project-to-do.html?id=${encodeURIComponent(sub.project_id)}">Open</a>
+                <div class="project-todo-item__right">
+                    ${dueHtml}
+                    <a class="workbook-btn workbook-btn--preview" href="project-to-do.html?id=${encodeURIComponent(sub.project_id)}">Open</a>
+                </div>
             </div>
-        `).join("");
+        `;
+        }).join("");
 
         listEl.querySelectorAll(".task-check").forEach(btn => {
             btn.addEventListener("click", async () => {

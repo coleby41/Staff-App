@@ -51,6 +51,27 @@
         return profile?.id || profile?.uid || null;
     }
 
+    // Same "Overdue / Due today / Due tomorrow / <date>" formatting as
+    // DashboardShared.formatDueLabel and staff-todo.js's local copy —
+    // duplicated here too since this page doesn't load either of those.
+    function formatSubitemDueLabel(dueDateStr) {
+        if (!dueDateStr) return { text: "No date", cls: "due-none" };
+
+        const due = new Date(dueDateStr + "T00:00:00");
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const diffDays = Math.round((due - today) / 86400000);
+
+        if (diffDays < 0) return { text: "Overdue", cls: "due-overdue" };
+        if (diffDays === 0) return { text: "Today", cls: "due-today" };
+        if (diffDays === 1) return { text: "Tomorrow", cls: "due-tomorrow" };
+        return {
+            text: due.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+            cls: "due-upcoming",
+        };
+    }
+
     function setTodoPageMessage(text, type) {
         const el = document.getElementById("todoPageMessage");
         if (!el) return;
@@ -214,6 +235,8 @@
         if (assigneeSelect) assigneeSelect.innerHTML = assigneeSelectOptionsHtml(null);
         const labelInput = document.getElementById("newSubitemLabelInput");
         if (labelInput) labelInput.value = "";
+        const dueDateInput = document.getElementById("newSubitemDueDateInput");
+        if (dueDateInput) dueDateInput.value = "";
 
         const panel = document.getElementById("todoPanel");
         if (!panel) return;
@@ -247,14 +270,21 @@
             return;
         }
 
-        container.innerHTML = subs.map(sub => `
+        container.innerHTML = subs.map(sub => {
+            const due = formatSubitemDueLabel(sub.due_date);
+            return `
             <div class="todo-subitem-row ${sub.completed ? "is-completed" : ""}" data-subitem-id="${sub.id}">
                 <button type="button" class="todo-subitem-check ${sub.completed ? "is-checked" : ""}" data-action="toggle" aria-label="Mark complete"></button>
                 <span class="todo-subitem-label">${escapeHtmlTodo(sub.label)}</span>
+                <div class="todo-subitem-due-wrap ${due.cls}" data-action="due-wrap">
+                    <button type="button" class="todo-subitem-due-pill" data-action="due-pill">${due.text}</button>
+                    <input type="date" class="todo-subitem-due-input hidden" data-action="due-input" value="${sub.due_date || ""}" aria-label="Due date">
+                </div>
                 <select class="todo-subitem-assignee" data-action="assign">${assigneeSelectOptionsHtml(sub.assigned_to)}</select>
                 <button type="button" class="todo-subitem-remove" data-action="delete" aria-label="Delete item">✕</button>
             </div>
-        `).join("");
+        `;
+        }).join("");
 
         container.querySelectorAll('[data-action="toggle"]').forEach(btn => {
             btn.addEventListener("click", () => toggleSubitem(btn.closest(".todo-subitem-row").dataset.subitemId));
@@ -264,6 +294,40 @@
         });
         container.querySelectorAll('[data-action="delete"]').forEach(btn => {
             btn.addEventListener("click", () => deleteSubitem(btn.closest(".todo-subitem-row").dataset.subitemId));
+        });
+
+        // Due date pill — click it to swap in a real <input type="date">
+        // right in its place (Notion-style click-to-edit property), instead
+        // of a date field sitting in every row all the time.
+        container.querySelectorAll('[data-action="due-pill"]').forEach(pill => {
+            pill.addEventListener("click", () => {
+                const wrap = pill.closest(".todo-subitem-due-wrap");
+                const input = wrap.querySelector('[data-action="due-input"]');
+                pill.classList.add("hidden");
+                input.classList.remove("hidden");
+                input.focus();
+                if (typeof input.showPicker === "function") {
+                    try { input.showPicker(); } catch (_) { /* not supported in this browser/context — focus alone still lets it be typed into */ }
+                }
+            });
+        });
+
+        container.querySelectorAll('[data-action="due-input"]').forEach(input => {
+            const subitemId = input.closest(".todo-subitem-row").dataset.subitemId;
+            input.addEventListener("change", () => {
+                // Flagged so the blur handler below (which fires right
+                // after change, before this save has actually resolved)
+                // doesn't re-render with the stale value in between —
+                // setSubitemDueDate does its own re-render once saved.
+                input.dataset.savingDue = "1";
+                setSubitemDueDate(subitemId, input.value || null);
+            });
+            input.addEventListener("blur", () => {
+                if (input.dataset.savingDue === "1") return;
+                // No change made — just swap back to the pill instead of
+                // leaving a bare date input sitting in the row.
+                if (document.body.contains(input)) renderPanelChecklist();
+            });
         });
     }
 
@@ -321,6 +385,26 @@
         }
     }
 
+    async function setSubitemDueDate(subitemId, dueDateValue) {
+        const sub = findSubitem(subitemId);
+        if (!sub) return;
+
+        const { error } = await window.supabaseClient
+            .from(TODO_SUBITEMS_TABLE)
+            .update({ due_date: dueDateValue })
+            .eq("id", subitemId);
+
+        if (error) {
+            console.error("Failed to update due date:", error);
+            setTodoPanelMessage("Couldn't update that due date. Please try again.", "error");
+            renderPanelChecklist(); // revert the input back to a pill showing the last-saved date
+            return;
+        }
+
+        sub.due_date = dueDateValue;
+        renderPanelChecklist();
+    }
+
     async function deleteSubitem(subitemId) {
         const { error } = await window.supabaseClient
             .from(TODO_SUBITEMS_TABLE)
@@ -345,6 +429,7 @@
 
         const labelInput = document.getElementById("newSubitemLabelInput");
         const assigneeSelect = document.getElementById("newSubitemAssigneeSelect");
+        const dueDateInput = document.getElementById("newSubitemDueDateInput");
         const label = labelInput?.value.trim();
 
         if (!label) {
@@ -355,6 +440,7 @@
 
         const assigneeId = assigneeSelect?.value || null;
         const assigneeName = assigneeId ? staffNameById(assigneeId) : null;
+        const dueDate = dueDateInput?.value || null;
         const position = (subitemsByItemId[openPanelItem.id] || []).length;
 
         const { data: inserted, error } = await window.supabaseClient
@@ -365,6 +451,7 @@
                 label,
                 assigned_to: assigneeId,
                 assigned_to_name: assigneeName,
+                due_date: dueDate,
                 position
             })
             .select()
@@ -383,6 +470,7 @@
 
         if (labelInput) labelInput.value = "";
         if (assigneeSelect) assigneeSelect.value = "";
+        if (dueDateInput) dueDateInput.value = "";
         labelInput?.focus();
 
         if (assigneeId) notifyAssignee(assigneeId, label);
@@ -492,6 +580,73 @@
         setTodoPageMessage("Item deleted.", "success");
     }
 
+    /* ---------- panel resize ----------
+       Drag #todoPanelResizeHandle (the strip along the panel's left edge)
+       to resize it. The panel is pinned to the right edge of the screen
+       (see .todo-panel in styles.css), so its width is just the distance
+       from the pointer to the right edge of the viewport. The width lives
+       in a CSS custom property (--todo-panel-width) that both .todo-panel
+       and body.todo-panel-open .main-content read, so the page content
+       keeps making room for exactly however wide the panel currently is —
+       not a fixed guess. Saved to localStorage so it's remembered next
+       time this panel is opened, on any project. */
+
+    const TODO_PANEL_WIDTH_KEY = "todoPanelWidth";
+    const TODO_PANEL_DEFAULT_WIDTH = 460;
+    const TODO_PANEL_MIN_WIDTH = 340;
+    const TODO_PANEL_MAX_WIDTH = 900;
+
+    function applyTodoPanelWidth(width) {
+        const clamped = Math.min(TODO_PANEL_MAX_WIDTH, Math.max(TODO_PANEL_MIN_WIDTH, Math.round(width)));
+        document.documentElement.style.setProperty("--todo-panel-width", `${clamped}px`);
+        return clamped;
+    }
+
+    function initTodoPanelResize() {
+        const handle = document.getElementById("todoPanelResizeHandle");
+        if (!handle) return;
+
+        const savedWidth = parseInt(localStorage.getItem(TODO_PANEL_WIDTH_KEY), 10);
+        applyTodoPanelWidth(Number.isFinite(savedWidth) ? savedWidth : TODO_PANEL_DEFAULT_WIDTH);
+
+        let dragging = false;
+
+        function updateWidthFromPointer(clientX) {
+            applyTodoPanelWidth(window.innerWidth - clientX);
+        }
+
+        function startDragging(e) {
+            dragging = true;
+            document.body.classList.add("todo-panel-resizing");
+            e.preventDefault();
+        }
+
+        function stopDragging() {
+            if (!dragging) return;
+            dragging = false;
+            document.body.classList.remove("todo-panel-resizing");
+            const current = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--todo-panel-width"), 10);
+            if (Number.isFinite(current)) localStorage.setItem(TODO_PANEL_WIDTH_KEY, String(current));
+        }
+
+        handle.addEventListener("mousedown", startDragging);
+        window.addEventListener("mousemove", (e) => { if (dragging) updateWidthFromPointer(e.clientX); });
+        window.addEventListener("mouseup", stopDragging);
+
+        handle.addEventListener("touchstart", startDragging, { passive: false });
+        window.addEventListener("touchmove", (e) => {
+            if (!dragging || !e.touches[0]) return;
+            updateWidthFromPointer(e.touches[0].clientX);
+        }, { passive: true });
+        window.addEventListener("touchend", stopDragging);
+
+        // Double-click the handle to snap back to the default width.
+        handle.addEventListener("dblclick", () => {
+            applyTodoPanelWidth(TODO_PANEL_DEFAULT_WIDTH);
+            localStorage.setItem(TODO_PANEL_WIDTH_KEY, String(TODO_PANEL_DEFAULT_WIDTH));
+        });
+    }
+
     /* ---------- init ---------- */
 
     window.addEventListener("project-shell:ready", async (event) => {
@@ -516,6 +671,8 @@
     });
 
     document.addEventListener("DOMContentLoaded", () => {
+        initTodoPanelResize();
+
         document.getElementById("newTodoItemInlineInput")?.addEventListener("keydown", (e) => {
             if (e.key === "Enter") { e.preventDefault(); createTodoItemInline(); }
         });
