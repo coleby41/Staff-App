@@ -668,6 +668,16 @@
 
         await loadStaffDirectory();
         await loadTodoData(project.id);
+
+        // Sidebar search (project-shell.js) links To-Do results here as
+        // ?openItem=<id> — for a checklist-row match this is the *parent*
+        // big item's id (that's where the row actually lives/displays),
+        // so this always opens a real item's panel either way.
+        const openItemId = new URLSearchParams(window.location.search).get("openItem");
+        if (openItemId) {
+            const item = todoItems.find(i => String(i.id) === openItemId);
+            if (item) openTodoPanel(item);
+        }
     });
 
     document.addEventListener("DOMContentLoaded", () => {

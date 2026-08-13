@@ -19,6 +19,18 @@ window.ProjectFields = (function () {
 
     const WIZARD_STATUS_OPTIONS = ["Not started", "In progress", "Submitted", "Approved"];
 
+    // Canonical project status list — single source of truth for the
+    // onboarding wizard's "Status & Tracking" step, the quick-edit popup,
+    // the stats header, tabs, and status badges on project-home.html.
+    const PROJECT_STATUSES = [
+        { value: "active", label: "Active", chip: "chip--success" },
+        { value: "onboarding", label: "Onboarding", chip: "chip--info" },
+        { value: "at_risk", label: "At Risk", chip: "chip--warning" },
+        { value: "on_hold", label: "On Hold", chip: "chip--muted" },
+        { value: "completed", label: "Completed", chip: "chip--completed" },
+        { value: "archived", label: "Archived", chip: "chip--muted" }
+    ];
+
     const WIZARD_STEPS = [
         {
             key: "owner_contact",
@@ -136,6 +148,20 @@ window.ProjectFields = (function () {
                 { name: "county_city_phone", label: "Phone", type: "tel" },
                 { name: "county_city_email", label: "Email", type: "email" }
             ]
+        },
+        {
+            key: "tracking",
+            title: "Status & Tracking",
+            hint: "Powers the Project Overview cards — the cover photo, status badge, value, progress bar, and due date. Update anytime by reopening this wizard or clicking a card's status badge.",
+            page: "projects.html",
+            fields: [
+                { name: "cover_photo", label: "Cover photo", type: "file", pathField: "cover_photo_url", accept: "image/*", bucket: "project-covers", publicBucket: true },
+                { name: "status", label: "Status", type: "select", options: PROJECT_STATUSES, noBlankOption: true, default: "onboarding" },
+                { name: "project_manager_name", label: "Project manager", type: "text", placeholder: "e.g. John Smith" },
+                { name: "contract_value", label: "Contract value ($)", type: "number", placeholder: "e.g. 4200000", default: null },
+                { name: "progress_percent", label: "Progress (%)", type: "number", placeholder: "0–100", default: 0 },
+                { name: "due_date", label: "Due date", type: "date" }
+            ]
         }
     ];
 
@@ -143,7 +169,7 @@ window.ProjectFields = (function () {
         return value === null || value === undefined || String(value).trim() === "";
     }
 
-    // How many of the 10 sections have at least one field filled in.
+    // How many of the wizard's sections have at least one field filled in.
     function computeCompleteness(project) {
         let complete = 0;
         WIZARD_STEPS.forEach(step => {
@@ -160,6 +186,7 @@ window.ProjectFields = (function () {
         PROJECTS_TABLE,
         PROJECT_DOCS_BUCKET,
         WIZARD_STATUS_OPTIONS,
+        PROJECT_STATUSES,
         WIZARD_STEPS,
         isBlank,
         computeCompleteness

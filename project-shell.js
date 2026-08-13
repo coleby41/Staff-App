@@ -26,6 +26,21 @@
     "use strict";
 
     const PF = window.ProjectFields;
+    const TIMELINE_TABLE = "project_timeline_items";
+    const TODO_ITEMS_TABLE = "project_todo_items";
+    const TODO_SUBITEMS_TABLE = "project_todo_subitems";
+
+    // Timeline/To-Do data for search, fetched once per project load — see
+    // loadSearchData(). The sidebar search box lives on every project-*.html
+    // page, not just project-timeline.html/project-to-do.html, so it can't
+    // rely on those pages' own scripts to have loaded this data; it fetches
+    // its own copy independently. Populated in the background (not awaited
+    // before project-shell:ready fires) since it's a nice-to-have, not
+    // something the rest of the page should wait on.
+    let searchTimelineData = [];
+    let searchTodoItemsData = [];
+    let searchTodoSubitemsByItemId = {};
+    let rerenderSearchResults = null; // set by wireSidebarSearch — lets loadSearchData refresh results already on screen once it resolves
 
     function escapeHtmlShell(str) {
         const d = document.createElement("div");
@@ -147,15 +162,37 @@
 
     /* ===========================
        SIDEBAR SEARCH — "everything in this project"
-       Searches the current project's own field values today. As Project
-       Files / Timeline / To-Do / Accounting / Contract get real content,
-       add their data sources here too.
+       Searches, in order: Project Timeline (phases/tasks/milestones),
+       Project To-Do (big items + checklist rows), and the project's own
+       field values (site address, dates, budget, etc. — via
+       window.ProjectFields). Project Files / Accounting / Site Plans /
+       Contract don't have real data models yet — add their sources here
+       too once they do.
+
+       "Complex searching": each source builds one lowercase haystack per
+       result (title/label + description + type + status + assignee name +
+       formatted dates, depending on the source) and the query is split on
+       whitespace into terms that ALL have to appear somewhere in that
+       haystack, in any order — so "sarah foundation" finds a task titled
+       "Pour foundation" assigned to Sarah Diaz, not just a literal
+       "sarah foundation" substring.
     =========================== */
 
-    function searchProjectFields(project, query) {
-        const q = query.trim().toLowerCase();
-        if (!q) return [];
+    function queryTerms(query) {
+        return query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    }
 
+    function matchesAllTerms(haystackParts, terms) {
+        const haystack = haystackParts.filter(Boolean).join(" ").toLowerCase();
+        return terms.every(term => haystack.includes(term));
+    }
+
+    function formatSearchDate(iso) {
+        if (!iso) return "";
+        return new Date(`${iso}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    }
+
+    function searchProjectFields(project, terms) {
         const results = [];
         PF.WIZARD_STEPS.forEach(step => {
             step.fields.forEach(field => {
@@ -164,8 +201,7 @@
                 if (PF.isBlank(raw)) return;
 
                 const value = String(raw);
-                const haystack = `${field.label} ${value}`.toLowerCase();
-                if (!haystack.includes(q)) return;
+                if (!matchesAllTerms([field.label, value], terms)) return;
 
                 results.push({
                     sectionTitle: step.title,
@@ -177,7 +213,115 @@
             });
         });
 
-        return results.slice(0, 8);
+        return results;
+    }
+
+    // typeLabel below is literally "task"/"phase"/"milestone" (whichever
+    // this item actually is) and doubles as the search keyword for that
+    // type — searching "task" surfaces task-type items specifically, not
+    // phases or milestones too, same as searching "milestone" only
+    // surfaces milestones.
+    const TIMELINE_STATUS_LABEL = { not_started: "not started", in_progress: "in progress", on_hold: "on hold", completed: "completed" };
+
+    function searchTimelineItems(terms) {
+        const today = todayISODateShell();
+        const results = [];
+
+        searchTimelineData.forEach(item => {
+            const isOverdue = item.status !== "completed" && !!item.end_date && item.end_date < today;
+            const statusLabel = isOverdue ? "overdue" : (TIMELINE_STATUS_LABEL[item.status] || item.status || "");
+            const typeLabel = item.type || "task";
+            const dateText = item.type === "milestone"
+                ? formatSearchDate(item.end_date)
+                : [formatSearchDate(item.start_date), formatSearchDate(item.end_date)].filter(Boolean).join(" – ");
+
+            const haystack = [item.title, item.description, typeLabel, statusLabel, item.assigned_to_name, dateText];
+            if (!matchesAllTerms(haystack, terms)) return;
+
+            results.push({
+                sectionTitle: "Timeline",
+                label: `${typeLabel.charAt(0).toUpperCase()}${typeLabel.slice(1)}${statusLabel ? " · " + statusLabel : ""}`,
+                value: item.title || "Untitled",
+                page: "project-timeline.html",
+                openItem: item.id
+            });
+        });
+
+        return results;
+    }
+
+    function searchTodoItems(terms) {
+        const results = [];
+
+        searchTodoItemsData.forEach(item => {
+            const itemHaystack = [item.title, "to-do", "task", item.completed ? "complete" : "open"];
+            if (matchesAllTerms(itemHaystack, terms)) {
+                results.push({
+                    sectionTitle: "To-Do",
+                    label: item.completed ? "Completed" : "Open",
+                    value: item.title || "Untitled",
+                    page: "project-to-do.html",
+                    openItem: item.id
+                });
+            }
+
+            (searchTodoSubitemsByItemId[item.id] || []).forEach(sub => {
+                const subHaystack = [sub.label, item.title, sub.assigned_to_name, formatSearchDate(sub.due_date), "to-do", "task", "checklist", sub.completed ? "complete" : "open"];
+                if (!matchesAllTerms(subHaystack, terms)) return;
+                results.push({
+                    sectionTitle: "To-Do",
+                    label: `${item.title || "Untitled"} · checklist`,
+                    value: sub.label || "Untitled",
+                    page: "project-to-do.html",
+                    openItem: item.id // opens the parent item's panel, where this checklist row lives
+                });
+            });
+        });
+
+        return results;
+    }
+
+    function todayISODateShell() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+
+    async function loadSearchData(projectId) {
+        if (!window.supabaseClient) return;
+
+        const [timelineResult, todoItemsResult, todoSubitemsResult] = await Promise.all([
+            window.supabaseClient
+                .from(TIMELINE_TABLE)
+                .select("id, type, title, description, status, start_date, end_date, assigned_to_name")
+                .eq("project_id", projectId),
+            window.supabaseClient
+                .from(TODO_ITEMS_TABLE)
+                .select("id, title, completed")
+                .eq("project_id", projectId),
+            window.supabaseClient
+                .from(TODO_SUBITEMS_TABLE)
+                .select("id, todo_item_id, label, assigned_to_name, due_date, completed")
+                .eq("project_id", projectId)
+        ]);
+
+        if (!timelineResult.error) searchTimelineData = timelineResult.data || [];
+        if (!todoItemsResult.error) searchTodoItemsData = todoItemsResult.data || [];
+
+        searchTodoSubitemsByItemId = {};
+        if (!todoSubitemsResult.error) {
+            (todoSubitemsResult.data || []).forEach(sub => {
+                (searchTodoSubitemsByItemId[sub.todo_item_id] = searchTodoSubitemsByItemId[sub.todo_item_id] || []).push(sub);
+            });
+        }
+
+        // If the user already typed a query before this resolved, refresh
+        // whatever's currently on screen rather than making them retype.
+        if (rerenderSearchResults) rerenderSearchResults();
+    }
+
+    function buildResultUrl(result, projectId) {
+        if (result.openItem) return `${result.page}?id=${encodeURIComponent(projectId)}&openItem=${encodeURIComponent(result.openItem)}`;
+        return buildPageUrl(result.page, projectId, result.anchor);
     }
 
     function wireSidebarSearch(project) {
@@ -206,21 +350,27 @@
                 return;
             }
 
-            const results = searchProjectFields(project, query);
+            const terms = queryTerms(query);
+            const results = [
+                ...searchTimelineItems(terms),
+                ...searchTodoItems(terms),
+                ...searchProjectFields(project, terms)
+            ].slice(0, 12);
 
             resultsEl.classList.remove("hidden");
             resultsEl.innerHTML = results.length
                 ? results.map(r => `
-                    <a class="sidebar-search-result" href="${buildPageUrl(r.page, project.id, r.anchor)}">
+                    <a class="sidebar-search-result" href="${buildResultUrl(r, project.id)}">
                         <span class="sidebar-search-result-label">${escapeHtmlShell(r.sectionTitle)} · ${escapeHtmlShell(r.label)}</span>
                         <span class="sidebar-search-result-value">${escapeHtmlShell(r.value)}</span>
                     </a>
                 `).join("")
-                : `<p class="sidebar-search-empty">No matches in this project's details yet. Project Files / Timeline / To-Do / Accounting / Contract search is coming as those areas get built out.</p>`;
+                : `<p class="sidebar-search-empty">No matches for "${escapeHtmlShell(query.trim())}" in this project.</p>`;
         }
 
         input.addEventListener("input", renderResults);
         input.addEventListener("focus", renderResults);
+        rerenderSearchResults = renderResults;
 
         document.addEventListener("click", (event) => {
             if (!event.target.closest(".sidebar-search-wrap")) {
@@ -369,6 +519,7 @@
         renderHeaderForProject(data);
         wireSidebarSearch(data);
         populateSwitcher(projectId);
+        loadSearchData(projectId); // background — not awaited, see loadSearchData's own comment
 
         window.dispatchEvent(new CustomEvent("project-shell:ready", { detail: { project: data, error: null } }));
 

@@ -11,7 +11,7 @@
 
    Displays projects as a workbook-style card grid (same visual language
    as excel-workbook.html / venders.html) and drives the "+ New Project
-   Onboard" wizard: 10 sections, every one skippable, with Back/Next/Skip
+   Onboard" wizard: every section is skippable, with Back/Next/Skip
    and a Save & Finish Later option so partial progress is never lost.
 =========================================================== */
 
@@ -24,6 +24,35 @@ const WIZARD_STEPS = window.ProjectFields.WIZARD_STEPS;
 
 let allProjects = [];
 let projectWizardState = null; // { id, stepIndex, values: {...}, pendingFiles: {} }
+
+/* ===========================
+   STATUS / TRACKING (added for the redesigned stats header, badges,
+   card+list toggle, tabs, and pagination — see
+   SQL FILES/supabase-projects-status-fields-setup.sql for the columns
+   this reads/writes: status, project_manager_name, contract_value,
+   progress_percent, due_date, updated_by_name.)
+=========================== */
+
+// Built from window.ProjectFields.PROJECT_STATUSES — the same list drives
+// the wizard's Status dropdown, so labels/colors can't drift out of sync
+// between the wizard and the cards/tabs/stats header.
+function tabCountElementId(statusValue) {
+    return "projectTabCount" + statusValue.split("_").map(w => w[0].toUpperCase() + w.slice(1)).join("");
+}
+
+const PROJECT_STATUS_META = {};
+window.ProjectFields.PROJECT_STATUSES.forEach(status => {
+    PROJECT_STATUS_META[status.value] = {
+        label: status.label,
+        chip: status.chip,
+        tabCountId: tabCountElementId(status.value)
+    };
+});
+
+let projectActiveTab = "all";
+let projectCurrentPage = 1;
+let projectPageSize = 6;
+let projectQuickEditId = null;
 
 /* ===========================
    ADDRESS AUTOCOMPLETE (Mailing address, Step 1)
@@ -152,6 +181,55 @@ function formatSiteAddress(project) {
     return [project.site_address, full].filter(Boolean).join(" · ");
 }
 
+function formatProjectValue(value) {
+    if (value === null || value === undefined || value === "") return "—";
+    const num = Number(value);
+    if (Number.isNaN(num)) return "—";
+    if (Math.abs(num) >= 1000000) return `$${(num / 1000000).toFixed(1)}M`;
+    if (Math.abs(num) >= 1000) return `$${(num / 1000).toFixed(1)}k`;
+    return `$${num.toLocaleString()}`;
+}
+
+function formatProjectDate(dateStr) {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+// Returns { text, subtext, subClass } for the due-date row — "X days left",
+// "X days overdue", or just "Completed" once the project is marked done.
+function computeDueDateInfo(project) {
+    const formatted = formatProjectDate(project.due_date);
+    if (!formatted) return { text: "No due date set", subtext: "", subClass: "" };
+
+    if (project.status === "completed") {
+        return { text: formatted, subtext: "Completed", subClass: "" };
+    }
+
+    const due = new Date(project.due_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    due.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((due - today) / 86400000);
+
+    if (diffDays < 0) {
+        return { text: formatted, subtext: `${Math.abs(diffDays)} days overdue`, subClass: "project-due-overdue" };
+    }
+    if (diffDays <= 7) {
+        return { text: formatted, subtext: `${diffDays} days left`, subClass: "project-due-soon" };
+    }
+    return { text: formatted, subtext: `${diffDays} days left`, subClass: "" };
+}
+
+function projectManagerInitials(name) {
+    const words = String(name || "").trim().split(/\s+/).filter(Boolean);
+    if (!words.length) return "—";
+    return words.length >= 2
+        ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
+        : words[0].substring(0, 2).toUpperCase();
+}
+
 // How many of the 10 sections have at least one field filled in — shown on
 // the card so staff can see onboarding progress at a glance.
 function computeProjectCompleteness(project) {
@@ -161,7 +239,8 @@ function computeProjectCompleteness(project) {
 function anyProjectOverlayOpen() {
     return [
         "projectWizardModalOverlay",
-        "deleteProjectConfirmOverlay"
+        "deleteProjectConfirmOverlay",
+        "projectQuickEditOverlay"
     ].some(id => {
         const el = document.getElementById(id);
         return el && !el.classList.contains("hidden");
@@ -194,7 +273,7 @@ async function loadProjects() {
 
     if (error) {
         console.error("Failed to load projects:", error);
-        setProjectPageMessage("Couldn't load projects. The projects table may not be set up yet — run SQL FILES/supabase-projects-setup.sql in Supabase, then refresh.", "error");
+        setProjectPageMessage("Couldn't load projects. The projects table may not be set up yet — run SQL FILES/supabase-projects-setup.sql (and supabase-projects-status-fields-setup.sql) in Supabase, then refresh.", "error");
         return;
     }
 
@@ -203,14 +282,102 @@ async function loadProjects() {
     if (allProjects.length === 0) {
         if (emptyState) emptyState.style.display = "block";
         if (grid) grid.innerHTML = "";
+        renderProjectStatsBar([]);
+        renderProjectTabCounts([]);
+        renderProjectPagination(0);
         return;
     }
 
-    renderProjects(allProjects);
-    applyProjectSearchFilter();
+    refreshProjectsView();
 }
 
-function renderProjects(projects) {
+/* ===========================
+   STATS BAR — always reflects ALL projects, independent of the
+   search box / active tab (matches how the reference design's header
+   numbers stay put while the grid below filters).
+=========================== */
+
+function renderProjectStatsBar(projects) {
+    const byStatus = (key) => projects.filter(p => (p.status || "onboarding") === key).length;
+    const totalValue = projects.reduce((sum, p) => sum + (Number(p.contract_value) || 0), 0);
+
+    const setText = (id, text) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+    };
+
+    setText("projectStatTotal", String(projects.length));
+    setText("projectStatActive", String(byStatus("active")));
+    setText("projectStatOnboarding", String(byStatus("onboarding")));
+    setText("projectStatAtRisk", String(byStatus("at_risk")));
+    setText("projectStatCompleted", String(byStatus("completed")));
+    setText("projectStatValue", formatProjectValue(totalValue));
+}
+
+function renderProjectTabCounts(projects) {
+    const setText = (id, text) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+    };
+
+    setText("projectTabCountAll", String(projects.length));
+    Object.entries(PROJECT_STATUS_META).forEach(([key, meta]) => {
+        setText(meta.tabCountId, String(projects.filter(p => (p.status || "onboarding") === key).length));
+    });
+}
+
+/* ===========================
+   FILTER + SORT + PAGINATE + RENDER
+=========================== */
+
+function filterProjectsForGrid() {
+    const searchInput = document.getElementById("projectSearchInput");
+    const query = (searchInput ? searchInput.value.trim().toLowerCase() : "");
+
+    return allProjects.filter(project => {
+        if (projectActiveTab !== "all" && (project.status || "onboarding") !== projectActiveTab) return false;
+        if (!query) return true;
+        const haystack = [
+            project.name, project.site_address, project.site_city, project.site_state,
+            project.gc_name, project.project_manager_name
+        ].filter(Boolean).join(" ").toLowerCase();
+        return haystack.includes(query);
+    });
+}
+
+// Due date ascending, projects with no due date sink to the bottom.
+function sortProjectsByDueDate(projects) {
+    return [...projects].sort((a, b) => {
+        if (!a.due_date && !b.due_date) return 0;
+        if (!a.due_date) return 1;
+        if (!b.due_date) return -1;
+        return new Date(a.due_date) - new Date(b.due_date);
+    });
+}
+
+function refreshProjectsView() {
+    renderProjectStatsBar(allProjects);
+    renderProjectTabCounts(allProjects);
+
+    const filtered = sortProjectsByDueDate(filterProjectsForGrid());
+    const noResultsState = document.getElementById("projectNoResultsState");
+
+    const totalPages = Math.max(1, Math.ceil(filtered.length / projectPageSize));
+    if (projectCurrentPage > totalPages) projectCurrentPage = totalPages;
+    if (projectCurrentPage < 1) projectCurrentPage = 1;
+
+    const startIndex = (projectCurrentPage - 1) * projectPageSize;
+    const pageItems = filtered.slice(startIndex, startIndex + projectPageSize);
+
+    renderProjectCards(pageItems);
+    renderProjectPagination(filtered.length);
+
+    if (noResultsState) {
+        noResultsState.style.display = (allProjects.length > 0 && filtered.length === 0) ? "block" : "none";
+    }
+}
+
+function renderProjectCards(projects) {
     const grid = document.getElementById("projectsGrid");
     if (!grid) return;
 
@@ -219,12 +386,27 @@ function renderProjects(projects) {
     projects.forEach(project => {
         const { complete, total } = computeProjectCompleteness(project);
         const address = formatSiteAddress(project);
+        const statusKey = project.status || "onboarding";
+        const statusMeta = PROJECT_STATUS_META[statusKey] || PROJECT_STATUS_META.onboarding;
+        const progress = Math.max(0, Math.min(100, Number(project.progress_percent) || 0));
+        const dueInfo = computeDueDateInfo(project);
+        const updatedDate = formatProjectDate(project.updated_at) || "—";
+        const updatedBy = project.updated_by_name || project.created_by_name || "Staff Portal";
+        const pmName = project.project_manager_name || "Unassigned";
 
         const card = document.createElement("div");
-        card.className = "workbook-card project-card";
+        card.className = `workbook-card project-card project-card--${statusKey}`;
         card.dataset.projectId = project.id;
 
+        const coverStyle = project.cover_photo_url
+            ? ` style="background-image:url('${project.cover_photo_url.replace(/'/g, "%27")}')"`
+            : "";
+
         card.innerHTML = `
+            <div class="workbook-cover project-cover ${project.cover_photo_url ? "" : "project-cover--placeholder"}"${coverStyle}>
+                ${project.cover_photo_url ? "" : `<span class="project-cover-placeholder-icon"></span>`}
+            </div>
+
             <div class="company-card-body">
 
                 <button
@@ -235,10 +417,56 @@ function renderProjects(projects) {
                     <span class="company-edit-icon"></span>
                 </button>
 
-                <h3 class="company-card-name">${escapeHtmlProject(project.name || "Untitled project")}</h3>
+                <div class="project-card-header">
+                    <h3 class="company-card-name">${escapeHtmlProject(project.name || "Untitled project")}</h3>
+                    <button type="button" class="chip chip--dot ${statusMeta.chip} project-status-badge" data-id="${project.id}" title="Update status">
+                        ${escapeHtmlProject(statusMeta.label)}
+                    </button>
+                </div>
 
                 <div class="company-card-address">
                     ${address ? `<p>${escapeHtmlProject(address)}</p>` : `<p class="company-card-muted">No site address on file</p>`}
+                </div>
+
+                <div class="project-card-stats-row">
+
+                    <div class="project-card-stat">
+                        <p class="project-card-stat-label">Value</p>
+                        <p class="project-card-stat-value">${formatProjectValue(project.contract_value)}</p>
+                    </div>
+
+                    <div class="project-card-stat">
+                        <p class="project-card-stat-label">Progress</p>
+                        <p class="project-card-stat-value">${progress}%</p>
+                        <div class="project-progress-track"><span class="project-progress-fill project-progress-fill--${statusKey}" style="width:${progress}%"></span></div>
+                    </div>
+
+                    <div class="project-card-stat">
+                        <p class="project-card-stat-label">Due date</p>
+                        <p class="project-card-stat-value">${escapeHtmlProject(dueInfo.text)}</p>
+                        ${dueInfo.subtext ? `<p class="project-card-stat-sub ${dueInfo.subClass}">${escapeHtmlProject(dueInfo.subtext)}</p>` : ""}
+                    </div>
+
+                </div>
+
+                <div class="project-card-divider"></div>
+
+                <div class="project-card-footer">
+
+                    <div class="project-card-pm">
+                        <span class="project-pm-avatar">${projectManagerInitials(project.project_manager_name)}</span>
+                        <div>
+                            <p class="project-pm-name">${escapeHtmlProject(pmName)}</p>
+                            <p class="project-pm-role">Project Manager</p>
+                        </div>
+                    </div>
+
+                    <div class="project-card-updated">
+                        <p class="project-updated-label">Updated</p>
+                        <p class="project-updated-value">${updatedDate}</p>
+                        <p class="project-updated-by">by ${escapeHtmlProject(updatedBy)}</p>
+                    </div>
+
                 </div>
 
                 ${project.gc_name ? `
@@ -260,7 +488,7 @@ function renderProjects(projects) {
 
     grid.querySelectorAll(".project-card").forEach(card => {
         card.addEventListener("click", (event) => {
-            if (event.target.closest(".project-edit-btn")) return;
+            if (event.target.closest(".project-edit-btn") || event.target.closest(".project-status-badge")) return;
             const id = card.dataset.projectId;
             if (id) window.location.href = `projects.html?id=${encodeURIComponent(id)}`;
         });
@@ -273,36 +501,184 @@ function renderProjects(projects) {
             if (project) openProjectWizard(project);
         });
     });
+
+    grid.querySelectorAll(".project-status-badge").forEach(btn => {
+        btn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const id = btn.dataset.id;
+            const project = allProjects.find(p => String(p.id) === String(id));
+            if (project) openProjectQuickEdit(project);
+        });
+    });
 }
 
 /* ===========================
-   SEARCH (mirrors excel-workbook.html's initWorkbookSearch)
+   PAGINATION
 =========================== */
 
-function applyProjectSearchFilter() {
-    const searchInput = document.getElementById("projectSearchInput");
+function renderProjectPagination(filteredCount) {
+    const wrap = document.getElementById("projectPagination");
+    const summary = document.getElementById("projectPaginationSummary");
+    const pageNumbers = document.getElementById("projectPageNumbers");
+    const prevBtn = document.getElementById("projectPrevPageBtn");
+    const nextBtn = document.getElementById("projectNextPageBtn");
+    if (!wrap || !summary || !pageNumbers || !prevBtn || !nextBtn) return;
+
+    if (filteredCount === 0) {
+        wrap.style.display = "none";
+        return;
+    }
+    wrap.style.display = "flex";
+
+    const totalPages = Math.max(1, Math.ceil(filteredCount / projectPageSize));
+    const startIndex = (projectCurrentPage - 1) * projectPageSize;
+    const endIndex = Math.min(filteredCount, startIndex + projectPageSize);
+
+    summary.textContent = `Showing ${startIndex + 1} to ${endIndex} of ${filteredCount} projects`;
+
+    prevBtn.disabled = projectCurrentPage <= 1;
+    nextBtn.disabled = projectCurrentPage >= totalPages;
+
+    pageNumbers.innerHTML = "";
+    for (let page = 1; page <= totalPages; page++) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `project-page-number ${page === projectCurrentPage ? "active" : ""}`;
+        btn.textContent = String(page);
+        btn.addEventListener("click", () => {
+            projectCurrentPage = page;
+            refreshProjectsView();
+        });
+        pageNumbers.appendChild(btn);
+    }
+}
+
+/* ===========================
+   VIEW TOGGLE (Card / List) — same pattern as venders.html's
+   companyViewToggle: the grid/list classes just reflow the same markup.
+=========================== */
+
+function initProjectViewToggle() {
     const grid = document.getElementById("projectsGrid");
-    const noResultsState = document.getElementById("projectNoResultsState");
-    if (!searchInput || !grid) return;
+    const toggle = document.getElementById("projectViewToggle");
+    const cardBtn = document.getElementById("projectCardViewBtn");
+    const listBtn = document.getElementById("projectListViewBtn");
+    if (!grid || !toggle || !cardBtn || !listBtn) return;
 
-    const query = searchInput.value.trim().toLowerCase();
-    const cards = Array.from(grid.children);
-    let visibleCount = 0;
+    function setView(view) {
+        const isList = view === "list";
+        grid.classList.toggle("workbook-grid--list", isList);
+        toggle.classList.toggle("view-toggle--list", isList);
+        cardBtn.classList.toggle("active", !isList);
+        listBtn.classList.toggle("active", isList);
+        cardBtn.setAttribute("aria-pressed", String(!isList));
+        listBtn.setAttribute("aria-pressed", String(isList));
+    }
 
-    cards.forEach(card => {
-        const matches = !query || card.textContent.toLowerCase().includes(query);
-        card.style.display = matches ? "" : "none";
-        if (matches) visibleCount++;
+    cardBtn.addEventListener("click", () => setView("card"));
+    listBtn.addEventListener("click", () => setView("list"));
+}
+
+/* ===========================
+   TABS
+=========================== */
+
+function initProjectTabs() {
+    const tabsWrap = document.getElementById("projectTabs");
+    if (!tabsWrap) return;
+
+    tabsWrap.querySelectorAll(".dash-tab").forEach(btn => {
+        btn.addEventListener("click", () => {
+            tabsWrap.querySelectorAll(".dash-tab").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            projectActiveTab = btn.dataset.status;
+            projectCurrentPage = 1;
+            refreshProjectsView();
+        });
     });
+}
 
-    if (noResultsState) {
-        noResultsState.style.display = (cards.length > 0 && query && visibleCount === 0) ? "block" : "none";
+/* ===========================
+   QUICK STATUS/TRACKING EDIT (separate from the 10-step wizard —
+   status, PM, value, progress, and due date get updated far more often
+   than the onboarding fields, so they shouldn't require the full wizard.)
+=========================== */
+
+function openProjectQuickEdit(project) {
+    projectQuickEditId = project.id;
+
+    document.getElementById("projectQuickEditName").textContent = project.name || "Untitled project";
+    document.getElementById("projectQuickEditStatus").value = project.status || "onboarding";
+    document.getElementById("projectQuickEditPm").value = project.project_manager_name || "";
+    document.getElementById("projectQuickEditValue").value = project.contract_value ?? "";
+    document.getElementById("projectQuickEditProgress").value = project.progress_percent ?? 0;
+    document.getElementById("projectQuickEditDueDate").value = project.due_date || "";
+
+    const messageEl = document.getElementById("projectQuickEditMessage");
+    if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
+
+    document.getElementById("projectQuickEditOverlay").classList.remove("hidden");
+    document.body.classList.add("popup-active");
+}
+
+function closeProjectQuickEdit() {
+    document.getElementById("projectQuickEditOverlay").classList.add("hidden");
+    projectQuickEditId = null;
+    if (!anyProjectOverlayOpen()) document.body.classList.remove("popup-active");
+}
+
+async function saveProjectQuickEdit() {
+    if (!projectQuickEditId) return;
+
+    const saveBtn = document.getElementById("projectQuickEditSaveBtn");
+    const messageEl = document.getElementById("projectQuickEditMessage");
+    if (saveBtn) saveBtn.disabled = true;
+    if (messageEl) { messageEl.textContent = "Saving…"; messageEl.className = "auth-message"; }
+
+    const staff = currentStaffInfo();
+    const progressRaw = Number(document.getElementById("projectQuickEditProgress").value);
+    const valueRaw = document.getElementById("projectQuickEditValue").value;
+
+    const payload = {
+        status: document.getElementById("projectQuickEditStatus").value,
+        project_manager_name: document.getElementById("projectQuickEditPm").value.trim() || null,
+        contract_value: valueRaw === "" ? null : Number(valueRaw),
+        progress_percent: Number.isNaN(progressRaw) ? 0 : Math.max(0, Math.min(100, progressRaw)),
+        due_date: document.getElementById("projectQuickEditDueDate").value || null,
+        updated_by_id: staff.id,
+        updated_by_name: staff.name
+    };
+
+    try {
+        const { error } = await window.supabaseClient
+            .from(PROJECTS_TABLE)
+            .update(payload)
+            .eq("id", projectQuickEditId);
+
+        if (error) throw error;
+
+        closeProjectQuickEdit();
+        setProjectPageMessage("Project updated.", "success");
+        await loadProjects();
+
+    } catch (error) {
+        console.error("Failed to save project tracking info:", error);
+        if (messageEl) { messageEl.textContent = "Something went wrong saving this. Please try again."; messageEl.className = "auth-message error"; }
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
     }
 }
 
 /* ===========================
    WIZARD — FIELD RENDERING
 =========================== */
+
+// `value || ""` treats a legitimate 0 (progress %, etc.) as blank — this is
+// the null-safe version used everywhere a field's current value is echoed
+// back into an input/textarea.
+function fieldDisplayValue(value) {
+    return (value === null || value === undefined) ? "" : value;
+}
 
 function wizardFieldHtml(field, state) {
     const value = state.values[field.name];
@@ -311,20 +687,27 @@ function wizardFieldHtml(field, state) {
         return `
             <label class="auth-field">
                 ${escapeHtmlProject(field.label)}
-                <textarea name="${field.name}" placeholder="${escapeHtmlProject(field.placeholder || "")}" autocomplete="off" data-lpignore="true" data-1p-ignore autocorrect="off" spellcheck="false">${escapeHtmlProject(value || "")}</textarea>
+                <textarea name="${field.name}" placeholder="${escapeHtmlProject(field.placeholder || "")}" autocomplete="off" data-lpignore="true" data-1p-ignore autocorrect="off" spellcheck="false">${escapeHtmlProject(fieldDisplayValue(value))}</textarea>
             </label>
         `;
     }
 
     if (field.type === "select") {
-        const options = field.options.map(opt =>
-            `<option value="${escapeHtmlProject(opt)}" ${value === opt ? "selected" : ""}>${escapeHtmlProject(opt)}</option>`
-        ).join("");
+        // Options are either plain strings (existing site/permit-status
+        // fields) or {value,label} objects (e.g. project status, where the
+        // stored value is a snake_case key but the label is human-readable).
+        const options = field.options.map(opt => {
+            const optValue = typeof opt === "object" ? opt.value : opt;
+            const optLabel = typeof opt === "object" ? opt.label : opt;
+            return `<option value="${escapeHtmlProject(optValue)}" ${value === optValue ? "selected" : ""}>${escapeHtmlProject(optLabel)}</option>`;
+        }).join("");
+        // noBlankOption: fields backed by a NOT NULL column (like status)
+        // can't be allowed to submit as "" — there's always a real value.
         return `
             <label class="auth-field">
                 ${escapeHtmlProject(field.label)}
                 <select name="${field.name}" autocomplete="off">
-                    <option value="" ${!value ? "selected" : ""}>—</option>
+                    ${field.noBlankOption ? "" : `<option value="" ${!value ? "selected" : ""}>—</option>`}
                     ${options}
                 </select>
             </label>
@@ -338,8 +721,16 @@ function wizardFieldHtml(field, state) {
         if (pendingFile) {
             note = `<p class="wizard-file-existing-note">Selected: ${escapeHtmlProject(pendingFile.name)} (will upload on save)</p>`;
         } else if (existingPath) {
-            const fileName = existingPath.split("/").pop();
-            note = `<p class="wizard-file-existing-note">On file: ${escapeHtmlProject(fileName)} — <a href="#" class="wizard-view-file-link" data-path="${escapeHtmlProject(existingPath)}">view</a>. Choosing a new file replaces it.</p>`;
+            // Public-bucket files (cover photo) store the full URL already —
+            // link straight to it. Private-bucket files (site/permit plans)
+            // store just a storage path and need a signed URL on click.
+            if (field.publicBucket) {
+                const fileName = existingPath.split("/").pop();
+                note = `<p class="wizard-file-existing-note">On file: <a href="${escapeHtmlProject(existingPath)}" target="_blank" rel="noopener">${escapeHtmlProject(fileName)}</a>. Choosing a new file replaces it.</p>`;
+            } else {
+                const fileName = existingPath.split("/").pop();
+                note = `<p class="wizard-file-existing-note">On file: ${escapeHtmlProject(fileName)} — <a href="#" class="wizard-view-file-link" data-path="${escapeHtmlProject(existingPath)}">view</a>. Choosing a new file replaces it.</p>`;
+            }
         }
         return `
             <label class="auth-field">
@@ -350,8 +741,8 @@ function wizardFieldHtml(field, state) {
         `;
     }
 
-    // text / tel / email — autocomplete="off" plus a couple of extra
-    // attributes Safari/iOS respects better than autocomplete alone
+    // text / tel / email / number / date — autocomplete="off" plus a couple
+    // of extra attributes Safari/iOS respects better than autocomplete alone
     // (data-lpignore/data-1p-ignore also happen to quiet 1Password/LastPass).
     const extraAttrs = [
         field.maxlength ? `maxlength="${field.maxlength}"` : "",
@@ -364,7 +755,7 @@ function wizardFieldHtml(field, state) {
         return `
             <label class="auth-field address-autocomplete-field">
                 ${escapeHtmlProject(field.label)}
-                <input type="text" name="${field.name}" value="${escapeHtmlProject(value || "")}" placeholder="${escapeHtmlProject(field.placeholder || "")}" ${noAutofillAttrs} ${extraAttrs}>
+                <input type="text" name="${field.name}" value="${escapeHtmlProject(fieldDisplayValue(value))}" placeholder="${escapeHtmlProject(field.placeholder || "")}" ${noAutofillAttrs} ${extraAttrs}>
                 <div class="address-suggestions hidden" id="addressSuggestions-${field.name}"></div>
             </label>
         `;
@@ -373,7 +764,7 @@ function wizardFieldHtml(field, state) {
     return `
         <label class="auth-field">
             ${escapeHtmlProject(field.label)}
-            <input type="${field.type}" name="${field.name}" value="${escapeHtmlProject(value || "")}" placeholder="${escapeHtmlProject(field.placeholder || "")}" ${noAutofillAttrs} ${extraAttrs}>
+            <input type="${field.type}" name="${field.name}" value="${escapeHtmlProject(fieldDisplayValue(value))}" placeholder="${escapeHtmlProject(field.placeholder || "")}" ${noAutofillAttrs} ${extraAttrs}>
         </label>
     `;
 }
@@ -461,7 +852,12 @@ function openProjectWizard(project) {
             if (field.type === "file") {
                 values[field.pathField] = project ? project[field.pathField] ?? null : null;
             } else {
-                values[field.name] = project ? project[field.name] ?? null : null;
+                // New projects (project === null) start from the field's
+                // declared default instead of always null — matters for
+                // NOT NULL columns like status/progress_percent, which would
+                // otherwise get submitted as null if this step is skipped.
+                const fallback = field.default !== undefined ? field.default : null;
+                values[field.name] = project ? project[field.name] ?? fallback : fallback;
             }
         });
     });
@@ -529,23 +925,42 @@ async function finishProjectWizard() {
    WIZARD — SAVE (insert/update + file uploads)
 =========================== */
 
-async function uploadProjectFile(projectId, file, existingPath) {
+// Public-bucket files (cover photo) store a full public URL in the column
+// instead of a bare storage path — pull the path back out of that URL so
+// the old file can still be cleaned up when it's replaced.
+function storagePathFromPublicUrl(url, bucket) {
+    if (!url) return null;
+    const marker = `/${bucket}/`;
+    const idx = url.indexOf(marker);
+    return idx === -1 ? null : url.slice(idx + marker.length);
+}
+
+async function uploadProjectFile(projectId, file, existingValue, options = {}) {
+    const bucket = options.bucket || PROJECT_DOCS_BUCKET;
+    const isPublic = !!options.publicBucket;
+
     const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, "_");
     const path = `${projectId}/${Date.now()}-${safeName}`;
 
     const { error: uploadError } = await window.supabaseClient
         .storage
-        .from(PROJECT_DOCS_BUCKET)
+        .from(bucket)
         .upload(path, file, { upsert: false });
 
     if (uploadError) throw uploadError;
 
-    if (existingPath) {
+    const oldPath = isPublic ? storagePathFromPublicUrl(existingValue, bucket) : existingValue;
+    if (oldPath) {
         window.supabaseClient
             .storage
-            .from(PROJECT_DOCS_BUCKET)
-            .remove([existingPath])
+            .from(bucket)
+            .remove([oldPath])
             .catch(err => console.warn("Couldn't remove old project file:", err));
+    }
+
+    if (isPublic) {
+        const { data } = window.supabaseClient.storage.from(bucket).getPublicUrl(path);
+        return data.publicUrl;
     }
 
     return path;
@@ -612,9 +1027,12 @@ async function saveProjectFromWizard(successMessage) {
                 if (field.type !== "file") continue;
                 const file = state.pendingFiles[field.name];
                 if (!file) continue;
-                const newPath = await uploadProjectFile(savedId, file, state.values[field.pathField]);
-                fileUpdates[field.pathField] = newPath;
-                state.values[field.pathField] = newPath;
+                const newValue = await uploadProjectFile(savedId, file, state.values[field.pathField], {
+                    bucket: field.bucket,
+                    publicBucket: field.publicBucket
+                });
+                fileUpdates[field.pathField] = newValue;
+                state.values[field.pathField] = newValue;
             }
         }
 
@@ -661,11 +1079,19 @@ async function confirmDeleteProject() {
 
     try {
         const projectId = projectWizardState.id;
-        const filesToRemove = WIZARD_STEPS
-            .flatMap(step => step.fields)
-            .filter(f => f.type === "file")
-            .map(f => projectWizardState.values[f.pathField])
-            .filter(Boolean);
+
+        // Group file cleanup by bucket — private docs (project-documents)
+        // store a bare path, the public cover photo (project-covers) stores
+        // a full URL that needs the path pulled back out of it.
+        const filesByBucket = {};
+        WIZARD_STEPS.flatMap(step => step.fields).filter(f => f.type === "file").forEach(field => {
+            const rawValue = projectWizardState.values[field.pathField];
+            if (!rawValue) return;
+            const bucket = field.bucket || PROJECT_DOCS_BUCKET;
+            const path = field.publicBucket ? storagePathFromPublicUrl(rawValue, bucket) : rawValue;
+            if (!path) return;
+            (filesByBucket[bucket] = filesByBucket[bucket] || []).push(path);
+        });
 
         const { error } = await window.supabaseClient
             .from(PROJECTS_TABLE)
@@ -674,10 +1100,10 @@ async function confirmDeleteProject() {
 
         if (error) throw error;
 
-        if (filesToRemove.length) {
-            window.supabaseClient.storage.from(PROJECT_DOCS_BUCKET).remove(filesToRemove)
-                .catch(err => console.warn("Couldn't remove project files:", err));
-        }
+        Object.entries(filesByBucket).forEach(([bucket, paths]) => {
+            window.supabaseClient.storage.from(bucket).remove(paths)
+                .catch(err => console.warn(`Couldn't remove project files from ${bucket}:`, err));
+        });
 
         closeDeleteProjectConfirm();
         closeProjectWizard();
@@ -703,7 +1129,44 @@ document.addEventListener("DOMContentLoaded", () => {
     if (addBtn) addBtn.addEventListener("click", () => openProjectWizard(null));
 
     const searchInput = document.getElementById("projectSearchInput");
-    if (searchInput) searchInput.addEventListener("input", applyProjectSearchFilter);
+    if (searchInput) searchInput.addEventListener("input", () => {
+        projectCurrentPage = 1;
+        refreshProjectsView();
+    });
+
+    initProjectViewToggle();
+    initProjectTabs();
+
+    const prevPageBtn = document.getElementById("projectPrevPageBtn");
+    if (prevPageBtn) prevPageBtn.addEventListener("click", () => {
+        if (projectCurrentPage > 1) { projectCurrentPage--; refreshProjectsView(); }
+    });
+
+    const nextPageBtn = document.getElementById("projectNextPageBtn");
+    if (nextPageBtn) nextPageBtn.addEventListener("click", () => {
+        projectCurrentPage++;
+        refreshProjectsView();
+    });
+
+    const pageSizeSelect = document.getElementById("projectPageSizeSelect");
+    if (pageSizeSelect) pageSizeSelect.addEventListener("change", () => {
+        projectPageSize = Number(pageSizeSelect.value) || 6;
+        projectCurrentPage = 1;
+        refreshProjectsView();
+    });
+
+    const quickEditCancelBtn = document.getElementById("projectQuickEditCancelBtn");
+    if (quickEditCancelBtn) quickEditCancelBtn.addEventListener("click", closeProjectQuickEdit);
+
+    const quickEditSaveBtn = document.getElementById("projectQuickEditSaveBtn");
+    if (quickEditSaveBtn) quickEditSaveBtn.addEventListener("click", saveProjectQuickEdit);
+
+    const quickEditOverlay = document.getElementById("projectQuickEditOverlay");
+    if (quickEditOverlay) {
+        quickEditOverlay.addEventListener("click", (event) => {
+            if (event.target === quickEditOverlay) closeProjectQuickEdit();
+        });
+    }
 
     const cancelBtn = document.getElementById("projectWizardCancelBtn");
     if (cancelBtn) cancelBtn.addEventListener("click", closeProjectWizard);

@@ -8,7 +8,6 @@
     <title>Leeward Staff Portal | To-Do</title>
 
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="dashboard-cards.css">
     <link rel="icon" type="image/png" href="logos/leewaed-logo.png">
 </head>
 
@@ -66,10 +65,6 @@
             <span class="home-nav-icon"></span>
             <span class="nav-text">Dashboard</span>
         </a>
-        <a href="project-home.html" class="nav-item">
-            <span class="projects-nav-icon"></span>
-            <span class="nav-text">Project Overview</span>
-        </a>
         <div class="nav-item-group" id="companyDocsNavGroup">
             <a href="#" class="nav-item nav-parent" onclick="toggleSubnav(event, this)">
                 <span class="docs-nav-icon"></span>
@@ -84,6 +79,10 @@
         <a href="time sheet.html" class="nav-item">
             <span class="finance-nav-icon"></span>
             <span class="nav-text">Staff Finance</span>
+        </a>
+        <a href="project-home.html" class="nav-item">
+            <span class="projects-nav-icon"></span>
+            <span class="nav-text">Project Overview</span>
         </a>
         <a href="https://www.theleewardgroup.us/" class="nav-item" target="_blank">
             <span class="website-nav-icon"></span>
@@ -136,31 +135,38 @@
         </div>
     </section>
 
-    <div class="card">
-        <div class="card-header">
-            <div>
-                <h2 class="card-title">My Tasks</h2>
-                <p class="card-subtitle" id="myTasksCountSubtitle"></p>
+    <div class="staff-todo-stack">
+
+        <div class="card staff-todo-mytasks-card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">My Task</h2>
+                    <p class="card-subtitle" id="myTasksCountSubtitle"></p>
+                </div>
+            </div>
+
+            <div id="myTasksList" class="mytask-list"></div>
+            <div class="todo-item-row todo-item-add-row">
+                <span class="todo-item-add-icon">+</span>
+                <input type="text" id="newTaskInlineInput" class="todo-item-add-input" placeholder="New task" maxlength="120">
+                <input type="date" id="newTaskDueDateInput" class="todo-item-add-date" aria-label="Due date">
             </div>
         </div>
 
-        <div id="myTasksList" class="mytask-list"></div>
-        <div class="todo-item-row todo-item-add-row">
-            <span class="todo-item-add-icon">+</span>
-            <input type="text" id="newTaskInlineInput" class="todo-item-add-input" placeholder="New task" maxlength="120">
-            <input type="date" id="newTaskDueDateInput" class="todo-item-add-date" aria-label="Due date">
-        </div>
-    </div>
-
-    <div class="card">
-        <div class="card-header">
-            <div>
-                <h2 class="card-title">Project To-Do</h2>
-                <p class="card-subtitle" id="projectTodoCountSubtitle"></p>
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title">Project To-Do</h2>
+                    <p class="card-subtitle" id="projectTodoCountSubtitle"></p>
+                </div>
             </div>
+
+            <!-- Grouped by project — see loadProjectTodo() in staff-todo.js:
+                 project name as a heading (.project-todo-group__name), that
+                 project's open items listed under it, repeated per project. -->
+            <div id="projectTodoList"></div>
         </div>
 
-        <div id="projectTodoList" class="info-list"></div>
     </div>
 
 </main>
@@ -174,6 +180,13 @@
 <script src="timeout.js"></script>
 <script src="notifications.js"></script>
 <script src="nav-access.js"></script>
+
+<!-- Company Updates card (Company-wide To-Do) — dashboard.js defines
+     window.DashboardShared that update.js depends on; same load order as
+     project-home.html. -->
+<script src="dashboard scripts/dashboard.js"></script>
+<script src="dashboard scripts/update.js"></script>
+
 <script src="staff-todo.js"></script>
 
 <script>

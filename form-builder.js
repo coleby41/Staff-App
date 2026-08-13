@@ -1116,12 +1116,12 @@ async function renderFillPdfPages(record) {
         await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
 
         (fieldsByPage[pageIndex] || []).forEach(field => {
-            overlay.appendChild(buildFillPdfFieldInput(field));
+            overlay.appendChild(buildFillPdfFieldInput(field, viewport));
         });
     }
 }
 
-function buildFillPdfFieldInput(field) {
+function buildFillPdfFieldInput(field, viewport) {
     const wrap = document.createElement("div");
     wrap.className = "pdf-fill-field";
     wrap.style.left = `${field.x * 100}%`;
@@ -1129,6 +1129,13 @@ function buildFillPdfFieldInput(field) {
     wrap.style.width = `${field.width * 100}%`;
     wrap.style.height = `${field.height * 100}%`;
     if (field.label) wrap.title = field.label;
+
+    // Pixel box size (from the fraction stored on the field + this page's
+    // rendered viewport) — used to size the auto-fit textareas below.
+    // Percentage-based CSS sizing alone isn't enough for that since it
+    // requires a layout pass to resolve; this is known immediately.
+    const boxWidthPx = field.width * viewport.width;
+    const boxHeightPx = field.height * viewport.height;
 
     let inputEl;
     if (field.type === "checkbox") {
@@ -1149,14 +1156,18 @@ function buildFillPdfFieldInput(field) {
         inputEl.type = "number";
         inputEl.className = "pdf-fill-input";
     } else if (field.type === "signature") {
-        inputEl = document.createElement("input");
-        inputEl.type = "text";
+        // Textarea (not input) so long typed answers can wrap instead of
+        // scrolling out of view — auto-fit shrinks the font to match.
+        inputEl = document.createElement("textarea");
+        inputEl.rows = 1;
         inputEl.placeholder = "Type your name";
         inputEl.className = "pdf-fill-input pdf-fill-input--signature";
+        wireAutoFitTextarea(inputEl, boxWidthPx, boxHeightPx, AUTO_FIT_SIGNATURE_FONT_FAMILY);
     } else {
-        inputEl = document.createElement("input");
-        inputEl.type = "text";
+        inputEl = document.createElement("textarea");
+        inputEl.rows = 1;
         inputEl.className = "pdf-fill-input";
+        wireAutoFitTextarea(inputEl, boxWidthPx, boxHeightPx, AUTO_FIT_TEXT_FONT_FAMILY);
     }
 
     inputEl.dataset.fieldId = field.id;
@@ -1263,6 +1274,129 @@ function buildSubmissionPdfDocDefinition(record, answers, submittedByName) {
     };
 }
 
+/* ===========================================================
+   TEXT AUTO-FIT — shared by the live fill-out textareas (below) and the
+   final generated PDF (buildPdfSubmissionBlob). Same greedy-wrap-then-
+   shrink algorithm in both places; only how text width gets *measured*
+   differs (canvas 2D for the live DOM view, pdf-lib's font metrics for
+   the PDF), since a passed-in measureFn is all wrapTextGreedy needs.
+=========================================================== */
+
+// Greedy word-wrap: packs words onto a line until the next word would
+// push it past maxWidth, then starts a new line. A single word wider than
+// maxWidth on its own (long email, URL, etc.) gets hard-broken character
+// by character so it still wraps instead of overflowing sideways.
+function wrapTextGreedy(text, maxWidth, measureFn, fontSize) {
+    const words = String(text).split(/\s+/).filter(Boolean);
+    if (!words.length) return [""];
+
+    const lines = [];
+    let current = "";
+
+    const breakLongWord = (word) => {
+        let chunk = "";
+        for (const char of word) {
+            const test = chunk + char;
+            if (chunk && measureFn(test, fontSize) > maxWidth) {
+                lines.push(chunk);
+                chunk = char;
+            } else {
+                chunk = test;
+            }
+        }
+        current = chunk;
+    };
+
+    words.forEach(word => {
+        const test = current ? `${current} ${word}` : word;
+        if (measureFn(test, fontSize) <= maxWidth) {
+            current = test;
+            return;
+        }
+        if (current) { lines.push(current); current = ""; }
+        if (measureFn(word, fontSize) <= maxWidth) {
+            current = word;
+        } else {
+            breakLongWord(word);
+        }
+    });
+
+    if (current) lines.push(current);
+    return lines.length ? lines : [""];
+}
+
+// Shrinks fontSize from maxFontSize down to minFontSize (half-point steps)
+// looking for the largest size whose wrapped lines fit within maxHeight.
+// If even minFontSize doesn't fit everything, truncates to however many
+// lines DO fit and ellipsizes the last one — so an answer that's just too
+// long for its box gets cut off cleanly instead of spilling out of it.
+function computeAutoFitText({ text, maxWidth, maxHeight, maxFontSize, minFontSize, lineHeightRatio, measureFn }) {
+    const safeMaxWidth = Math.max(maxWidth, 4);
+    const safeMaxHeight = Math.max(maxHeight, lineHeightRatio * minFontSize);
+
+    for (let size = maxFontSize; size >= minFontSize; size -= 0.5) {
+        const lines = wrapTextGreedy(text, safeMaxWidth, measureFn, size);
+        if (lines.length * size * lineHeightRatio <= safeMaxHeight) {
+            return { fontSize: size, lines, truncated: false };
+        }
+    }
+
+    const size = minFontSize;
+    const lines = wrapTextGreedy(text, safeMaxWidth, measureFn, size);
+    const maxLines = Math.max(1, Math.floor(safeMaxHeight / (size * lineHeightRatio)));
+
+    if (lines.length <= maxLines) {
+        return { fontSize: size, lines, truncated: false };
+    }
+
+    const kept = lines.slice(0, maxLines);
+    let last = kept[maxLines - 1];
+    while (last.length > 1 && measureFn(`${last}…`, size) > safeMaxWidth) {
+        last = last.slice(0, -1);
+    }
+    kept[maxLines - 1] = `${last.replace(/\s+$/, "")}…`;
+
+    return { fontSize: size, lines: kept, truncated: true };
+}
+
+// Offscreen canvas reused for every live-preview measurement — cheaper
+// than creating one per field/keystroke.
+const autoFitMeasureCtx = document.createElement("canvas").getContext("2d");
+const AUTO_FIT_TEXT_FONT_FAMILY = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+const AUTO_FIT_SIGNATURE_FONT_FAMILY = '"Brush Script MT", cursive';
+
+function measureDomTextWidth(text, fontSizePx, fontFamily) {
+    autoFitMeasureCtx.font = `${fontSizePx}px ${fontFamily}`;
+    return autoFitMeasureCtx.measureText(text).width;
+}
+
+// Wires a textarea so its font-size shrinks (and wraps) live as the person
+// types, matching the same fit logic used when the final PDF is generated.
+function wireAutoFitTextarea(textarea, boxWidthPx, boxHeightPx, fontFamily) {
+    const padding = 4;
+    const lineHeightRatio = 1.2;
+    const maxFontSize = Math.max(9, Math.min(boxHeightPx * 0.55, 15));
+    const minFontSize = 8;
+
+    const recompute = () => {
+        const text = textarea.value || textarea.placeholder || " ";
+        const { fontSize } = computeAutoFitText({
+            text,
+            maxWidth: Math.max(boxWidthPx - padding * 2, 6),
+            maxHeight: Math.max(boxHeightPx - padding, lineHeightRatio * minFontSize),
+            maxFontSize,
+            minFontSize,
+            lineHeightRatio,
+            measureFn: (str, size) => measureDomTextWidth(str, size, fontFamily)
+        });
+        textarea.style.fontSize = `${fontSize}px`;
+        textarea.style.lineHeight = String(lineHeightRatio);
+    };
+
+    textarea.addEventListener("input", recompute);
+    recompute();
+}
+
 // Draws the submitted answers directly onto the source PDF's pages (at each
 // field's stored page/x/y/width/height) and flattens to a new PDF — so the
 // output looks like the real form, filled in, instead of a freshly
@@ -1310,15 +1444,33 @@ async function buildPdfSubmissionBlob(record, answers) {
         if (!text) return;
 
         const font = field.type === "signature" ? helveticaOblique : helvetica;
-        const fontSize = Math.max(8, Math.min(boxHeight * 0.65, 12));
+        const padding = 2;
+        const lineHeightRatio = 1.15;
+        const minFontSize = 5;
+        const maxFontSize = Math.max(minFontSize, Math.min(boxHeight * 0.6, 12));
 
-        page.drawText(text, {
-            x: boxX + 2,
-            y: boxTopY - boxHeight * 0.75,
-            size: fontSize,
-            font,
-            color: PDFLib.rgb(0.05, 0.05, 0.45),
-            maxWidth: Math.max(boxWidth - 4, 10)
+        // Auto-fit: shrinks (and wraps if needed) so the answer stays
+        // inside the drawn box instead of overflowing it.
+        const { fontSize, lines } = computeAutoFitText({
+            text,
+            maxWidth: Math.max(boxWidth - padding * 2, 6),
+            maxHeight: Math.max(boxHeight - padding, lineHeightRatio * minFontSize),
+            maxFontSize,
+            minFontSize,
+            lineHeightRatio,
+            measureFn: (str, size) => font.widthOfTextAtSize(str, size)
+        });
+
+        let lineY = boxTopY - padding - fontSize;
+        lines.forEach(line => {
+            page.drawText(line, {
+                x: boxX + padding,
+                y: lineY,
+                size: fontSize,
+                font,
+                color: PDFLib.rgb(0.05, 0.05, 0.45)
+            });
+            lineY -= fontSize * lineHeightRatio;
         });
     });
 

@@ -162,17 +162,6 @@
 
         </a>
 
-        <a href="project-home.html" class="nav-item active">
-
-            <span class="projects-nav-icon"></span>
-
-            <span class="nav-text">
-                Project Overview
-            </span>
-
-        </a>
-
-
         <div class="nav-item-group" id="companyDocsNavGroup">
 
 
@@ -244,7 +233,15 @@
 
         </a>
 
+        <a href="project-home.html" class="nav-item active">
 
+            <span class="projects-nav-icon"></span>
+
+            <span class="nav-text">
+                Project Overview
+            </span>
+
+        </a>
 
 
 
@@ -436,6 +433,51 @@
         </div>
     </section>
 
+    <div class="project-stats-bar" id="projectStatsBar">
+
+        <div class="project-stat-tile project-stat-tile--accent">
+            <span class="project-stat-icon project-stat-icon--accent project-stat-icon--briefcase"></span>
+            <div>
+                <p class="project-stat-value" id="projectStatTotal">0</p>
+                <p class="project-stat-label">Total Projects</p>
+            </div>
+        </div>
+
+        <div class="project-stat-tile project-stat-tile--success">
+            <span class="project-stat-icon project-stat-icon--success project-stat-icon--check"></span>
+            <div>
+                <p class="project-stat-value" id="projectStatActive">0</p>
+                <p class="project-stat-label">Active</p>
+            </div>
+        </div>
+
+        <div class="project-stat-tile project-stat-tile--info">
+            <span class="project-stat-icon project-stat-icon--info project-stat-icon--people"></span>
+            <div>
+                <p class="project-stat-value" id="projectStatOnboarding">0</p>
+                <p class="project-stat-label">Onboarding</p>
+            </div>
+        </div>
+
+
+        <div class="project-stat-tile project-stat-tile--completed">
+            <span class="project-stat-icon project-stat-icon--completed project-stat-icon--flag"></span>
+            <div>
+                <p class="project-stat-value" id="projectStatCompleted">0</p>
+                <p class="project-stat-label">Completed</p>
+            </div>
+        </div>
+
+        <div class="project-stat-tile project-stat-tile--success">
+            <span class="project-stat-icon project-stat-icon--success project-stat-icon--dollar"></span>
+            <div>
+                <p class="project-stat-value" id="projectStatValue">$0</p>
+                <p class="project-stat-label">Total Project Value</p>
+            </div>
+        </div>
+
+    </div>
+
     <div class="workbook-toolbar">
 
         <input
@@ -449,6 +491,26 @@
             + New Project Onboard
         </button>
 
+        <div class="view-toggle" id="projectViewToggle" role="group" aria-label="Toggle view">
+            <span class="view-toggle-indicator" id="projectViewToggleIndicator"></span>
+            <button type="button" class="view-toggle-btn active" id="projectCardViewBtn" data-view="card" aria-label="Card view" aria-pressed="true">
+                <span class="view-toggle-icon view-toggle-icon--grid"></span>
+            </button>
+            <button type="button" class="view-toggle-btn" id="projectListViewBtn" data-view="list" aria-label="List view" aria-pressed="false">
+                <span class="view-toggle-icon view-toggle-icon--list"></span>
+            </button>
+        </div>
+
+    </div>
+
+    <div class="dash-tabs project-tabs" id="projectTabs">
+        <button type="button" class="dash-tab active" data-status="all">All Projects <span class="project-tab-count" id="projectTabCountAll">0</span></button>
+        <button type="button" class="dash-tab" data-status="active">Active <span class="project-tab-count" id="projectTabCountActive">0</span></button>
+        <button type="button" class="dash-tab" data-status="onboarding">Onboarding <span class="project-tab-count" id="projectTabCountOnboarding">0</span></button>
+        <button type="button" class="dash-tab" data-status="at_risk">At Risk <span class="project-tab-count" id="projectTabCountAtRisk">0</span></button>
+        <button type="button" class="dash-tab" data-status="on_hold">On Hold <span class="project-tab-count" id="projectTabCountOnHold">0</span></button>
+        <button type="button" class="dash-tab" data-status="completed">Completed <span class="project-tab-count" id="projectTabCountCompleted">0</span></button>
+        <button type="button" class="dash-tab" data-status="archived">Archived <span class="project-tab-count" id="projectTabCountArchived">0</span></button>
     </div>
 
     <div id="projectMessage" class="workbook-page-message" style="display:none;"></div>
@@ -467,7 +529,75 @@
 
     <div class="workbook-grid" id="projectsGrid"></div>
 
+    <div class="project-pagination" id="projectPagination" style="display:none;">
+        <p class="project-pagination-summary" id="projectPaginationSummary"></p>
+        <div class="project-pagination-controls">
+            <button type="button" class="project-page-btn" id="projectPrevPageBtn" aria-label="Previous page">&lsaquo;</button>
+            <div class="project-page-numbers" id="projectPageNumbers"></div>
+            <button type="button" class="project-page-btn" id="projectNextPageBtn" aria-label="Next page">&rsaquo;</button>
+        </div>
+        <select class="project-page-size-select" id="projectPageSizeSelect">
+            <option value="6">6 per page</option>
+            <option value="12">12 per page</option>
+            <option value="24">24 per page</option>
+        </select>
+    </div>
+
 </main>
+
+<!-- Quick status/tracking edit — separate from the 10-step onboarding
+     wizard on purpose: status, PM, value, progress, and due date are things
+     a PM updates often and shouldn't have to click through the whole
+     wizard for. Opened from the status badge on a card/row. -->
+<div class="popup-overlay hidden" id="projectQuickEditOverlay">
+    <div class="popup">
+        <h2>Update project tracking</h2>
+        <p class="auth-inline-copy" id="projectQuickEditName"></p>
+
+        <form class="auth-form" id="projectQuickEditForm" autocomplete="off">
+
+            <label class="auth-field">
+                Status
+                <select name="status" id="projectQuickEditStatus">
+                    <option value="active">Active</option>
+                    <option value="onboarding">Onboarding</option>
+                    <option value="at_risk">At Risk</option>
+                    <option value="on_hold">On Hold</option>
+                    <option value="completed">Completed</option>
+                    <option value="archived">Archived</option>
+                </select>
+            </label>
+
+            <label class="auth-field">
+                Project manager
+                <input type="text" name="project_manager_name" id="projectQuickEditPm" placeholder="e.g. John Smith" autocomplete="off">
+            </label>
+
+            <label class="auth-field">
+                Contract value ($)
+                <input type="number" name="contract_value" id="projectQuickEditValue" min="0" step="1000" placeholder="e.g. 4200000">
+            </label>
+
+            <label class="auth-field">
+                Progress (%)
+                <input type="number" name="progress_percent" id="projectQuickEditProgress" min="0" max="100" step="1" placeholder="0–100">
+            </label>
+
+            <label class="auth-field">
+                Due date
+                <input type="date" name="due_date" id="projectQuickEditDueDate">
+            </label>
+
+            <p class="auth-message" id="projectQuickEditMessage"></p>
+
+        </form>
+
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="projectQuickEditCancelBtn">Cancel</button>
+            <button type="button" class="auth-button" id="projectQuickEditSaveBtn">Save</button>
+        </div>
+    </div>
+</div>
 
 
 <!-- New / Edit Project Wizard — 10 skippable sections, back/next, and a

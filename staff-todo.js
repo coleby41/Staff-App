@@ -231,31 +231,56 @@
 
         if (subtitleEl) subtitleEl.textContent = `${subitems.length} open item${subitems.length === 1 ? "" : "s"}`;
 
-        listEl.innerHTML = subitems.map(sub => {
-            const due = formatDueLabel(sub.due_date);
-            const tier = MY_TASKS_DUE_TIERS[due.cls];
-            const dueHtml = sub.due_date
-                ? (tier
-                    ? `<span class="mytask-due-pill mytask-due-pill--${tier}">${escapeHtmlStaffTodo(due.text)}</span>`
-                    : `<span class="mytask-due-plain">${escapeHtmlStaffTodo(due.text)}</span>`)
-                : "";
+        // Grouped by project — one heading per project, that project's open
+        // items listed underneath it, rather than a flat list with each row
+        // carrying its own small project label. subitems is already sorted
+        // due-date-first/created-at-second (the query above), and that
+        // order is preserved *within* each group; groups themselves are
+        // ordered by whichever project's most urgent item appears first in
+        // that sorted list.
+        const subitemsByProject = {};
+        const projectOrder = [];
+        subitems.forEach(sub => {
+            if (!subitemsByProject[sub.project_id]) {
+                subitemsByProject[sub.project_id] = [];
+                projectOrder.push(sub.project_id);
+            }
+            subitemsByProject[sub.project_id].push(sub);
+        });
 
-            return `
-            <div class="info-item project-todo-item">
-                <div class="project-todo-item__left">
-                    <button type="button" class="task-check" data-subitem-id="${sub.id}" aria-label="Mark complete"></button>
-                    <div>
-                        <span class="project-todo-item__project">${escapeHtmlStaffTodo(projectNameById[sub.project_id] || "Untitled project")}</span>
-                        <h3>${escapeHtmlStaffTodo(sub.label)}</h3>
-                        <p>${escapeHtmlStaffTodo(itemTitleById[sub.todo_item_id] || "")}</p>
+        listEl.innerHTML = projectOrder.map(projectId => {
+            const itemsHtml = subitemsByProject[projectId].map(sub => {
+                // The due date itself is now the link to that project's
+                // to-do list — replaces the separate "Open" button, so
+                // clicking it still gets you there, it just reads as the
+                // due date instead of a generic "Open" label. Same
+                // overdue/today/tomorrow color coding "My Tasks" uses.
+                const due = formatDueLabel(sub.due_date);
+                const tier = MY_TASKS_DUE_TIERS[due.cls];
+                const dueTierClass = tier ? ` project-todo-item__due--${tier}` : "";
+
+                return `
+                <div class="info-item project-todo-item">
+                    <div class="project-todo-item__left">
+                        <button type="button" class="task-check" data-subitem-id="${sub.id}" aria-label="Mark complete"></button>
+                        <div>
+                            <h3>${escapeHtmlStaffTodo(sub.label)}</h3>
+                            <p>${escapeHtmlStaffTodo(itemTitleById[sub.todo_item_id] || "")}</p>
+                        </div>
+                    </div>
+                    <div class="project-todo-item__right">
+                        <a class="workbook-btn workbook-btn--preview project-todo-item__due${dueTierClass}" href="project-to-do.html?id=${encodeURIComponent(sub.project_id)}">${escapeHtmlStaffTodo(due.text)}</a>
                     </div>
                 </div>
-                <div class="project-todo-item__right">
-                    ${dueHtml}
-                    <a class="workbook-btn workbook-btn--preview" href="project-to-do.html?id=${encodeURIComponent(sub.project_id)}">Open</a>
+            `;
+            }).join("");
+
+            return `
+                <div class="project-todo-group">
+                    <h3 class="project-todo-group__name">${escapeHtmlStaffTodo(projectNameById[projectId] || "Untitled project")}</h3>
+                    ${itemsHtml}
                 </div>
-            </div>
-        `;
+            `;
         }).join("");
 
         listEl.querySelectorAll(".task-check").forEach(btn => {

@@ -14,6 +14,10 @@
   --warning-soft: #fff3e5;
   --danger: #b24b4b;
   --danger-soft: #fdeceb;
+  --info: #2f6db0;
+  --info-soft: #e7f0fa;
+  --purple: #7c4fd1;
+  --purple-soft: #efe9fb;
   --shadow: 0 12px 30px rgba(10, 24, 36, 0.08);
   --radius-lg: 20px;
   --radius-md: 14px;
@@ -3760,9 +3764,21 @@ button { font: inherit; }
   accent-color: var(--accent);
 }
 
+/* Text/signature fields render as <textarea> now (not <input>) so long
+   answers can wrap instead of scrolling out of view — JS sets font-size
+   inline per keystroke to auto-fit the drawn box (wireAutoFitTextarea in
+   form-builder.js), these just reset the textarea-specific browser
+   defaults that would otherwise fight that. */
+textarea.pdf-fill-input {
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.2;
+}
+
 .pdf-fill-input--signature {
   font-family: "Brush Script MT", cursive;
-  font-size: 1.1rem;
 }
 
 @media (max-width: 640px) {
@@ -4163,22 +4179,39 @@ body.todo-panel-resizing .todo-panel-resize-handle::after {
   display: none;
 }
 
+/* Native <select> arrows are all over the place across browsers/OSes and
+   didn't match anything else in this restyled panel, so appearance: none
+   + a hand-drawn chevron here on. The chevron's stroke color is baked into
+   the SVG (data URIs can't read CSS custom properties) — #8a8f98 matches
+   --todo-text-soft above, so update both together if that ever changes. */
 .todo-subitem-assignee {
   flex: 0 0 auto;
   max-width: 130px;
-  padding: 5px 8px;
+  padding: 5px 22px 5px 8px;
   border-radius: 6px;
   border: 1px solid transparent;
-  background: none;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a8f98' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 11px 11px;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   font-size: 0.78rem;
   font-family: inherit;
   color: var(--todo-text-soft);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
 
 .todo-subitem-assignee:hover,
 .todo-subitem-assignee:focus {
   border-color: var(--todo-border);
-  background: white;
+  background-color: white;
   color: var(--todo-text);
   outline: none;
 }
@@ -4236,12 +4269,31 @@ body.todo-panel-resizing .todo-panel-resize-handle::after {
 .todo-add-subitem-row select {
   flex: 0 0 auto;
   width: 130px;
-  padding: 9px 8px;
+  padding: 9px 28px 9px 10px;
   border-radius: 8px;
   border: 1px solid var(--todo-border);
-  background: white;
+  background-color: white;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a8f98' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  background-size: 13px 13px;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   font-size: 0.82rem;
+  font-family: inherit;
   color: var(--todo-text);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: border-color 0.12s ease;
+}
+
+.todo-add-subitem-row select:hover,
+.todo-add-subitem-row select:focus {
+  outline: none;
+  border-color: var(--todo-accent);
 }
 
 @media (max-width: 640px) {
@@ -4272,20 +4324,26 @@ body.todo-panel-resizing .todo-panel-resize-handle::after {
   margin-top: 3px;
 }
 
-.project-todo-item__project {
-  display: block;
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--accent);
-  margin-bottom: 2px;
+/* Items are grouped under their project's name (see loadProjectTodo() in
+   staff-todo.js) rather than each row carrying its own small project
+   label — one heading per project, that project's open items underneath. */
+.project-todo-group {
+  margin-bottom: 22px;
 }
 
-/* Groups the due-date pill (set on project-to-do.html's side panel) above
-   the "Open" link so both count as a single flex item on the right —
-   otherwise .info-item's justify-content: space-between would spread three
-   children apart instead of keeping these two clustered together. */
+.project-todo-group:last-child {
+  margin-bottom: 0;
+}
+
+.project-todo-group__name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
 .project-todo-item__right {
   display: flex;
   flex-direction: column;
@@ -4293,6 +4351,16 @@ body.todo-panel-resizing .todo-panel-resize-handle::after {
   gap: 6px;
   flex-shrink: 0;
 }
+
+/* The due date itself is the link to that project's to-do list (see
+   loadProjectTodo() in staff-todo.js) — .workbook-btn--preview's default
+   accent color already reads fine for "due tomorrow"/no date, these two
+   just override it for the same overdue/today urgency coloring "My Tasks"
+   uses elsewhere on this page. */
+.project-todo-item__due--overdue { background: var(--danger-soft); color: var(--danger); }
+.project-todo-item__due--today { background: var(--warning-soft); color: var(--warning); }
+.project-todo-item__due--overdue:hover { background: var(--danger-soft); filter: brightness(0.96); }
+.project-todo-item__due--today:hover { background: var(--warning-soft); filter: brightness(0.96); }
 
 /* ===========================
    MY TASKS — card rows with a due-date pill (dashboard scripts/task.js and
@@ -5109,5 +5177,942 @@ body.todo-panel-resizing .main-content {
 
   .mobile-unavailable--tablet .mobile-unavailable__notice {
     display: flex;
+  }
+}
+
+/* ===========================================================
+   PROJECT TIMELINE (project-timeline.html / project-timeline.js)
+
+   A Gantt chart per project, rendered with Frappe Gantt (CDN, only
+   loaded on this page — see the <link>/<script> tags in
+   project-timeline.html). Unlike the project to-do panel, this page
+   intentionally uses the app's normal design language (--accent/--border/
+   --surface tokens etc.) rather than the Notion-specific palette scoped
+   to .todo-panel — this one's meant to feel like a natural extension of
+   the rest of the portal, not a deliberate style departure.
+=========================================================== */
+
+/* ---------- at-a-glance stats ---------- */
+
+.timeline-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin: 18px 0;
+}
+
+.timeline-stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+}
+
+.timeline-stat-value {
+  display: block;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.15;
+}
+
+.timeline-stat-label {
+  font-size: 0.82rem;
+  color: var(--text-soft);
+  font-weight: 600;
+}
+
+.timeline-stat--overdue { border-left-color: var(--danger); }
+.timeline-stat--overdue .timeline-stat-value { color: var(--danger); }
+.timeline-stat--upcoming { border-left-color: var(--warning); }
+.timeline-stat--upcoming .timeline-stat-value { color: var(--warning); }
+.timeline-stat--progress { border-left-color: var(--accent); }
+.timeline-stat--progress .timeline-stat-value { color: var(--accent); }
+.timeline-stat--completed { border-left-color: var(--success); }
+.timeline-stat--completed .timeline-stat-value { color: var(--success); }
+
+@media (max-width: 820px) {
+  .timeline-stats-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 420px) {
+  .timeline-stats-row { grid-template-columns: 1fr; }
+}
+
+/* ---------- toolbar: add buttons + zoom toggle ---------- */
+
+.timeline-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 18px 0 14px;
+}
+
+.timeline-add-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.timeline-add-actions .workbook-btn {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.timeline-add-btn--phase { border-left: 3px solid var(--accent-strong); }
+.timeline-add-btn--task { border-left: 3px solid var(--accent); }
+.timeline-add-btn--milestone { border-left: 3px solid var(--warning); }
+
+/* Zoom level (Week/Month/Quarter/Year) — a plain segmented control rather
+   than Frappe Gantt's own built-in view_mode_select dropdown, so it looks
+   like the rest of this app instead of the library's default styling. */
+.gantt-view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.gantt-view-toggle-btn {
+  border: none;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-soft);
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.gantt-view-toggle-btn:last-child { border-right: none; }
+
+.gantt-view-toggle-btn:hover:not(.is-active) { background: var(--surface-alt); }
+
+.gantt-view-toggle-btn.is-active {
+  background: var(--accent);
+  color: white;
+}
+
+/* ---------- legend ---------- */
+
+.gantt-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0 0 14px;
+  font-size: 0.82rem;
+  color: var(--text-soft);
+}
+
+.gantt-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gantt-legend-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.gantt-legend-swatch--not_started { background: #eef1f4; border: 1px solid var(--border); }
+.gantt-legend-swatch--in_progress { background: var(--accent); }
+.gantt-legend-swatch--completed { background: var(--success); }
+.gantt-legend-swatch--overdue { background: var(--danger); }
+.gantt-legend-swatch--on_hold { background: var(--warning); }
+.gantt-legend-swatch--milestone { background: var(--accent-strong); transform: rotate(45deg); border-radius: 2px; }
+.gantt-legend-swatch--todo { background: var(--surface); border: 1.5px dashed var(--text-soft); box-sizing: border-box; }
+
+.gantt-legend-item--todo { font-style: italic; }
+
+/* ---------- chart container ---------- */
+
+.gantt-chart-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 10px;
+  margin-bottom: 32px;
+  /* Frappe Gantt's own .gantt-container (inside #ganttChart) already
+     manages its own scroll, bounded by container_height in
+     project-timeline.js. This wrapper must stay hidden, not auto/scroll —
+     giving it a second scrollable region here fights the library's own
+     scroll-driven redraw logic and is what was causing the chart to feel
+     glitchy/jumpy (competing scroll containers, one of them the browser's
+     native one and not the one Frappe's JS is actually listening to). */
+  overflow: hidden;
+}
+
+/* Frappe Gantt's default theme is intentionally neutral/light so it can
+   be re-themed — these are the exact custom properties its own stylesheet
+   defines (frappe-gantt.css), remapped to this app's design tokens.
+   Scoped to #ganttChart (rather than :root) so the override always wins
+   regardless of the two stylesheets' <link> order, and so it can't leak
+   onto anything else that might use those variable names. */
+#ganttChart {
+  --g-arrow-color: var(--text-soft);
+  --g-bar-color: #eef1f4;
+  --g-bar-border: var(--border);
+  --g-tick-color-thick: #dde3e9;
+  --g-tick-color: #eef1f4;
+  --g-actions-background: var(--surface-alt);
+  --g-border-color: var(--border);
+  --g-text-muted: var(--text-soft);
+  --g-text-light: #ffffff;
+  --g-text-dark: var(--text);
+  --g-progress-color: var(--accent);
+  --g-handle-color: var(--accent-strong);
+  --g-weekend-label-color: var(--surface-alt);
+  --g-expected-progress: var(--accent-soft);
+  --g-header-background: var(--surface);
+  --g-row-color: var(--surface);
+  --g-row-border-color: var(--border);
+  --g-today-highlight: var(--accent);
+  --g-popup-actions: var(--surface-alt);
+  --g-weekend-highlight-color: #f7f8fb;
+}
+
+/* Status/type coloring — driven by the single custom_class token each task
+   is given in buildGanttCustomClass() (project-timeline.js), e.g.
+   "gantt-item-type-phase-status-overdue-source-todo". Frappe Gantt passes
+   custom_class straight to one classList.add() call rather than splitting
+   it on spaces, so it has to be one space-free token — these rules match
+   each semantic fragment (type-<type>-status, status-<status>,
+   -source-todo) as a substring instead of using separate classes. <status>
+   already accounts for "overdue" (end date passed and not completed)
+   rather than just echoing the stored status column. */
+.gantt .bar-wrapper[class*="-status-not_started"] .bar { fill: #eef1f4; }
+.gantt .bar-wrapper[class*="-status-not_started"] .bar-progress { fill: var(--text-soft); }
+
+.gantt .bar-wrapper[class*="-status-in_progress"] .bar { fill: var(--accent-soft); }
+.gantt .bar-wrapper[class*="-status-in_progress"] .bar-progress { fill: var(--accent); }
+
+.gantt .bar-wrapper[class*="-status-on_hold"] .bar { fill: var(--warning-soft); }
+.gantt .bar-wrapper[class*="-status-on_hold"] .bar-progress { fill: var(--warning); }
+
+.gantt .bar-wrapper[class*="-status-completed"] .bar { fill: var(--success-soft); }
+.gantt .bar-wrapper[class*="-status-completed"] .bar-progress { fill: var(--success); }
+
+.gantt .bar-wrapper[class*="-status-overdue"] .bar { fill: var(--danger-soft); }
+.gantt .bar-wrapper[class*="-status-overdue"] .bar-progress { fill: var(--danger); }
+
+/* Phases read as a bolder group header row rather than just another bar. */
+.gantt .bar-wrapper[class*="-type-phase-"] .bar {
+  stroke: var(--accent-strong);
+  stroke-width: 1.5px;
+}
+
+.gantt .bar-wrapper[class*="-type-phase-"] .bar-label {
+  font-weight: 700;
+}
+
+/* Milestones — no native diamond shape in Frappe Gantt, so this reshapes
+   a short (1-day, see buildGanttTasks) bar into a small rotated square.
+   The progress fill is hidden since a milestone's status color on .bar
+   alone already conveys done/not-done — two overlapping rotated shapes
+   would be more likely to look glitchy than informative. */
+.gantt .bar-wrapper[class*="-type-milestone-"] .bar {
+  width: 20px !important;
+  height: 20px !important;
+  rx: 3;
+  ry: 3;
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: rotate(45deg);
+}
+
+.gantt .bar-wrapper[class*="-type-milestone-"] .bar-progress {
+  display: none;
+}
+
+.gantt .bar-wrapper[class*="-type-milestone-"] .bar-label {
+  transform: translateX(8px);
+}
+
+/* Read-only project to-do markers (see the "MERGE PROJECT TO-DOS" logic in
+   project-timeline.js) — same status coloring as everything else, plus a
+   dashed outline so it's visually clear these came from the To-do tab
+   rather than being a real timeline item you can edit here. Unlike every
+   other bar, these keep their title hidden (hover card only) — they're
+   meant to read as lightweight due-date markers borrowed from the To-do
+   tab, not full timeline entries competing for label space. */
+.gantt .bar-wrapper[class*="-source-todo"] .bar {
+  stroke: var(--text-soft);
+  stroke-width: 1.5px;
+  stroke-dasharray: 3 2;
+}
+
+.gantt .bar-wrapper[class*="-source-todo"] .bar-label {
+  display: none;
+}
+
+/* Invisible anchor task (see windowTasks() in project-timeline.js) — exists
+   purely to pin the chart's date bounds to the selected Week/Month/Quarter/
+   Year window, never meant to be seen or clickable. Frappe still reserves
+   a row of vertical space for it (no per-task way to opt out of that), but
+   nothing about it should be visible or interactive. */
+.gantt .bar-wrapper[class*="gantt-item-anchor"] {
+  pointer-events: none;
+}
+.gantt .bar-wrapper[class*="gantt-item-anchor"] .bar,
+.gantt .bar-wrapper[class*="gantt-item-anchor"] .bar-progress,
+.gantt .bar-wrapper[class*="gantt-item-anchor"] .bar-label {
+  opacity: 0;
+}
+
+/* Hover card with title/date/assignee — the primary way to see a to-do
+   marker's title (see -source-todo above, the only bar type with its label
+   hidden), and a quick-glance detail popup for everything else, which
+   still shows its title right on the bar. attachBarHoverCards() in
+   project-timeline.js positions this with inline left/top, fixed to the
+   viewport so .gantt-chart-wrap's own overflow:hidden never clips it. */
+.gantt-hover-card {
+  position: fixed;
+  z-index: var(--z-dropdown);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  padding: 10px 14px;
+  max-width: 260px;
+  pointer-events: none;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.gantt-hover-card.hidden {
+  display: none;
+}
+
+.gantt-hover-card-title {
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+
+.gantt-hover-card-dates {
+  color: var(--text-soft);
+}
+
+.gantt-hover-card-assignee {
+  color: var(--text-soft);
+  font-style: italic;
+}
+
+@media (max-width: 640px) {
+  .gantt-chart-wrap { padding: 6px; }
+}
+
+/* ---------- add/edit side panel ----------
+   Same slide-in-from-the-right, push-.main-content-over mechanism as
+   project-to-do.html's #todoPanel (both use body.todo-panel-open — see
+   that rule further up this file — so a right-side panel on either page
+   reuses the same "make room for it" hook instead of duplicating it). */
+
+.timeline-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(92vw, 460px);
+  background: var(--surface);
+  box-shadow: -8px 0 30px rgba(0, 0, 0, 0.15);
+  border-left: 1px solid var(--border);
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  overflow-y: auto;
+  z-index: var(--z-drawer);
+}
+
+.timeline-panel.hidden { display: none; }
+.timeline-panel.is-open { transform: translateX(0); }
+
+.timeline-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.timeline-panel-header h2 {
+  margin: 0;
+  color: var(--accent-strong);
+  font-size: 1.25rem;
+  word-break: break-word;
+}
+
+.timeline-panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.timeline-type-toggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 10px 0 4px;
+}
+
+.timeline-type-toggle-btn {
+  flex: 1;
+  border: none;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-soft);
+  padding: 9px 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.timeline-type-toggle-btn:last-child { border-right: none; }
+
+.timeline-type-toggle-btn:hover:not(.is-active) { background: var(--surface-alt); }
+
+.timeline-type-toggle-btn.is-active {
+  background: var(--accent);
+  color: white;
+}
+
+.timeline-form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 480px) {
+  .timeline-form-row { grid-template-columns: 1fr; }
+}
+
+.timeline-progress-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.timeline-progress-input-wrap input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.timeline-progress-value {
+  flex: 0 0 auto;
+  min-width: 40px;
+  text-align: right;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+
+/* ===========================================================
+   STAFF TO-DO (staff-to-do.html)
+   Single stacked column, top to bottom: Company Wide To-Do, then My Task
+   (given extra visual weight — see .staff-todo-mytasks-card — since it's
+   the section you actually act on day to day), then Project To-Do grouped
+   by project (see .project-todo-group further down).
+=========================================================== */
+
+.staff-todo-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.staff-todo-mytasks-card {
+  padding: 28px;
+}
+
+@media (max-width: 640px) {
+  .staff-todo-mytasks-card { padding: 20px; }
+}
+
+/* ===========================================================
+   PROJECT OVERVIEW — stats header, status badges, progress bars,
+   tabs, view toggle, and pagination (project-home.html /
+   projects-page.js). Card and list view reuse the same markup as
+   .company-card-body — list mode is just .workbook-grid--list
+   reflowing it horizontally, same trick as venders.html.
+=========================================================== */
+
+.project-stats-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.project-stat-tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.project-stat-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 34px rgba(10, 24, 36, 0.12);
+}
+
+.project-stat-tile--accent { border-left-color: var(--accent); }
+.project-stat-tile--success { border-left-color: var(--success); }
+.project-stat-tile--info { border-left-color: var(--info); }
+.project-stat-tile--warning { border-left-color: var(--warning); }
+.project-stat-tile--completed { border-left-color: var(--purple); }
+
+.project-stat-icon {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.project-stat-icon--accent { background: var(--accent-soft); }
+.project-stat-icon--success { background: var(--success-soft); }
+.project-stat-icon--info { background: var(--info-soft); }
+.project-stat-icon--warning { background: var(--warning-soft); }
+.project-stat-icon--completed { background: var(--purple-soft); }
+
+.project-stat-icon::before {
+  content: "";
+  display: block;
+  width: 22px;
+  height: 22px;
+  background-color: currentColor;
+  mask-size: 22px 22px;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-size: 22px 22px;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+}
+
+.project-stat-icon--accent::before { color: var(--accent); }
+.project-stat-icon--success::before { color: var(--success); }
+.project-stat-icon--info::before { color: var(--info); }
+.project-stat-icon--warning::before { color: var(--warning); }
+.project-stat-icon--completed::before { color: var(--purple); }
+
+.project-stat-icon--briefcase::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='7' width='20' height='14' rx='2'/%3E%3Cpath d='M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='7' width='20' height='14' rx='2'/%3E%3Cpath d='M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16'/%3E%3C/svg%3E");
+}
+
+.project-stat-icon--check::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='m8.5 12.5 2.5 2.5 4.5-5'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='m8.5 12.5 2.5 2.5 4.5-5'/%3E%3C/svg%3E");
+}
+
+.project-stat-icon--people::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M23 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M23 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
+}
+
+.project-stat-icon--alert::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'/%3E%3C/svg%3E");
+}
+
+.project-stat-icon--flag::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z'/%3E%3Cline x1='4' y1='22' x2='4' y2='15'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z'/%3E%3Cline x1='4' y1='22' x2='4' y2='15'/%3E%3C/svg%3E");
+}
+
+.project-stat-icon--dollar::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='12' y1='1' x2='12' y2='23'/%3E%3Cpath d='M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='12' y1='1' x2='12' y2='23'/%3E%3Cpath d='M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'/%3E%3C/svg%3E");
+}
+
+.project-stat-value {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.project-stat-label {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-soft);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.project-tabs {
+  flex-wrap: wrap;
+}
+
+.project-tab-count {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  color: var(--text-soft);
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+.dash-tab.active .project-tab-count {
+  background: var(--accent);
+  color: white;
+}
+
+.project-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding-right: 40px;
+}
+
+.project-card-header .company-card-name {
+  padding-right: 0;
+}
+
+/* Status badge — sits next to the project name. Doubles as a button that
+   opens the quick tracking-edit popup. */
+.project-status-badge {
+  flex: 0 0 auto;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.workbook-grid--list .project-card-header {
+  padding-right: 0;
+  flex: 1 1 200px;
+}
+
+/* ---- Cover photo (or status-colored placeholder) ---- */
+
+.project-cover {
+  position: relative;
+}
+
+.project-cover--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--accent-strong) 0%, var(--accent) 55%, #355d6d 100%);
+}
+
+.project-cover-placeholder-icon {
+  width: 44px;
+  height: 44px;
+  background-color: rgba(255, 255, 255, 0.8);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='7' width='20' height='14' rx='2'/%3E%3Cpath d='M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='7' width='20' height='14' rx='2'/%3E%3Cpath d='M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+.workbook-grid--list .project-cover {
+  display: none;
+}
+
+/* ---- Value / Progress / Due date three-up row ---- */
+
+.project-card-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.project-card-stat-label {
+  margin: 0 0 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.project-card-stat-value {
+  margin: 0;
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.project-card-stat-sub {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-soft);
+}
+
+.workbook-grid--list .project-card-stats-row {
+  flex: 1 1 380px;
+  display: flex;
+  gap: 20px;
+  border: none;
+  padding: 0;
+}
+
+.workbook-grid--list .project-card-stat {
+  flex: 1 1 auto;
+}
+
+/* ---- Divider + PM/Updated footer ---- */
+
+.project-card-divider {
+  height: 1px;
+  background: var(--border);
+}
+
+.workbook-grid--list .project-card-divider {
+  display: none;
+}
+
+.project-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.project-pm-name {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.project-pm-role {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--text-soft);
+}
+
+.project-card-updated {
+  text-align: right;
+}
+
+.project-updated-label {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.project-updated-value {
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.project-updated-by {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--text-soft);
+}
+
+.workbook-grid--list .project-card-footer {
+  flex: 0 0 auto;
+  gap: 20px;
+  padding-left: 14px;
+  border-left: 1px solid var(--border);
+}
+
+.workbook-grid--list .project-card-updated {
+  text-align: left;
+}
+
+.chip--completed {
+  background: var(--purple-soft);
+  color: var(--purple);
+}
+
+.chip--info {
+  background: var(--info-soft);
+  color: var(--info);
+}
+
+.chip--dot::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+
+.project-card-pm {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.project-pm-avatar {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.project-progress-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.project-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--success);
+}
+
+.project-progress-fill--active { background: var(--success); }
+.project-progress-fill--onboarding { background: var(--info); }
+.project-progress-fill--at_risk { background: var(--warning); }
+.project-progress-fill--on_hold { background: var(--text-soft); }
+.project-progress-fill--completed { background: var(--purple); }
+.project-progress-fill--archived { background: var(--text-soft); }
+
+/* Status-colored accent stripe — top edge in card view, left edge once
+   the list view reflows the card into a row. */
+.project-card {
+  position: relative;
+}
+
+.project-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--border);
+  z-index: 1;
+}
+
+.project-card--active::before { background: var(--success); }
+.project-card--onboarding::before { background: var(--info); }
+.project-card--at_risk::before { background: var(--warning); }
+.project-card--on_hold::before { background: var(--text-soft); }
+.project-card--completed::before { background: var(--purple); }
+.project-card--archived::before { background: var(--text-soft); }
+
+.workbook-grid--list .project-card::before {
+  right: auto;
+  bottom: 0;
+  width: 4px;
+  height: auto;
+}
+
+.project-due-soon {
+  color: var(--warning);
+}
+
+.project-due-overdue {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.project-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.project-pagination-summary {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.86rem;
+}
+
+.project-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.project-page-btn,
+.project-page-number {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.project-page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.project-page-number.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.project-page-size-select {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.86rem;
+}
+
+@media (max-width: 640px) {
+  .project-pagination {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
