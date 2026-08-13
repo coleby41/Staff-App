@@ -1935,6 +1935,15 @@ button { font: inherit; }
     background: #dbe9ee;
 }
 
+.workbook-btn--edit {
+    background: var(--warning-soft);
+    color: var(--warning);
+}
+
+.workbook-btn--edit:hover {
+    background: #ffe9cc;
+}
+
 .workbook-btn--download {
     background: var(--success-soft);
     color: var(--success);
@@ -2009,6 +2018,20 @@ button { font: inherit; }
     padding: 40px 20px;
     text-align: center;
     color: var(--text-soft);
+}
+
+/* #formResponsesList (form-template.html's Responses modal) sits directly
+   inside .workbook-preview-popup rather than wrapping itself in
+   .workbook-preview-body like the submission-PDF preview modal does — give
+   it the same flex/overflow treatment so a form with lots of responses
+   scrolls internally within the popup's max-height instead of just getting
+   cut off at the bottom. */
+#formResponsesList {
+    margin-top: 14px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    padding-right: 4px;
 }
 
 .workbook-sheet-tabs {

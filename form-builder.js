@@ -53,6 +53,7 @@ let formRecords = [];
 let editingFormRecord = null;   // the form_templates row being edited, or null for a new form
 let editingFields = [];         // working copy of the fields array while the builder modal is open
 let fillFormRecord = null;      // the form currently open in the fill-out modal
+let editingSubmission = null;   // the form_submissions row being edited via the fill-out modal, or null when filling a brand-new response
 let responsesFormRecord = null; // the form currently open in the Responses modal
 
 // PDF builder state (form-template.html "New Form" / editing a PDF-based form)
@@ -1028,19 +1029,22 @@ function renderFillField(field) {
     `;
 }
 
-async function openFillFormModal(record) {
+async function openFillFormModal(record, existingSubmission) {
     fillFormRecord = record;
     fillPdfDoc = null;
+    editingSubmission = existingSubmission || null;
 
     const titleEl = document.getElementById("fillFormTitle");
     const descriptionEl = document.getElementById("fillFormDescription");
     const legacyContainer = document.getElementById("fillFormFieldsContainer");
     const pdfContainer = document.getElementById("fillFormPdfContainer");
     const messageEl = document.getElementById("fillFormMessage");
+    const submitBtn = document.getElementById("submitFillFormBtn");
 
-    if (titleEl) titleEl.textContent = record.title;
+    if (titleEl) titleEl.textContent = editingSubmission ? `Edit response — ${record.title}` : record.title;
     if (descriptionEl) descriptionEl.textContent = record.description || "";
     if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
+    if (submitBtn) submitBtn.textContent = editingSubmission ? "Save changes" : "Submit";
 
     document.getElementById("fillFormModalOverlay")?.classList.remove("hidden");
     document.body.classList.add("popup-active");
@@ -1064,6 +1068,7 @@ async function openFillFormModal(record) {
             const arrayBuffer = await data.arrayBuffer();
             fillPdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             await renderFillPdfPages(record);
+            if (editingSubmission) applyExistingAnswers(record, editingSubmission.answers);
         } catch (error) {
             console.error("Failed to load form PDF:", error);
             if (pdfContainer) pdfContainer.innerHTML = `<p class="workbook-preview-empty">Couldn't load this form. Please try again.</p>`;
@@ -1073,8 +1078,55 @@ async function openFillFormModal(record) {
         if (legacyContainer) {
             legacyContainer.style.display = "block";
             legacyContainer.innerHTML = (record.fields || []).map(renderFillField).join("");
+            if (editingSubmission) applyExistingAnswers(record, editingSubmission.answers);
         }
     }
+}
+
+// Pre-fills the just-rendered fill-out inputs (legacy generic-question
+// inputs, or the real overlaid inputs on a PDF-based form) from a
+// previously-submitted answers object — used when editing an existing
+// response instead of starting a blank one. Dispatches a synthetic "input"
+// event on PDF text/textarea inputs so their auto-fit font-size
+// (wireAutoFitTextarea, wired at creation time against an empty value)
+// recomputes for the pre-filled text instead of staying sized for "".
+function applyExistingAnswers(record, answers) {
+    if (!answers) return;
+    const isPdfForm = Boolean(record.pdf_path);
+    const container = document.getElementById(isPdfForm ? "fillFormPdfContainer" : "fillFormFieldsContainer");
+    if (!container) return;
+
+    (record.fields || []).forEach(field => {
+        if (field.type === "section") return;
+        const value = answers[field.id];
+        if (value === undefined) return;
+
+        if (isPdfForm) {
+            const input = container.querySelector(`.pdf-fill-input[data-field-id="${field.id}"]`);
+            if (!input) return;
+            if (field.type === "checkbox") {
+                input.checked = Boolean(value);
+            } else {
+                input.value = value;
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+            return;
+        }
+
+        if (field.type === "checkboxes") {
+            const values = Array.isArray(value) ? value : [];
+            container.querySelectorAll(`input[data-field-id="${field.id}"]`).forEach(el => {
+                el.checked = values.includes(el.value);
+            });
+        } else if (field.type === "radio") {
+            container.querySelectorAll(`input[data-field-id="${field.id}"]`).forEach(el => {
+                el.checked = el.value === value;
+            });
+        } else {
+            const input = container.querySelector(`.fill-field-input[data-field-id="${field.id}"]`);
+            if (input) input.value = value;
+        }
+    });
 }
 
 async function renderFillPdfPages(record) {
@@ -1178,10 +1230,23 @@ function buildFillPdfFieldInput(field, viewport) {
 }
 
 function closeFillFormModal() {
+    const wasEditingResponse = Boolean(editingSubmission);
+
     document.getElementById("fillFormModalOverlay")?.classList.add("hidden");
     document.body.classList.remove("popup-active");
     fillFormRecord = null;
     fillPdfDoc = null;
+    editingSubmission = null;
+
+    // Editing a response opens on top of the Responses modal (see
+    // openEditSubmissionModal), which is only *hidden* rather than fully
+    // closed/reset for the duration — reveal it again here (refetching so a
+    // saved edit's new answers/timestamp show immediately; unchanged on
+    // Cancel) whether this close was a save, a Cancel, the ✕, or a
+    // click-outside, since all four paths route through this function.
+    if (wasEditingResponse && responsesFormRecord) {
+        openResponsesModal(responsesFormRecord);
+    }
 }
 
 // Reads the currently-rendered fill-out inputs back into { fieldId: value }.
@@ -1239,7 +1304,7 @@ function collectFillPdfAnswers(record) {
     return { ok: true, answers };
 }
 
-function buildSubmissionPdfDocDefinition(record, answers, submittedByName) {
+function buildSubmissionPdfDocDefinition(record, answers, footerText) {
     const content = [
         { text: record.title, bold: true, fontSize: 18, margin: [0, 0, 0, 4] }
     ];
@@ -1249,7 +1314,7 @@ function buildSubmissionPdfDocDefinition(record, answers, submittedByName) {
     }
 
     content.push({
-        text: `Submitted by ${submittedByName} on ${new Date().toLocaleString()}`,
+        text: footerText,
         fontSize: 10, color: "#777777", margin: [0, 0, 0, 16]
     });
 
@@ -1483,6 +1548,7 @@ async function handleSubmitFillForm(event) {
     if (!fillFormRecord) return;
 
     const record = fillFormRecord;
+    const isEditing = Boolean(editingSubmission);
     const messageEl = document.getElementById("fillFormMessage");
     const submitBtn = document.getElementById("submitFillFormBtn");
     const isPdfForm = Boolean(record.pdf_path);
@@ -1512,60 +1578,98 @@ async function handleSubmitFillForm(event) {
         return;
     }
 
-    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Submitting…"; }
-    if (messageEl) { messageEl.textContent = "Submitting…"; messageEl.className = "auth-message"; }
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = isEditing ? "Saving…" : "Submitting…"; }
+    if (messageEl) { messageEl.textContent = isEditing ? "Saving…" : "Submitting…"; messageEl.className = "auth-message"; }
 
-    const submittedByName = getFormStaffName();
-    const submittedById = getFormStaffId();
+    const submittedByName = isEditing ? (editingSubmission.submitted_by_name || "Staff") : getFormStaffName();
+    const submittedById = isEditing ? editingSubmission.submitted_by : getFormStaffId();
+
+    // On an edit, the generated PDF's footer keeps crediting the original
+    // submitter/date and adds who edited it and when — it doesn't rewrite
+    // history to look like a fresh submission just because the file got
+    // regenerated.
+    const footerText = isEditing
+        ? `Submitted by ${submittedByName} on ${new Date(editingSubmission.created_at).toLocaleString()} • Edited by ${getFormStaffName()} on ${new Date().toLocaleString()}`
+        : `Submitted by ${submittedByName} on ${new Date().toLocaleString()}`;
 
     try {
         const blob = isPdfForm
             ? await buildPdfSubmissionBlob(record, result.answers)
-            : await pdfMake.createPdf(buildSubmissionPdfDocDefinition(record, result.answers, submittedByName)).getBlob();
+            : await pdfMake.createPdf(buildSubmissionPdfDocDefinition(record, result.answers, footerText)).getBlob();
 
-        const submissionId = crypto.randomUUID();
-        const pdfPath = `${record.id}/${submissionId}.pdf`;
+        if (isEditing) {
+            const submissionId = editingSubmission.id;
+            const pdfPath = editingSubmission.pdf_path || `${record.id}/${submissionId}.pdf`;
 
-        const { error: uploadError } = await window.supabaseClient
-            .storage
-            .from(FORM_SUBMISSIONS_BUCKET)
-            .upload(pdfPath, blob, { cacheControl: "3600", upsert: false, contentType: "application/pdf" });
-        if (uploadError) throw uploadError;
+            // Overwrite the file at its existing storage path (upsert: true)
+            // — this is a deliberate replace of that one submission's PDF,
+            // not a new record, so it keeps its original id/path rather than
+            // getting a fresh one the way a brand-new submission does below.
+            const { error: uploadError } = await window.supabaseClient
+                .storage
+                .from(FORM_SUBMISSIONS_BUCKET)
+                .upload(pdfPath, blob, { cacheControl: "3600", upsert: true, contentType: "application/pdf" });
+            if (uploadError) throw uploadError;
 
-        const { error: insertError } = await window.supabaseClient
-            .from(FORM_SUBMISSIONS_TABLE)
-            .insert({
-                id: submissionId,
-                form_id: record.id,
-                form_title: record.title,
-                submitted_by: submittedById,
-                submitted_by_name: submittedByName,
-                answers: result.answers,
-                pdf_path: pdfPath
-            });
-        if (insertError) throw insertError;
+            const { error: updateError } = await window.supabaseClient
+                .from(FORM_SUBMISSIONS_TABLE)
+                .update({
+                    answers: result.answers,
+                    pdf_path: pdfPath,
+                    edited_at: new Date().toISOString(),
+                    edited_by: getFormStaffId(),
+                    edited_by_name: getFormStaffName()
+                })
+                .eq("id", submissionId);
+            if (updateError) throw updateError;
 
-        if (submittedById) {
-            await window.supabaseClient.from("notifications").insert({
-                user_id: submittedById,
-                title: "Form submitted",
-                message: `Your "${record.title}" form has been submitted.`,
-                type: "form_submission",
-                link_url: `form-template.html?viewSubmission=${submissionId}`,
-                link_label: "View it here"
-            });
+            closeFillFormModal(); // also re-opens the Responses modal this edit was opened from, refreshed
+            showFormPageMessage(`Response updated.`, "success");
+        } else {
+            const submissionId = crypto.randomUUID();
+            const pdfPath = `${record.id}/${submissionId}.pdf`;
+
+            const { error: uploadError } = await window.supabaseClient
+                .storage
+                .from(FORM_SUBMISSIONS_BUCKET)
+                .upload(pdfPath, blob, { cacheControl: "3600", upsert: false, contentType: "application/pdf" });
+            if (uploadError) throw uploadError;
+
+            const { error: insertError } = await window.supabaseClient
+                .from(FORM_SUBMISSIONS_TABLE)
+                .insert({
+                    id: submissionId,
+                    form_id: record.id,
+                    form_title: record.title,
+                    submitted_by: submittedById,
+                    submitted_by_name: submittedByName,
+                    answers: result.answers,
+                    pdf_path: pdfPath
+                });
+            if (insertError) throw insertError;
+
+            if (submittedById) {
+                await window.supabaseClient.from("notifications").insert({
+                    user_id: submittedById,
+                    title: "Form submitted",
+                    message: `Your "${record.title}" form has been submitted.`,
+                    type: "form_submission",
+                    link_url: `form-template.html?viewSubmission=${submissionId}`,
+                    link_label: "View it here"
+                });
+            }
+
+            closeFillFormModal();
+            showFormPageMessage(`Thanks — "${record.title}" was submitted.`, "success");
         }
-
-        closeFillFormModal();
-        showFormPageMessage(`Thanks — "${record.title}" was submitted.`, "success");
     } catch (error) {
-        console.error("Failed to submit form:", error);
+        console.error(isEditing ? "Failed to save response:" : "Failed to submit form:", error);
         if (messageEl) {
-            messageEl.textContent = "Something went wrong submitting this form. Please try again.";
+            messageEl.textContent = "Something went wrong. Please try again.";
             messageEl.className = "auth-message error";
         }
     } finally {
-        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Submit"; }
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = isEditing ? "Save changes" : "Submit"; }
     }
 }
 
@@ -1602,22 +1706,53 @@ async function openResponsesModal(record) {
     if (listEl) {
         listEl.innerHTML = "";
         data.forEach(submission => {
+            const editedNote = submission.edited_at
+                ? `<p class="workbook-preview-loading" style="margin:0;">Edited ${formEscapeHtml(formatFormDate(submission.edited_at))}${submission.edited_by_name ? ` by ${formEscapeHtml(submission.edited_by_name)}` : ""}</p>`
+                : "";
             const row = document.createElement("div");
             row.className = "notification-item";
             row.innerHTML = `
                 <strong>${formEscapeHtml(submission.submitted_by_name || "Staff")}</strong>
                 <p>${formEscapeHtml(formatFormDate(submission.created_at))}</p>
+                ${editedNote}
             `;
+            const actionsWrap = document.createElement("div");
+            actionsWrap.style.display = "flex";
+            actionsWrap.style.gap = "8px";
+            actionsWrap.style.marginTop = "8px";
+
             const viewBtn = document.createElement("button");
             viewBtn.type = "button";
             viewBtn.className = "workbook-btn workbook-btn--preview";
-            viewBtn.style.marginTop = "8px";
             viewBtn.textContent = "View PDF";
             viewBtn.addEventListener("click", () => viewFormSubmission(submission));
-            row.appendChild(viewBtn);
+
+            const editBtn = document.createElement("button");
+            editBtn.type = "button";
+            editBtn.className = "workbook-btn workbook-btn--edit";
+            editBtn.textContent = "Edit";
+            editBtn.addEventListener("click", () => openEditSubmissionModal(record, submission));
+
+            actionsWrap.appendChild(viewBtn);
+            actionsWrap.appendChild(editBtn);
+            row.appendChild(actionsWrap);
             listEl.appendChild(row);
         });
     }
+}
+
+// Opens the fill-out modal (in edit mode) for an existing response. It
+// reuses #fillFormModalOverlay rather than a separate modal, but that
+// element sits *earlier* in form-template.html's DOM order than
+// #formResponsesModalOverlay it's opening from — unlike the submission-PDF
+// preview modal (which comes later and so naturally paints on top when both
+// are visible), simply revealing it wouldn't paint over the Responses list
+// behind it. Hiding (not fully closing — responsesFormRecord stays set) the
+// Responses modal here sidesteps that; closeFillFormModal() reveals it again
+// once the edit is done, saved or not.
+function openEditSubmissionModal(record, submission) {
+    document.getElementById("formResponsesModalOverlay")?.classList.add("hidden");
+    openFillFormModal(record, submission);
 }
 
 function closeResponsesModal() {
