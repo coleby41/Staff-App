@@ -139,9 +139,11 @@
         const loadingEl = document.getElementById("timelineLoadingState");
         const emptyEl = document.getElementById("timelineEmptyState");
         const bodyEl = document.getElementById("timelineBody");
+        const toolbarEl = document.getElementById("timelineToolbar");
         if (loadingEl) loadingEl.style.display = "block";
         if (emptyEl) emptyEl.style.display = "none";
         if (bodyEl) bodyEl.style.display = "none";
+        if (toolbarEl) toolbarEl.style.display = "none";
 
         const [itemsResult, todoResult] = await Promise.all([
             window.supabaseClient
@@ -167,6 +169,13 @@
 
         timelineItems = itemsResult.data || [];
         todoMarkers = todoResult.data || [];
+
+        // Show the + Phase/+ Task/+ Milestone toolbar as soon as data has
+        // loaded successfully, whether or not there's anything on the
+        // timeline yet — otherwise there's no way to add the first item
+        // (the buttons used to live inside #timelineBody, which only
+        // becomes visible once timelineItems/todoMarkers is non-empty).
+        if (toolbarEl) toolbarEl.style.display = "flex";
 
         if (timelineItems.length === 0 && todoMarkers.length === 0) {
             if (emptyEl) emptyEl.style.display = "block";

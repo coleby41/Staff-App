@@ -144,6 +144,28 @@
         <p>Loading timeline…</p>
     </div>
 
+    <!-- Add-item toolbar lives outside #timelineBody (and is shown by
+         loadTimelineData() in project-timeline.js regardless of whether the
+         project has any items yet) because it's how you add the *first*
+         phase/task/milestone — it can't be nested inside a container that
+         only becomes visible once there's already something to show. -->
+    <div class="timeline-toolbar" id="timelineToolbar" style="display:none;">
+
+        <div class="timeline-add-actions">
+            <button type="button" class="workbook-btn timeline-add-btn timeline-add-btn--phase" id="addPhaseBtn">+ Phase</button>
+            <button type="button" class="workbook-btn timeline-add-btn timeline-add-btn--task" id="addTaskBtn">+ Task</button>
+            <button type="button" class="workbook-btn timeline-add-btn timeline-add-btn--milestone" id="addMilestoneBtn">+ Milestone</button>
+        </div>
+
+        <div class="gantt-view-toggle" id="ganttViewToggle" role="group" aria-label="Zoom level">
+            <button type="button" class="gantt-view-toggle-btn is-active" data-view-mode="Week">Week</button>
+            <button type="button" class="gantt-view-toggle-btn" data-view-mode="Month">Month</button>
+            <button type="button" class="gantt-view-toggle-btn" data-view-mode="Quarter">Quarter</button>
+            <button type="button" class="gantt-view-toggle-btn" data-view-mode="Year">Year</button>
+        </div>
+
+    </div>
+
     <div class="workbook-empty" id="timelineEmptyState" style="display:none;">
         <p>Nothing on this project's timeline yet — add a phase, task, or milestone to get started.</p>
     </div>
@@ -172,23 +194,6 @@
                 <span class="timeline-stat-value" id="timelineStatCompleted">0</span>
                 <span class="timeline-stat-label">Completed</span>
             </div>
-        </div>
-
-        <div class="timeline-toolbar">
-
-            <div class="timeline-add-actions">
-                <button type="button" class="workbook-btn timeline-add-btn timeline-add-btn--phase" id="addPhaseBtn">+ Phase</button>
-                <button type="button" class="workbook-btn timeline-add-btn timeline-add-btn--task" id="addTaskBtn">+ Task</button>
-                <button type="button" class="workbook-btn timeline-add-btn timeline-add-btn--milestone" id="addMilestoneBtn">+ Milestone</button>
-            </div>
-
-            <div class="gantt-view-toggle" id="ganttViewToggle" role="group" aria-label="Zoom level">
-                <button type="button" class="gantt-view-toggle-btn is-active" data-view-mode="Week">Week</button>
-                <button type="button" class="gantt-view-toggle-btn" data-view-mode="Month">Month</button>
-                <button type="button" class="gantt-view-toggle-btn" data-view-mode="Quarter">Quarter</button>
-                <button type="button" class="gantt-view-toggle-btn" data-view-mode="Year">Year</button>
-            </div>
-
         </div>
 
         <div class="gantt-legend" id="ganttLegend">
