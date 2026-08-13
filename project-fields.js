@@ -25,7 +25,6 @@ window.ProjectFields = (function () {
     const PROJECT_STATUSES = [
         { value: "active", label: "Active", chip: "chip--success" },
         { value: "onboarding", label: "Onboarding", chip: "chip--info" },
-        { value: "at_risk", label: "At Risk", chip: "chip--warning" },
         { value: "on_hold", label: "On Hold", chip: "chip--muted" },
         { value: "completed", label: "Completed", chip: "chip--completed" },
         { value: "archived", label: "Archived", chip: "chip--muted" }
