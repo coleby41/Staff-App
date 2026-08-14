@@ -270,13 +270,28 @@ button { font: inherit; }
   padding: 12px 14px;
   border-radius: 12px;
   color: #dce9f2;
-  transition: background 0.2s ease, transform 0.2s ease;
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+/* Same 3D language as every button in the app (inset top highlight + a
+   real drop shadow, lift on hover/current-page, press down on click) —
+   only applied once there's a visible background to cast it from
+   (:hover / .active), since a shadow on the fully transparent resting
+   state would just float over the sidebar with nothing under it. */
 .nav-item:hover,
 .nav-item.active {
   background: rgba(255, 255, 255, 0.14);
   transform: translateX(2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.nav-item:active {
+  transform: translateX(2px) scale(0.98);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.25),
+    0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .home-nav-icon,
@@ -1416,6 +1431,9 @@ button { font: inherit; }
   padding-right: 20px;
   border-top-right-radius: 12px;
   border-bottom-right-radius: 12px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
 .glass-container {
@@ -6242,23 +6260,36 @@ body.todo-panel-resizing .main-content {
 }
 
 /* ===========================================================
-   APP-WIDE flat "Canva-style" button treatment.
+   APP-WIDE 3D button treatment — single source of truth.
 
-   Replaces the earlier glossy/embossed 3D look. Every one of these
-   classes is shared across most/all pages already (.auth-button alone is
-   used on all 20 HTML pages; .chip, .workbook-btn, .notification-bell,
-   .menu-btn, .report-bug-btn, .mark-read-btn, and .header-signout are
-   each used on 15+), so applying this unscoped naturally covers the
-   whole app rather than needing a per-page class.
+   Every button-like class in the app is meant to be in this one selector
+   list (not a copy of these rules elsewhere) so "every button gets the
+   same 3D treatment" stays true by construction instead of by
+   remembering to copy it each time a new button class is added.
+   Currently covers: .auth-button, .header-signout, .report-bug-btn,
+   .mark-read-btn, .notification-bell, .menu-btn, .chip, .quick-link-item,
+   .workbook-btn, .company-edit-btn (covers .project-edit-btn too — always
+   paired with it), .workbook-edit-btn, .form-response-action-btn,
+   .form-field-move-btn, .form-field-remove-btn, .project-page-btn,
+   .project-page-number.
+
+   Deliberately excluded: segmented/joined toggle controls
+   (.view-toggle-btn, .gantt-view-toggle-btn, .timeline-type-toggle-btn) —
+   giving each segment its own floating shadow would break their
+   single-joined-pill look. Also excluded: classes that are always paired
+   with an already-covered class (.pdf-upload-btn pairs with
+   .auth-button, .timeline-add-btn pairs with .workbook-btn), so adding
+   them separately would be redundant.
 
    Deliberately doesn't touch each class's own background/color
-   ("keeping the colors") — flat fill stays exactly as-is. What changes:
-     - no inset highlight/shade, no gloss sheen — just a soft, low,
-       single drop shadow so buttons sit gently above the page instead
-       of looking embossed/chrome-like.
-     - hover: a touch brighter + a slightly larger (still soft) shadow.
-     - active/press: a quick scale-down instead of a pressed-in inset
-       shadow, which reads flatter and snappier, closer to Canva's UI.
+   ("keeping the colors") — fill stays exactly as-is. A bit more
+   dimensional than the flat pass this replaces:
+     - a soft inset top highlight + a real outer drop shadow, for a
+       gentle raised/embossed feel without going back to full glossy
+       chrome (no ::after sheen overlay).
+     - hover: lifts up a touch (translateY) + brighter + a bigger shadow.
+     - active/press: sinks back down (translateY + scale) with a
+       flatter, pressed-in shadow.
 =========================================================== */
 
 .auth-button,
@@ -6269,11 +6300,21 @@ body.todo-panel-resizing .main-content {
 .menu-btn,
 .chip,
 .quick-link-item,
-.workbook-btn {
+.workbook-btn,
+.company-edit-btn,
+.project-edit-btn,
+.workbook-edit-btn,
+.form-response-action-btn,
+.form-field-move-btn,
+.form-field-remove-btn,
+.project-page-btn,
+.project-page-number {
   position: relative;
   border: none;
-  box-shadow: 0 1px 2px rgba(10, 24, 36, 0.12);
-  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 2px 5px rgba(10, 24, 36, 0.18);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease, background 0.15s ease, opacity 0.15s ease;
 }
 
 .auth-button:hover,
@@ -6283,9 +6324,20 @@ body.todo-panel-resizing .main-content {
 .menu-btn:hover,
 .chip:hover,
 .quick-link-item:hover,
-.workbook-btn:hover {
-  filter: brightness(1.06);
-  box-shadow: 0 3px 8px rgba(10, 24, 36, 0.16);
+.workbook-btn:hover,
+.company-edit-btn:hover,
+.project-edit-btn:hover,
+.workbook-edit-btn:hover,
+.form-response-action-btn:hover,
+.form-field-move-btn:hover,
+.form-field-remove-btn:hover,
+.project-page-btn:hover,
+.project-page-number:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 4px 10px rgba(10, 24, 36, 0.22);
 }
 
 .auth-button:active,
@@ -6295,10 +6347,31 @@ body.todo-panel-resizing .main-content {
 .menu-btn:active,
 .chip:active,
 .quick-link-item:active,
-.workbook-btn:active {
-  transform: scale(0.97);
-  filter: brightness(0.97);
-  box-shadow: 0 1px 2px rgba(10, 24, 36, 0.1);
+.workbook-btn:active,
+.company-edit-btn:active,
+.project-edit-btn:active,
+.workbook-edit-btn:active,
+.form-response-action-btn:active,
+.form-field-move-btn:active,
+.form-field-remove-btn:active,
+.project-page-btn:active,
+.project-page-number:active {
+  transform: translateY(1px) scale(0.98);
+  filter: brightness(0.96);
+  box-shadow:
+    inset 0 1px 3px rgba(10, 24, 36, 0.2),
+    0 1px 2px rgba(10, 24, 36, 0.14);
+}
+
+.form-response-action-btn:disabled,
+.form-response-action-btn.is-busy,
+.form-field-move-btn:disabled,
+.project-page-btn:disabled {
+  transform: none;
+  filter: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 2px 5px rgba(10, 24, 36, 0.18);
 }
 
 /* Quick Links tiles carry their color on the inner .quick-link-icon, not
@@ -6395,43 +6468,24 @@ body.todo-panel-resizing .main-content {
     padding-top: 2px;
 }
 
-/* Same flat "Canva-style" box-shadow/hover/active rules as every other
-   button in the app (see the APP-WIDE flat button treatment section
-   above) — kept as its own rule rather than joined into that shared
-   selector list purely because these are small circular icon buttons
-   with their own background/sizing, not full labeled pill buttons, but
-   the shadow/hover/press behavior itself matches exactly. */
+/* Sizing/layout only — box-shadow/hover/active/disabled all come from the
+   shared APP-WIDE 3D button treatment above (.form-response-action-btn is
+   in that selector list), so every button in the app — including these —
+   stays driven off one set of rules instead of a duplicated copy. */
 .form-response-action-btn {
     width: 32px;
     height: 32px;
-    border: none;
     border-radius: 50%;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 1px 2px rgba(10, 24, 36, 0.12);
-    transition: background 0.15s ease, transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease, opacity 0.15s ease;
-}
-
-.form-response-action-btn:hover {
-    filter: brightness(1.06);
-    box-shadow: 0 3px 8px rgba(10, 24, 36, 0.16);
-}
-
-.form-response-action-btn:active {
-    transform: scale(0.97);
-    filter: brightness(0.97);
-    box-shadow: 0 1px 2px rgba(10, 24, 36, 0.1);
 }
 
 .form-response-action-btn:disabled,
 .form-response-action-btn.is-busy {
     opacity: 0.55;
     cursor: default;
-    transform: none;
-    filter: none;
-    box-shadow: 0 1px 2px rgba(10, 24, 36, 0.12);
 }
 
 .form-response-action-btn span {
