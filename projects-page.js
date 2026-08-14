@@ -222,6 +222,55 @@ function computeDueDateInfo(project) {
     return { text: formatted, subtext: `${diffDays} days left`, subClass: "" };
 }
 
+// Schedule-pace badge shown over the cover photo — "Behind" / "On Time" /
+// "Ahead of Schedule". Only meaningful for projects actively being worked
+// (active/onboarding) with a due date set; there's nothing useful to say
+// for on-hold/completed/archived projects or ones with no due date, so
+// this returns null (badge hidden) for those.
+//
+// There's no dedicated "start date" column, so created_at stands in for
+// one: expected progress = how much of the created_at→due_date window has
+// elapsed. Actual progress more than ~10 points ahead/behind that pace is
+// "Ahead of Schedule"/"Behind"; anything closer is "On Time". Being past
+// the due date and not yet complete is always "Behind", regardless of the
+// pace math.
+function computeSchedulePace(project) {
+    const statusKey = project.status || "onboarding";
+    if (statusKey !== "active" && statusKey !== "onboarding") return null;
+    if (!project.due_date) return null;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(`${project.due_date}T00:00:00`);
+    if (Number.isNaN(due.getTime())) return null;
+
+    const progress = Math.max(0, Math.min(100, Number(project.progress_percent) || 0));
+
+    if (due < today && progress < 100) {
+        return { label: "Behind", cls: "behind" };
+    }
+
+    const created = project.created_at ? new Date(project.created_at) : null;
+    if (!created || Number.isNaN(created.getTime())) {
+        return due < today ? { label: "Behind", cls: "behind" } : { label: "On Time", cls: "on-time" };
+    }
+    created.setHours(0, 0, 0, 0);
+
+    const totalDays = (due - created) / 86400000;
+    const elapsedDays = (today - created) / 86400000;
+
+    if (totalDays <= 0) {
+        return due < today ? { label: "Behind", cls: "behind" } : { label: "On Time", cls: "on-time" };
+    }
+
+    const expectedProgress = Math.max(0, Math.min(100, (elapsedDays / totalDays) * 100));
+    const delta = progress - expectedProgress;
+
+    if (delta >= 10) return { label: "Ahead of Schedule", cls: "ahead" };
+    if (delta <= -10) return { label: "Behind", cls: "behind" };
+    return { label: "On Time", cls: "on-time" };
+}
+
 function projectManagerInitials(name) {
     const words = String(name || "").trim().split(/\s+/).filter(Boolean);
     if (!words.length) return "—";
@@ -309,7 +358,6 @@ function renderProjectStatsBar(projects) {
     setText("projectStatTotal", String(projects.length));
     setText("projectStatActive", String(byStatus("active")));
     setText("projectStatOnboarding", String(byStatus("onboarding")));
-    setText("projectStatAtRisk", String(byStatus("at_risk")));
     setText("projectStatCompleted", String(byStatus("completed")));
     setText("projectStatValue", formatProjectValue(totalValue));
 }
@@ -384,7 +432,6 @@ function renderProjectCards(projects) {
     grid.innerHTML = "";
 
     projects.forEach(project => {
-        const { complete, total } = computeProjectCompleteness(project);
         const address = formatSiteAddress(project);
         const statusKey = project.status || "onboarding";
         const statusMeta = PROJECT_STATUS_META[statusKey] || PROJECT_STATUS_META.onboarding;
@@ -393,6 +440,7 @@ function renderProjectCards(projects) {
         const updatedDate = formatProjectDate(project.updated_at) || "—";
         const updatedBy = project.updated_by_name || project.created_by_name || "Staff Portal";
         const pmName = project.project_manager_name || "Unassigned";
+        const pace = computeSchedulePace(project);
 
         const card = document.createElement("div");
         card.className = `workbook-card project-card project-card--${statusKey}`;
@@ -405,6 +453,7 @@ function renderProjectCards(projects) {
         card.innerHTML = `
             <div class="workbook-cover project-cover ${project.cover_photo_url ? "" : "project-cover--placeholder"}"${coverStyle}>
                 ${project.cover_photo_url ? "" : `<span class="project-cover-placeholder-icon"></span>`}
+                ${pace ? `<span class="project-schedule-badge project-schedule-badge--${pace.cls}">${escapeHtmlProject(pace.label)}</span>` : ""}
             </div>
 
             <div class="company-card-body">
@@ -414,7 +463,7 @@ function renderProjectCards(projects) {
                     class="company-edit-btn project-edit-btn"
                     data-id="${project.id}"
                     aria-label="Edit project">
-                    <span class="company-edit-icon"></span>
+                    <span class="project-edit-icon"></span>
                 </button>
 
                 <div class="project-card-header">
@@ -467,17 +516,6 @@ function renderProjectCards(projects) {
                         <p class="project-updated-by">by ${escapeHtmlProject(updatedBy)}</p>
                     </div>
 
-                </div>
-
-                ${project.gc_name ? `
-                <div class="company-card-row">
-                    <span class="company-card-label">General Contractor</span>
-                    <span class="company-card-value">${escapeHtmlProject(project.gc_name)}</span>
-                </div>` : ""}
-
-                <div class="company-card-row">
-                    <span class="company-card-label">Onboarding</span>
-                    <span class="chip ${complete === total ? "chip--success" : "chip--muted"}">${complete}/${total} sections</span>
                 </div>
 
             </div>

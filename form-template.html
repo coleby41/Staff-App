@@ -497,6 +497,36 @@
 </div>
 
 
+<!-- Name This File Modal — shown right after Submit is clicked on the
+     fill-out form (before the PDF is actually generated/uploaded), so the
+     person can give this submission's file a name of their own instead of
+     a hidden auto-generated one. That name becomes the display name in the
+     Responses list and the actual filename when the PDF is downloaded. -->
+<div class="popup-overlay hidden" id="nameSubmissionFileModalOverlay">
+    <div class="popup">
+        <div class="workbook-preview-header">
+            <h2>Name this file</h2>
+            <button type="button" class="menu-btn" id="closeNameSubmissionFileBtn" aria-label="Close">✕</button>
+        </div>
+        <p class="auth-inline-copy">What should we call this submission?</p>
+
+        <form class="auth-form" id="nameSubmissionFileForm">
+            <label class="auth-field">
+                File name
+                <input type="text" id="submissionFileNameInput" name="fileName" required placeholder="e.g. Smith Jobsite Inspection">
+            </label>
+
+            <p class="auth-message" id="nameSubmissionFileMessage"></p>
+
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--red" id="cancelNameSubmissionFileBtn">Cancel</button>
+                <button type="submit" class="auth-button auth-button--secondary" id="confirmNameSubmissionFileBtn">Submit</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
 <!-- Responses Modal -->
 <div class="popup-overlay hidden" id="formResponsesModalOverlay">
     <div class="popup workbook-preview-popup">
@@ -514,7 +544,10 @@
     <div class="popup workbook-preview-popup">
         <div class="workbook-preview-header">
             <h2 id="submissionPreviewTitle">Form submission</h2>
-            <button type="button" class="menu-btn" id="closeSubmissionPreviewBtn" aria-label="Close preview">✕</button>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <button type="button" class="workbook-btn workbook-btn--download" id="downloadSubmissionBtn">Download</button>
+                <button type="button" class="menu-btn" id="closeSubmissionPreviewBtn" aria-label="Close preview">✕</button>
+            </div>
         </div>
         <p class="auth-inline-copy" id="submissionPreviewMessage"></p>
         <div class="workbook-preview-body" id="submissionPreviewContainer"></div>

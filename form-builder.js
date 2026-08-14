@@ -55,6 +55,8 @@ let editingFields = [];         // working copy of the fields array while the bu
 let fillFormRecord = null;      // the form currently open in the fill-out modal
 let editingSubmission = null;   // the form_submissions row being edited via the fill-out modal, or null when filling a brand-new response
 let responsesFormRecord = null; // the form currently open in the Responses modal
+let pendingSubmission = null;   // validated answers/blob-inputs waiting on a file name from the "Name this file" popup, between handleSubmitFillForm() and handleConfirmSubmissionFileName()
+let previewingSubmission = null; // the form_submissions row currently shown in the PDF preview modal, so its Download button knows what to fetch
 
 // PDF builder state (form-template.html "New Form" / editing a PDF-based form)
 let pdfBuilderDoc = null;         // pdf.js PDFDocumentProxy currently loaded in the builder
@@ -1543,6 +1545,10 @@ async function buildPdfSubmissionBlob(record, answers) {
     return new Blob([finalBytes], { type: "application/pdf" });
 }
 
+// Step 1 of submitting: validate the answers, then hand off to the "Name
+// this file" popup rather than uploading right away — the actual PDF
+// build + upload happens in handleConfirmSubmissionFileName() once a name
+// has been chosen.
 async function handleSubmitFillForm(event) {
     event.preventDefault();
     if (!fillFormRecord) return;
@@ -1550,7 +1556,6 @@ async function handleSubmitFillForm(event) {
     const record = fillFormRecord;
     const isEditing = Boolean(editingSubmission);
     const messageEl = document.getElementById("fillFormMessage");
-    const submitBtn = document.getElementById("submitFillFormBtn");
     const isPdfForm = Boolean(record.pdf_path);
 
     const result = isPdfForm ? collectFillPdfAnswers(record) : collectFillAnswers(record);
@@ -1578,8 +1583,7 @@ async function handleSubmitFillForm(event) {
         return;
     }
 
-    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = isEditing ? "Saving…" : "Submitting…"; }
-    if (messageEl) { messageEl.textContent = isEditing ? "Saving…" : "Submitting…"; messageEl.className = "auth-message"; }
+    if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
 
     const submittedByName = isEditing ? (editingSubmission.submitted_by_name || "Staff") : getFormStaffName();
     const submittedById = isEditing ? editingSubmission.submitted_by : getFormStaffId();
@@ -1592,10 +1596,70 @@ async function handleSubmitFillForm(event) {
         ? `Submitted by ${submittedByName} on ${new Date(editingSubmission.created_at).toLocaleString()} • Edited by ${getFormStaffName()} on ${new Date().toLocaleString()}`
         : `Submitted by ${submittedByName} on ${new Date().toLocaleString()}`;
 
+    pendingSubmission = { record, isEditing, isPdfForm, answers: result.answers, footerText, submittedByName, submittedById };
+    openNameSubmissionFileModal();
+}
+
+// Strips characters that aren't safe in a downloaded filename. Keeps it
+// simple/permissive (spaces, letters, numbers, most punctuation) rather
+// than trying to allowlist every valid filesystem character.
+function sanitizeSubmissionFileName(name) {
+    const cleaned = String(name || "").trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ");
+    return cleaned.slice(0, 120) || "Form submission";
+}
+
+function openNameSubmissionFileModal() {
+    if (!pendingSubmission) return;
+    const { record, isEditing } = pendingSubmission;
+
+    const input = document.getElementById("submissionFileNameInput");
+    if (input) {
+        input.value = isEditing
+            ? (editingSubmission?.file_name || record.title || "")
+            : (record.title || "");
+    }
+
+    const messageEl = document.getElementById("nameSubmissionFileMessage");
+    if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
+
+    const confirmBtn = document.getElementById("confirmNameSubmissionFileBtn");
+    if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = "Submit"; }
+
+    document.getElementById("nameSubmissionFileModalOverlay")?.classList.remove("hidden");
+    document.body.classList.add("popup-active");
+    input?.focus();
+}
+
+// Cancelling just backs out of the name popup — the fill-out form
+// underneath is left exactly as filled in, nothing has been uploaded yet.
+function closeNameSubmissionFileModal() {
+    document.getElementById("nameSubmissionFileModalOverlay")?.classList.add("hidden");
+    document.body.classList.remove("popup-active");
+    pendingSubmission = null;
+}
+
+// Step 2 of submitting: now that a file name has been chosen, actually
+// build the PDF and upload it (the part handleSubmitFillForm used to do
+// immediately, before the naming step existed).
+async function handleConfirmSubmissionFileName(event) {
+    event.preventDefault();
+    if (!pendingSubmission) return;
+
+    const { record, isEditing, isPdfForm, answers, footerText, submittedByName, submittedById } = pendingSubmission;
+
+    const nameInput = document.getElementById("submissionFileNameInput");
+    const fileName = sanitizeSubmissionFileName(nameInput ? nameInput.value : "");
+    const messageEl = document.getElementById("nameSubmissionFileMessage");
+    const confirmBtn = document.getElementById("confirmNameSubmissionFileBtn");
+    const fillMessageEl = document.getElementById("fillFormMessage");
+
+    if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = isEditing ? "Saving…" : "Submitting…"; }
+    if (messageEl) { messageEl.textContent = isEditing ? "Saving…" : "Submitting…"; messageEl.className = "auth-message"; }
+
     try {
         const blob = isPdfForm
-            ? await buildPdfSubmissionBlob(record, result.answers)
-            : await pdfMake.createPdf(buildSubmissionPdfDocDefinition(record, result.answers, footerText)).getBlob();
+            ? await buildPdfSubmissionBlob(record, answers)
+            : await pdfMake.createPdf(buildSubmissionPdfDocDefinition(record, answers, footerText)).getBlob();
 
         if (isEditing) {
             const submissionId = editingSubmission.id;
@@ -1614,8 +1678,9 @@ async function handleSubmitFillForm(event) {
             const { error: updateError } = await window.supabaseClient
                 .from(FORM_SUBMISSIONS_TABLE)
                 .update({
-                    answers: result.answers,
+                    answers,
                     pdf_path: pdfPath,
+                    file_name: fileName,
                     edited_at: new Date().toISOString(),
                     edited_by: getFormStaffId(),
                     edited_by_name: getFormStaffName()
@@ -1623,6 +1688,7 @@ async function handleSubmitFillForm(event) {
                 .eq("id", submissionId);
             if (updateError) throw updateError;
 
+            closeNameSubmissionFileModal();
             closeFillFormModal(); // also re-opens the Responses modal this edit was opened from, refreshed
             showFormPageMessage(`Response updated.`, "success");
         } else {
@@ -1643,8 +1709,9 @@ async function handleSubmitFillForm(event) {
                     form_title: record.title,
                     submitted_by: submittedById,
                     submitted_by_name: submittedByName,
-                    answers: result.answers,
-                    pdf_path: pdfPath
+                    answers,
+                    pdf_path: pdfPath,
+                    file_name: fileName
                 });
             if (insertError) throw insertError;
 
@@ -1659,8 +1726,9 @@ async function handleSubmitFillForm(event) {
                 });
             }
 
+            closeNameSubmissionFileModal();
             closeFillFormModal();
-            showFormPageMessage(`Thanks — "${record.title}" was submitted.`, "success");
+            showFormPageMessage(`Thanks — "${fileName}" was submitted.`, "success");
         }
     } catch (error) {
         console.error(isEditing ? "Failed to save response:" : "Failed to submit form:", error);
@@ -1668,8 +1736,9 @@ async function handleSubmitFillForm(event) {
             messageEl.textContent = "Something went wrong. Please try again.";
             messageEl.className = "auth-message error";
         }
+        if (fillMessageEl) { fillMessageEl.textContent = ""; fillMessageEl.className = "auth-message"; }
     } finally {
-        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = isEditing ? "Save changes" : "Submit"; }
+        if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = isEditing ? "Save changes" : "Submit"; }
     }
 }
 
@@ -1709,11 +1778,12 @@ async function openResponsesModal(record) {
             const editedNote = submission.edited_at
                 ? `<p class="workbook-preview-loading" style="margin:0;">Edited ${formEscapeHtml(formatFormDate(submission.edited_at))}${submission.edited_by_name ? ` by ${formEscapeHtml(submission.edited_by_name)}` : ""}</p>`
                 : "";
+            const displayName = submission.file_name || submission.form_title || "Untitled submission";
             const row = document.createElement("div");
             row.className = "notification-item";
             row.innerHTML = `
-                <strong>${formEscapeHtml(submission.submitted_by_name || "Staff")}</strong>
-                <p>${formEscapeHtml(formatFormDate(submission.created_at))}</p>
+                <strong>${formEscapeHtml(displayName)}</strong>
+                <p>Submitted by ${formEscapeHtml(submission.submitted_by_name || "Staff")} on ${formEscapeHtml(formatFormDate(submission.created_at))}</p>
                 ${editedNote}
             `;
             const actionsWrap = document.createElement("div");
@@ -1727,6 +1797,12 @@ async function openResponsesModal(record) {
             viewBtn.textContent = "View PDF";
             viewBtn.addEventListener("click", () => viewFormSubmission(submission));
 
+            const downloadBtn = document.createElement("button");
+            downloadBtn.type = "button";
+            downloadBtn.className = "workbook-btn workbook-btn--download";
+            downloadBtn.textContent = "Download";
+            downloadBtn.addEventListener("click", () => downloadFormSubmission(submission, downloadBtn));
+
             const editBtn = document.createElement("button");
             editBtn.type = "button";
             editBtn.className = "workbook-btn workbook-btn--edit";
@@ -1734,6 +1810,7 @@ async function openResponsesModal(record) {
             editBtn.addEventListener("click", () => openEditSubmissionModal(record, submission));
 
             actionsWrap.appendChild(viewBtn);
+            actionsWrap.appendChild(downloadBtn);
             actionsWrap.appendChild(editBtn);
             row.appendChild(actionsWrap);
             listEl.appendChild(row);
@@ -1766,12 +1843,14 @@ function closeResponsesModal() {
 async function viewFormSubmission(submission) {
     if (!submission?.pdf_path) return;
 
+    previewingSubmission = submission;
+
     const overlay = document.getElementById("submissionPreviewModalOverlay");
     const titleEl = document.getElementById("submissionPreviewTitle");
     const container = document.getElementById("submissionPreviewContainer");
     const messageEl = document.getElementById("submissionPreviewMessage");
 
-    if (titleEl) titleEl.textContent = submission.form_title || "Form submission";
+    if (titleEl) titleEl.textContent = submission.file_name || submission.form_title || "Form submission";
     if (container) container.innerHTML = "";
     if (messageEl) { messageEl.textContent = "Loading…"; messageEl.style.display = "block"; }
 
@@ -1803,6 +1882,46 @@ function closeSubmissionPreviewModal() {
     document.body.classList.remove("popup-active");
     const container = document.getElementById("submissionPreviewContainer");
     if (container) container.innerHTML = "";
+    previewingSubmission = null;
+}
+
+// Downloads a submission's PDF to the person's computer under the name
+// they chose in the "Name this file" popup at submit time (falling back to
+// the form's title for submissions made before that feature existed).
+// Fetches the file as a blob first rather than just linking the signed
+// URL — a plain <a download> on a cross-origin Supabase Storage URL can't
+// force a custom filename, but a same-origin blob: URL can.
+async function downloadFormSubmission(submission, triggerBtn) {
+    if (!submission?.pdf_path) return;
+
+    const originalLabel = triggerBtn ? triggerBtn.textContent : null;
+    if (triggerBtn) { triggerBtn.disabled = true; triggerBtn.textContent = "Downloading…"; }
+
+    try {
+        const { data, error } = await window.supabaseClient
+            .storage
+            .from(FORM_SUBMISSIONS_BUCKET)
+            .createSignedUrl(submission.pdf_path, 60);
+        if (error || !data?.signedUrl) throw error || new Error("No signed URL returned");
+
+        const response = await fetch(data.signedUrl);
+        if (!response.ok) throw new Error(`Download fetch failed: ${response.status}`);
+        const blob = await response.blob();
+
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = `${sanitizeSubmissionFileName(submission.file_name || submission.form_title)}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+        console.error("Failed to download submission PDF:", error);
+        alert("Couldn't download that file. Please try again.");
+    } finally {
+        if (triggerBtn) { triggerBtn.disabled = false; triggerBtn.textContent = originalLabel; }
+    }
 }
 
 // If we landed here from a notification's "View it here" link
@@ -1895,14 +2014,24 @@ window.addEventListener("DOMContentLoaded", function () {
     document.getElementById("cancelFillFormBtn")?.addEventListener("click", closeFillFormModal);
     document.getElementById("fillForm")?.addEventListener("submit", handleSubmitFillForm);
 
+    document.getElementById("nameSubmissionFileForm")?.addEventListener("submit", handleConfirmSubmissionFileName);
+    document.getElementById("cancelNameSubmissionFileBtn")?.addEventListener("click", closeNameSubmissionFileModal);
+    document.getElementById("closeNameSubmissionFileBtn")?.addEventListener("click", closeNameSubmissionFileModal);
+
     document.getElementById("closeFormResponsesBtn")?.addEventListener("click", closeResponsesModal);
     document.getElementById("closeSubmissionPreviewBtn")?.addEventListener("click", closeSubmissionPreviewModal);
+    document.getElementById("downloadSubmissionBtn")?.addEventListener("click", function () {
+        if (previewingSubmission) downloadFormSubmission(previewingSubmission, this);
+    });
 
     document.getElementById("formBuilderModalOverlay")?.addEventListener("click", function (e) {
         if (e.target === this) closeFormBuilderModal();
     });
     document.getElementById("fillFormModalOverlay")?.addEventListener("click", function (e) {
         if (e.target === this) closeFillFormModal();
+    });
+    document.getElementById("nameSubmissionFileModalOverlay")?.addEventListener("click", function (e) {
+        if (e.target === this) closeNameSubmissionFileModal();
     });
     document.getElementById("formResponsesModalOverlay")?.addEventListener("click", function (e) {
         if (e.target === this) closeResponsesModal();

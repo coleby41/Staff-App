@@ -1820,6 +1820,28 @@ button { font: inherit; }
     gap: 18px;
 }
 
+/* Project cards specifically: fixed 3-per-row instead of the generic
+   auto-fill above, so cards get wider (more room for the Value/Progress/
+   Due date row and the PM/Updated footer) rather than the grid just
+   packing in more narrower cards on a wide screen. Scoped to #projectsGrid
+   so venders.html / excel-workbook.html's grids (which reuse
+   .workbook-grid too) are unaffected. */
+#projectsGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 1100px) {
+    #projectsGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    #projectsGrid {
+        grid-template-columns: 1fr;
+    }
+}
+
 .workbook-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -2175,6 +2197,17 @@ button { font: inherit; }
   background: var(--accent-strong);
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20h9'/%3E%3Cpath d='M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z'/%3E%3C/svg%3E") center/contain no-repeat;
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20h9'/%3E%3Cpath d='M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+/* Project cards use a "⋮" overflow-style icon instead of the pencil above
+   (opens the same edit wizard on click) — matches the reference mockup's
+   card corner icon more closely than a pencil does. */
+.project-edit-icon {
+  width: 16px;
+  height: 16px;
+  background: var(--accent-strong);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Ccircle cx='12' cy='5' r='2'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3Ccircle cx='12' cy='19' r='2'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Ccircle cx='12' cy='5' r='2'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3Ccircle cx='12' cy='19' r='2'/%3E%3C/svg%3E") center/contain no-repeat;
 }
  
 .company-card-name {
@@ -5706,7 +5739,6 @@ body.todo-panel-resizing .main-content {
 .project-stat-tile--accent { border-left-color: var(--accent); }
 .project-stat-tile--success { border-left-color: var(--success); }
 .project-stat-tile--info { border-left-color: var(--info); }
-.project-stat-tile--warning { border-left-color: var(--warning); }
 .project-stat-tile--completed { border-left-color: var(--purple); }
 
 .project-stat-icon {
@@ -5722,7 +5754,6 @@ body.todo-panel-resizing .main-content {
 .project-stat-icon--accent { background: var(--accent-soft); }
 .project-stat-icon--success { background: var(--success-soft); }
 .project-stat-icon--info { background: var(--info-soft); }
-.project-stat-icon--warning { background: var(--warning-soft); }
 .project-stat-icon--completed { background: var(--purple-soft); }
 
 .project-stat-icon::before {
@@ -5742,7 +5773,6 @@ body.todo-panel-resizing .main-content {
 .project-stat-icon--accent::before { color: var(--accent); }
 .project-stat-icon--success::before { color: var(--success); }
 .project-stat-icon--info::before { color: var(--info); }
-.project-stat-icon--warning::before { color: var(--warning); }
 .project-stat-icon--completed::before { color: var(--purple); }
 
 .project-stat-icon--briefcase::before {
@@ -5758,11 +5788,6 @@ body.todo-panel-resizing .main-content {
 .project-stat-icon--people::before {
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M23 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='9' cy='7' r='4'/%3E%3Cpath d='M23 21v-2a4 4 0 0 0-3-3.87'/%3E%3Cpath d='M16 3.13a4 4 0 0 1 0 7.75'/%3E%3C/svg%3E");
-}
-
-.project-stat-icon--alert::before {
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'/%3E%3C/svg%3E");
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'/%3E%3C/svg%3E");
 }
 
 .project-stat-icon--flag::before {
@@ -5859,7 +5884,60 @@ body.todo-panel-resizing .main-content {
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='7' width='20' height='14' rx='2'/%3E%3Cpath d='M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16'/%3E%3C/svg%3E") center/contain no-repeat;
 }
 
+/* List view: the shared .workbook-grid--list .workbook-card rule (used by
+   vendor cards too, which have no cover image) stays a flex column —
+   project cards specifically need to go row instead, so the cover
+   thumbnail (below) sits beside the info instead of stacked above it. */
+.workbook-grid--list .project-card {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.workbook-grid--list .project-card .company-card-body {
+  padding-left: 8px;
+}
+
+/* List view: shrink the cover down to a small square thumbnail sitting to
+   the left of the row instead of hiding it — needs the card itself to
+   switch to a row layout (above) so the thumbnail and the info sit
+   side by side instead of stacked. */
 .workbook-grid--list .project-cover {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  align-self: center;
+  margin: 12px 0 12px 16px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.workbook-grid--list .project-cover-placeholder-icon {
+  width: 26px;
+  height: 26px;
+}
+
+/* Schedule-pace badge — upper-left corner of the cover photo. Solid
+   (not the soft pastel chip variants) with a shadow, since it needs to
+   stay legible sitting on top of a photo of unknown brightness/color. */
+.project-schedule-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: white;
+  box-shadow: 0 2px 8px rgba(10, 24, 36, 0.35);
+}
+
+.project-schedule-badge--on-time { background: var(--success); }
+.project-schedule-badge--behind { background: var(--danger); }
+.project-schedule-badge--ahead { background: var(--warning); }
+
+.workbook-grid--list .project-schedule-badge {
   display: none;
 }
 
@@ -6027,6 +6105,7 @@ body.todo-panel-resizing .main-content {
 }
 
 .project-progress-fill {
+  display: block;
   height: 100%;
   border-radius: 999px;
   background: var(--success);
@@ -6034,41 +6113,50 @@ body.todo-panel-resizing .main-content {
 
 .project-progress-fill--active { background: var(--success); }
 .project-progress-fill--onboarding { background: var(--info); }
-.project-progress-fill--at_risk { background: var(--warning); }
 .project-progress-fill--on_hold { background: var(--text-soft); }
 .project-progress-fill--completed { background: var(--purple); }
 .project-progress-fill--archived { background: var(--text-soft); }
 
-/* Status-colored accent stripe — top edge in card view, left edge once
-   the list view reflows the card into a row. */
 .project-card {
   position: relative;
 }
 
-.project-card::before {
+/* Status color, card view: a solid band under the cover photo/placeholder
+   rather than an overlay on top of it — an overlay can get lost against a
+   busy photo, a band underneath is visible no matter what's above it. */
+.project-cover {
+  border-bottom: 5px solid var(--border);
+}
+
+.project-card--active .project-cover { border-bottom-color: var(--success); }
+.project-card--onboarding .project-cover { border-bottom-color: var(--info); }
+.project-card--on_hold .project-cover { border-bottom-color: var(--text-soft); }
+.project-card--completed .project-cover { border-bottom-color: var(--purple); }
+.project-card--archived .project-cover { border-bottom-color: var(--text-soft); }
+
+/* Status color, list view: a left-edge stripe down the whole row instead
+   (the cover shrinks to a small thumbnail there — see below — so its
+   border-bottom band isn't a useful signal at that size anymore). */
+.workbook-grid--list .project-cover {
+  border-bottom: none;
+}
+
+.workbook-grid--list .project-card::before {
   content: "";
   position: absolute;
   top: 0;
+  bottom: 0;
   left: 0;
-  right: 0;
-  height: 4px;
+  width: 4px;
   background: var(--border);
   z-index: 1;
 }
 
-.project-card--active::before { background: var(--success); }
-.project-card--onboarding::before { background: var(--info); }
-.project-card--at_risk::before { background: var(--warning); }
-.project-card--on_hold::before { background: var(--text-soft); }
-.project-card--completed::before { background: var(--purple); }
-.project-card--archived::before { background: var(--text-soft); }
-
-.workbook-grid--list .project-card::before {
-  right: auto;
-  bottom: 0;
-  width: 4px;
-  height: auto;
-}
+.workbook-grid--list .project-card--active::before { background: var(--success); }
+.workbook-grid--list .project-card--onboarding::before { background: var(--info); }
+.workbook-grid--list .project-card--on_hold::before { background: var(--text-soft); }
+.workbook-grid--list .project-card--completed::before { background: var(--purple); }
+.workbook-grid--list .project-card--archived::before { background: var(--text-soft); }
 
 .project-due-soon {
   color: var(--warning);
@@ -6138,4 +6226,72 @@ body.todo-panel-resizing .main-content {
     flex-direction: column;
     align-items: stretch;
   }
+}
+
+/* ===========================================================
+   APP-WIDE flat "Canva-style" button treatment.
+
+   Replaces the earlier glossy/embossed 3D look. Every one of these
+   classes is shared across most/all pages already (.auth-button alone is
+   used on all 20 HTML pages; .chip, .workbook-btn, .notification-bell,
+   .menu-btn, .report-bug-btn, .mark-read-btn, and .header-signout are
+   each used on 15+), so applying this unscoped naturally covers the
+   whole app rather than needing a per-page class.
+
+   Deliberately doesn't touch each class's own background/color
+   ("keeping the colors") — flat fill stays exactly as-is. What changes:
+     - no inset highlight/shade, no gloss sheen — just a soft, low,
+       single drop shadow so buttons sit gently above the page instead
+       of looking embossed/chrome-like.
+     - hover: a touch brighter + a slightly larger (still soft) shadow.
+     - active/press: a quick scale-down instead of a pressed-in inset
+       shadow, which reads flatter and snappier, closer to Canva's UI.
+=========================================================== */
+
+.auth-button,
+.header-signout,
+.report-bug-btn,
+.mark-read-btn,
+.notification-bell,
+.menu-btn,
+.chip,
+.quick-link-item,
+.workbook-btn {
+  position: relative;
+  border: none;
+  box-shadow: 0 1px 2px rgba(10, 24, 36, 0.12);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+
+.auth-button:hover,
+.report-bug-btn:hover,
+.mark-read-btn:hover,
+.notification-bell:hover,
+.menu-btn:hover,
+.chip:hover,
+.quick-link-item:hover,
+.workbook-btn:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 3px 8px rgba(10, 24, 36, 0.16);
+}
+
+.auth-button:active,
+.report-bug-btn:active,
+.mark-read-btn:active,
+.notification-bell:active,
+.menu-btn:active,
+.chip:active,
+.quick-link-item:active,
+.workbook-btn:active {
+  transform: scale(0.97);
+  filter: brightness(0.97);
+  box-shadow: 0 1px 2px rgba(10, 24, 36, 0.1);
+}
+
+/* Quick Links tiles carry their color on the inner .quick-link-icon, not
+   the tile itself — give the icon block the same flat treatment rather
+   than the transparent tile wrapper. */
+.quick-link-icon {
+  position: relative;
+  box-shadow: 0 1px 2px rgba(10, 24, 36, 0.1);
 }
