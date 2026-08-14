@@ -333,6 +333,11 @@
 <!-- Form Builder Modal (create / edit) -->
 <div class="popup-overlay hidden" id="formBuilderModalOverlay">
     <div class="popup workbook-popup form-builder-popup">
+
+        <div class="wizard-topbar">
+            <button type="button" class="wizard-topbar-link" id="cancelFormBtn">&lsaquo; Cancel</button>
+        </div>
+
         <h2 id="formBuilderModalTitle">New Form</h2>
         <p class="auth-inline-copy" id="formBuilderModalSubtitle">Build the form by adding questions below.</p>
 
@@ -439,10 +444,6 @@
                 <button type="button" class="auth-button auth-button--red" id="deleteFormBtn" style="display:none;">Delete Form</button>
                 <button type="submit" class="auth-button auth-button--secondary" id="saveFormBtn">Create form</button>
             </div>
-
-            <button type="button" class="auth-button auth-button--red" id="cancelFormBtn">
-                Cancel
-            </button>
 
         </form>
     </div>

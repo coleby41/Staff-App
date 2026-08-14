@@ -239,16 +239,33 @@ function setOverviewMessage(text, type) {
 function renderProjectOverview(project) {
     const grid = document.getElementById("projectSummaryGrid");
     const editBtn = document.getElementById("editProjectBtn");
+    const heroSection = document.querySelector(".hero-section");
     const heroName = document.querySelector(".hero-section h1");
 
     if (!project) {
         setOverviewMessage("No project selected. Pick one from Project Overview.", "error");
         if (grid) grid.innerHTML = "";
         if (editBtn) editBtn.style.display = "none";
+        if (heroSection) heroSection.style.backgroundImage = "";
         return;
     }
 
     if (heroName) heroName.textContent = `Overview — ${project.name || "Untitled project"}`;
+
+    // Cover photo (set on the wizard's Status & Tracking step, same one
+    // that shows on the Project Overview cards) becomes this banner's
+    // background when there is one — a tinted version of the default
+    // navy gradient sits on top so the white title/description text
+    // stays readable over any photo. No cover photo just clears the
+    // inline style, which falls back to .hero-section's own CSS gradient.
+    if (heroSection) {
+        heroSection.style.backgroundImage = project.cover_photo_url
+            ? `linear-gradient(135deg, rgba(23, 54, 74, 0.82) 0%, rgba(36, 88, 109, 0.7) 100%), url('${project.cover_photo_url}')`
+            : "";
+        heroSection.style.backgroundSize = project.cover_photo_url ? "cover" : "";
+        heroSection.style.backgroundPosition = project.cover_photo_url ? "center" : "";
+    }
+
     if (editBtn) {
         editBtn.style.display = "inline-block";
         editBtn.onclick = () => {

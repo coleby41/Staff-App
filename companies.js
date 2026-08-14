@@ -1651,8 +1651,8 @@ window.initCompaniesPage = async function () {
     const manageTagsBtn = document.getElementById("manageTagsBtn");
     if (manageTagsBtn) manageTagsBtn.addEventListener("click", openManageTagsModal);
 
-    const closeManageTagsBtn = document.getElementById("closeManageTagsBtn");
-    if (closeManageTagsBtn) closeManageTagsBtn.addEventListener("click", closeManageTagsModal);
+    const cancelManageTagsBtn = document.getElementById("cancelManageTagsBtn");
+    if (cancelManageTagsBtn) cancelManageTagsBtn.addEventListener("click", closeManageTagsModal);
 
     const manageTagsOverlay = document.getElementById("manageTagsModalOverlay");
     if (manageTagsOverlay) {

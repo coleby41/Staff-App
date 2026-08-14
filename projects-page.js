@@ -348,14 +348,18 @@ async function loadProjects() {
 
 function renderProjectStatsBar(projects) {
     const byStatus = (key) => projects.filter(p => (p.status || "onboarding") === key).length;
-    const totalValue = projects.reduce((sum, p) => sum + (Number(p.contract_value) || 0), 0);
+    // "Total Projects" mirrors the "All Projects" tab, which excludes
+    // archived projects (they're tucked away under their own Archived tab
+    // instead) — so the header number always matches what's on screen.
+    const nonArchived = projects.filter(p => (p.status || "onboarding") !== "archived");
+    const totalValue = nonArchived.reduce((sum, p) => sum + (Number(p.contract_value) || 0), 0);
 
     const setText = (id, text) => {
         const el = document.getElementById(id);
         if (el) el.textContent = text;
     };
 
-    setText("projectStatTotal", String(projects.length));
+    setText("projectStatTotal", String(nonArchived.length));
     setText("projectStatActive", String(byStatus("active")));
     setText("projectStatOnboarding", String(byStatus("onboarding")));
     setText("projectStatCompleted", String(byStatus("completed")));
@@ -368,7 +372,9 @@ function renderProjectTabCounts(projects) {
         if (el) el.textContent = text;
     };
 
-    setText("projectTabCountAll", String(projects.length));
+    // Same as the grid itself: "All Projects" leaves archived out, so the
+    // Archived tab is the only place their count/status shows.
+    setText("projectTabCountAll", String(projects.filter(p => (p.status || "onboarding") !== "archived").length));
     Object.entries(PROJECT_STATUS_META).forEach(([key, meta]) => {
         setText(meta.tabCountId, String(projects.filter(p => (p.status || "onboarding") === key).length));
     });
@@ -383,7 +389,15 @@ function filterProjectsForGrid() {
     const query = (searchInput ? searchInput.value.trim().toLowerCase() : "");
 
     return allProjects.filter(project => {
-        if (projectActiveTab !== "all" && (project.status || "onboarding") !== projectActiveTab) return false;
+        const status = project.status || "onboarding";
+        // "All Projects" hides archived projects — they stay in the system
+        // and are still fully visible under their own Archived tab, just
+        // out of the way of the default/working view.
+        if (projectActiveTab === "all") {
+            if (status === "archived") return false;
+        } else if (status !== projectActiveTab) {
+            return false;
+        }
         if (!query) return true;
         const haystack = [
             project.name, project.site_address, project.site_city, project.site_state,

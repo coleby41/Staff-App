@@ -470,6 +470,11 @@
 <!-- Add / Edit Company Modal -->
 <div class="popup-overlay hidden" id="companyModalOverlay">
     <div class="popup workbook-popup company-form-popup">
+
+        <div class="wizard-topbar">
+            <button type="button" class="wizard-topbar-link" id="cancelCompanyBtn">&lsaquo; Cancel</button>
+        </div>
+
         <h2 id="companyModalTitle">Add Vendor</h2>
         <p class="auth-inline-copy" id="companyModalSubtitle">Enter the Vendor's details below.</p>
 
@@ -525,13 +530,9 @@
             <p class="auth-message" id="companyFormMessage"></p>
 
             <div class="popup-buttons">
-                <button type="button" class="auth-button auth-button--red" id="cancelCompanyBtn">Cancel</button>
+                <button type="button" class="auth-button auth-button--red" id="deleteCompanyBtn" style="display:none;">Delete Vendor</button>
                 <button type="submit" class="auth-button auth-button--secondary" id="submitCompanyBtn">Save Vendor Changes</button>
             </div>
-
-            <button type="button" class="auth-button auth-button--red" id="deleteCompanyBtn" style="display:none;">
-                Delete Vendor
-            </button>
 
         </form>
     </div>
@@ -587,9 +588,13 @@
 <!-- Manage Tags Modal -->
 <div class="popup-overlay hidden" id="manageTagsModalOverlay">
     <div class="popup workbook-preview-popup">
+
+        <div class="wizard-topbar">
+            <button type="button" class="wizard-topbar-link" id="cancelManageTagsBtn">&lsaquo; Cancel</button>
+        </div>
+
         <div class="workbook-preview-header">
             <h2>Manage Tags</h2>
-            <button type="button" class="menu-btn" id="closeManageTagsBtn" aria-label="Close manage tags">✕</button>
         </div>
 
         <p class="auth-inline-copy">Add, rename, or remove the tags vendors can be assigned. Deleting a tag removes it from every vendor that has it.</p>
@@ -709,6 +714,11 @@
 <!-- Start A Report Modal -->
 <div class="popup-overlay hidden" id="startReportModalOverlay">
     <div class="popup workbook-popup start-report-popup">
+
+        <div class="wizard-topbar">
+            <button type="button" class="wizard-topbar-link" id="cancelStartReportBtn">&lsaquo; Cancel</button>
+        </div>
+
         <h2>Generate A Report</h2>
         <p class="auth-inline-copy">Here you can generate a report by vendor specialty or by whether the vendor is approved or not.</p>
 
@@ -745,6 +755,11 @@
 <!-- Report Preview Modal -->
 <div class="popup-overlay hidden" id="reportPreviewModalOverlay">
     <div class="popup workbook-popup report-preview-popup">
+
+        <div class="wizard-topbar">
+            <button type="button" class="wizard-topbar-link" id="cancelReportPreviewBtn">&lsaquo; Cancel</button>
+        </div>
+
         <h2>Report Preview</h2>
         <p class="auth-inline-copy">Review the report below, then download it or close this without saving.</p>
 
@@ -753,9 +768,6 @@
         <p id="reportPreviewMessage" class="auth-message" style="display:none;"></p>
 
         <div class="report-preview-actions">
-            <button type="button" class="auth-button auth-button--secondary" id="closeReportPreviewBtn">
-                Close
-            </button>
             <button type="button" class="auth-button" id="reportPreviewDownloadBtn">
                 Download
             </button>
@@ -766,6 +778,11 @@
 <!-- Specialty Report: General vs Custom Modal -->
 <div class="popup-overlay hidden" id="specialtyReportTypeModalOverlay">
     <div class="popup workbook-popup">
+
+        <div class="wizard-topbar">
+            <button type="button" class="wizard-topbar-link" id="cancelSpecialtyReportTypeBtn">&lsaquo; Cancel</button>
+        </div>
+
         <h2>Specialty Report</h2>
         <p class="auth-inline-copy">Choose how you'd like to generate this report.</p>
 
@@ -804,6 +821,12 @@
 <!-- Specialty Report: Custom Wizard Modal (one step per tag category) -->
 <div class="popup-overlay hidden" id="specialtyWizardModalOverlay">
     <div class="popup workbook-popup">
+
+        <div class="wizard-topbar">
+            <button type="button" class="wizard-topbar-link" id="specialtyWizardCancelBtn">&lsaquo; Cancel</button>
+            <button type="button" class="wizard-topbar-link" id="specialtyWizardBackBtn" style="display:none;">&lsaquo; Go back</button>
+        </div>
+
         <h2 id="specialtyWizardTitle">Category</h2>
         <p class="auth-inline-copy" id="specialtyWizardStepLabel">Step 1 of 1</p>
 
@@ -812,12 +835,6 @@
         <p id="specialtyWizardMessage" class="auth-message" style="display:none;"></p>
 
         <div class="report-preview-actions">
-            <button type="button" class="auth-button auth-button--secondary" id="specialtyWizardCancelBtn">
-                Cancel
-            </button>
-            <button type="button" class="auth-button auth-button--secondary" id="specialtyWizardBackBtn">
-                Back
-            </button>
             <button type="button" class="auth-button" id="specialtyWizardNextBtn">
                 Next
             </button>
@@ -1194,7 +1211,7 @@ function initStartReportModal() {
 
     const startReportBtn = document.getElementById("startReportBtn");
     const overlay = document.getElementById("startReportModalOverlay");
-    const closeBtn = document.getElementById("closeStartReportBtn");
+    const closeBtn = document.getElementById("cancelStartReportBtn");
     const bySpecialtyBtn = document.getElementById("reportBySpecialtyBtn");
     const byApprovalBtn = document.getElementById("reportByApprovalBtn");
 
@@ -1300,7 +1317,7 @@ function wireReportButton(btn, buildFn, pickerOverlay) {
 function initSpecialtyReportPopups() {
 
     const typeOverlay = document.getElementById("specialtyReportTypeModalOverlay");
-    const closeTypeBtn = document.getElementById("closeSpecialtyReportTypeBtn");
+    const closeTypeBtn = document.getElementById("cancelSpecialtyReportTypeBtn");
     const generalBtn = document.getElementById("specialtyGeneralReportBtn");
     const customBtn = document.getElementById("specialtyCustomReportBtn");
 
@@ -1415,7 +1432,7 @@ function renderSpecialtyWizardStep() {
             : '<p class="report-tag-chip-empty">No tags in this category yet.</p>';
     }
 
-    if (backBtn) backBtn.style.display = state.stepIndex === 0 ? "none" : "inline-flex";
+    if (backBtn) backBtn.style.display = state.stepIndex === 0 ? "none" : "";
     if (nextBtn) nextBtn.textContent = state.stepIndex === state.categories.length - 1 ? "Generate Report" : "Next";
 }
 
@@ -1508,7 +1525,7 @@ function downloadBlob(blob, fileName) {
 function initReportPreviewModal() {
 
     const overlay = document.getElementById("reportPreviewModalOverlay");
-    const closeBtn = document.getElementById("closeReportPreviewBtn");
+    const closeBtn = document.getElementById("cancelReportPreviewBtn");
     const downloadBtn = document.getElementById("reportPreviewDownloadBtn");
 
     if (!overlay) return;

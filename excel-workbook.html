@@ -333,6 +333,11 @@
 <!-- Add / Edit Workbook Modal -->
 <div class="popup-overlay hidden" id="uploadModalOverlay">
     <div class="popup workbook-popup">
+
+        <div class="wizard-topbar">
+            <button type="button" class="wizard-topbar-link" id="cancelUploadBtn">&lsaquo; Cancel</button>
+        </div>
+
         <h2 id="workbookModalTitle">Add Workbook</h2>
         <p class="auth-inline-copy" id="workbookModalSubtitle">Upload a cover image and the Excel file. Everything else is filled in automatically.</p>
 
@@ -372,10 +377,6 @@
                 <button type="button" class="auth-button auth-button--red" id="deleteWorkbookBtn" style="display:none;">Delete Workbook</button>
                 <button type="submit" class="auth-button auth-button--secondary" id="submitUploadBtn">Upload workbook</button>
             </div>
-
-            <button type="button" class="auth-button auth-button--red" id="cancelUploadBtn">
-                Cancel
-            </button>
 
         </form>
     </div>
