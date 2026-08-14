@@ -55,6 +55,7 @@ let editingFields = [];         // working copy of the fields array while the bu
 let fillFormRecord = null;      // the form currently open in the fill-out modal
 let editingSubmission = null;   // the form_submissions row being edited via the fill-out modal, or null when filling a brand-new response
 let responsesFormRecord = null; // the form currently open in the Responses modal
+let submissionPendingDelete = null; // { record, submission } queued up in the delete-confirm popup, or null
 let pendingSubmission = null;   // validated answers/blob-inputs waiting on a file name from the "Name this file" popup, between handleSubmitFillForm() and handleConfirmSubmissionFileName()
 let previewingSubmission = null; // the form_submissions row currently shown in the PDF preview modal, so its Download button knows what to fetch
 
@@ -1776,43 +1777,36 @@ async function openResponsesModal(record) {
         listEl.innerHTML = "";
         data.forEach(submission => {
             const editedNote = submission.edited_at
-                ? `<p class="workbook-preview-loading" style="margin:0;">Edited ${formEscapeHtml(formatFormDate(submission.edited_at))}${submission.edited_by_name ? ` by ${formEscapeHtml(submission.edited_by_name)}` : ""}</p>`
+                ? `<p class="form-response-edited">Edited ${formEscapeHtml(formatFormDate(submission.edited_at))}${submission.edited_by_name ? ` by ${formEscapeHtml(submission.edited_by_name)}` : ""}</p>`
                 : "";
             const displayName = submission.file_name || submission.form_title || "Untitled submission";
+
             const row = document.createElement("div");
-            row.className = "notification-item";
+            row.className = "form-response-row";
             row.innerHTML = `
-                <strong>${formEscapeHtml(displayName)}</strong>
-                <p>Submitted by ${formEscapeHtml(submission.submitted_by_name || "Staff")} on ${formEscapeHtml(formatFormDate(submission.created_at))}</p>
-                ${editedNote}
+                <div class="form-response-file-icon"><span></span></div>
+                <div class="form-response-info">
+                    <p class="form-response-name">${formEscapeHtml(displayName)}</p>
+                    <p class="form-response-meta">Submitted by ${formEscapeHtml(submission.submitted_by_name || "Staff")} on ${formEscapeHtml(formatFormDate(submission.created_at))}</p>
+                    ${editedNote}
+                </div>
+                <div class="form-response-actions">
+                    <button type="button" class="form-response-action-btn form-response-action-btn--view" title="View PDF" aria-label="View PDF"><span></span></button>
+                    <button type="button" class="form-response-action-btn form-response-action-btn--download" title="Download" aria-label="Download"><span></span></button>
+                    <button type="button" class="form-response-action-btn form-response-action-btn--edit" title="Edit" aria-label="Edit"><span></span></button>
+                    <button type="button" class="form-response-action-btn form-response-action-btn--delete" title="Delete" aria-label="Delete"><span></span></button>
+                </div>
             `;
-            const actionsWrap = document.createElement("div");
-            actionsWrap.style.display = "flex";
-            actionsWrap.style.gap = "8px";
-            actionsWrap.style.marginTop = "8px";
 
-            const viewBtn = document.createElement("button");
-            viewBtn.type = "button";
-            viewBtn.className = "workbook-btn workbook-btn--preview";
-            viewBtn.textContent = "View PDF";
-            viewBtn.addEventListener("click", () => viewFormSubmission(submission));
-
-            const downloadBtn = document.createElement("button");
-            downloadBtn.type = "button";
-            downloadBtn.className = "workbook-btn workbook-btn--download";
-            downloadBtn.textContent = "Download";
+            row.querySelector(".form-response-action-btn--view")
+                .addEventListener("click", () => viewFormSubmission(submission));
+            const downloadBtn = row.querySelector(".form-response-action-btn--download");
             downloadBtn.addEventListener("click", () => downloadFormSubmission(submission, downloadBtn));
+            row.querySelector(".form-response-action-btn--edit")
+                .addEventListener("click", () => openEditSubmissionModal(record, submission));
+            row.querySelector(".form-response-action-btn--delete")
+                .addEventListener("click", () => openDeleteSubmissionConfirm(record, submission));
 
-            const editBtn = document.createElement("button");
-            editBtn.type = "button";
-            editBtn.className = "workbook-btn workbook-btn--edit";
-            editBtn.textContent = "Edit";
-            editBtn.addEventListener("click", () => openEditSubmissionModal(record, submission));
-
-            actionsWrap.appendChild(viewBtn);
-            actionsWrap.appendChild(downloadBtn);
-            actionsWrap.appendChild(editBtn);
-            row.appendChild(actionsWrap);
             listEl.appendChild(row);
         });
     }
@@ -1836,6 +1830,75 @@ function closeResponsesModal() {
     document.getElementById("formResponsesModalOverlay")?.classList.add("hidden");
     document.body.classList.remove("popup-active");
     responsesFormRecord = null;
+}
+
+/* ---------- delete a submission ---------- */
+// Reuses the same "hide the Responses modal underneath while this one's
+// open, reveal it again on close" trick as openEditSubmissionModal, since
+// this popup is opened from inside the Responses modal too.
+
+function openDeleteSubmissionConfirm(record, submission) {
+    submissionPendingDelete = { record, submission };
+
+    const copyEl = document.getElementById("deleteSubmissionConfirmCopy");
+    if (copyEl) {
+        const displayName = submission.file_name || submission.form_title || "this submission";
+        copyEl.textContent = `This will permanently delete "${displayName}" and its PDF. This can't be undone.`;
+    }
+    const messageEl = document.getElementById("deleteSubmissionConfirmMessage");
+    if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
+
+    document.getElementById("formResponsesModalOverlay")?.classList.add("hidden");
+    document.getElementById("deleteSubmissionConfirmOverlay")?.classList.remove("hidden");
+    document.body.classList.add("popup-active");
+}
+
+function closeDeleteSubmissionConfirm() {
+    document.getElementById("deleteSubmissionConfirmOverlay")?.classList.add("hidden");
+    submissionPendingDelete = null;
+    // Reveal the Responses modal again, refreshed if a delete actually
+    // happened (harmless no-op re-fetch if the user just hit Cancel).
+    if (responsesFormRecord) {
+        openResponsesModal(responsesFormRecord);
+    } else {
+        document.body.classList.remove("popup-active");
+    }
+}
+
+async function confirmDeleteSubmission() {
+    if (!submissionPendingDelete) return;
+    const { submission } = submissionPendingDelete;
+    const confirmBtn = document.getElementById("confirmDeleteSubmissionBtn");
+    const messageEl = document.getElementById("deleteSubmissionConfirmMessage");
+
+    if (confirmBtn) confirmBtn.disabled = true;
+
+    try {
+        if (submission.pdf_path) {
+            const { error: storageError } = await window.supabaseClient
+                .storage
+                .from(FORM_SUBMISSIONS_BUCKET)
+                .remove([submission.pdf_path]);
+            // Don't block the delete on a storage cleanup failure (e.g. the
+            // file was already gone) — the response record disappearing is
+            // what the person actually asked for.
+            if (storageError) console.error("Failed to remove submission PDF from storage:", storageError);
+        }
+
+        const { error: deleteError } = await window.supabaseClient
+            .from(FORM_SUBMISSIONS_TABLE)
+            .delete()
+            .eq("id", submission.id);
+        if (deleteError) throw deleteError;
+
+        closeDeleteSubmissionConfirm(); // re-opens + refreshes the Responses modal
+        showFormPageMessage(`"${submission.file_name || submission.form_title || "Submission"}" was deleted.`, "success");
+    } catch (error) {
+        console.error("Failed to delete submission:", error);
+        if (messageEl) { messageEl.textContent = "Something went wrong deleting this response. Please try again."; messageEl.className = "auth-message error"; }
+    } finally {
+        if (confirmBtn) confirmBtn.disabled = false;
+    }
 }
 
 /* ---------- submission PDF preview (signed URL, bucket is private) ---------- */
@@ -1891,11 +1954,16 @@ function closeSubmissionPreviewModal() {
 // Fetches the file as a blob first rather than just linking the signed
 // URL — a plain <a download> on a cross-origin Supabase Storage URL can't
 // force a custom filename, but a same-origin blob: URL can.
+//
+// Doesn't touch triggerBtn's textContent — it's called both by the
+// labeled "Download" button in the PDF preview modal and by the icon-only
+// download button in the Responses list (whose only child is a masked
+// <span>, which a textContent swap would destroy) — a disabled/dimmed
+// class covers the busy state for both without caring which kind it is.
 async function downloadFormSubmission(submission, triggerBtn) {
     if (!submission?.pdf_path) return;
 
-    const originalLabel = triggerBtn ? triggerBtn.textContent : null;
-    if (triggerBtn) { triggerBtn.disabled = true; triggerBtn.textContent = "Downloading…"; }
+    if (triggerBtn) { triggerBtn.disabled = true; triggerBtn.classList.add("is-busy"); }
 
     try {
         const { data, error } = await window.supabaseClient
@@ -1920,7 +1988,7 @@ async function downloadFormSubmission(submission, triggerBtn) {
         console.error("Failed to download submission PDF:", error);
         alert("Couldn't download that file. Please try again.");
     } finally {
-        if (triggerBtn) { triggerBtn.disabled = false; triggerBtn.textContent = originalLabel; }
+        if (triggerBtn) { triggerBtn.disabled = false; triggerBtn.classList.remove("is-busy"); }
     }
 }
 
@@ -2024,6 +2092,9 @@ window.addEventListener("DOMContentLoaded", function () {
         if (previewingSubmission) downloadFormSubmission(previewingSubmission, this);
     });
 
+    document.getElementById("cancelDeleteSubmissionBtn")?.addEventListener("click", closeDeleteSubmissionConfirm);
+    document.getElementById("confirmDeleteSubmissionBtn")?.addEventListener("click", confirmDeleteSubmission);
+
     document.getElementById("formBuilderModalOverlay")?.addEventListener("click", function (e) {
         if (e.target === this) closeFormBuilderModal();
     });
@@ -2041,5 +2112,8 @@ window.addEventListener("DOMContentLoaded", function () {
     });
     document.getElementById("deleteFormConfirmOverlay")?.addEventListener("click", function (e) {
         if (e.target === this) closeDeleteFormConfirm();
+    });
+    document.getElementById("deleteSubmissionConfirmOverlay")?.addEventListener("click", function (e) {
+        if (e.target === this) closeDeleteSubmissionConfirm();
     });
 });

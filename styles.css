@@ -1570,6 +1570,19 @@ button { font: inherit; }
     transform: translateY(-1px);
 }
 
+/* Replaces the old 🔔 emoji with a real icon, in the same masked-SVG-span
+   style used everywhere else in the app (.menu-btn-adjacent icons,
+   .company-edit-icon, etc.) — color follows --accent-strong like the ✕
+   on .menu-btn does, instead of the emoji's fixed yellow. */
+.notification-bell-icon {
+    display: block;
+    width: 18px;
+    height: 18px;
+    background: var(--accent-strong);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9'/%3E%3Cpath d='M13.73 21a2 2 0 0 1-3.46 0'/%3E%3C/svg%3E") center/contain no-repeat;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9'/%3E%3Cpath d='M13.73 21a2 2 0 0 1-3.46 0'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
 .notification-count {
     position: absolute;
     top: -2px;
@@ -6294,4 +6307,194 @@ body.todo-panel-resizing .main-content {
 .quick-link-icon {
   position: relative;
   box-shadow: 0 1px 2px rgba(10, 24, 36, 0.1);
+}
+
+/* ===========================================================
+   FORM RESPONSES — submission rows (form-template.html's Responses
+   modal). Previously reused .notification-item (a plain list row built
+   for the notification dropdown) with plain text buttons crammed
+   underneath — replaced with a proper card row: a file icon, name +
+   meta on the left, circular icon action buttons on the right. Follows
+   the same "circle button + inner masked-SVG span" convention already
+   used for .company-edit-btn/.company-edit-icon and
+   .project-edit-btn/.project-edit-icon elsewhere in the app.
+=========================================================== */
+
+.form-response-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.form-response-row + .form-response-row {
+    margin-top: 10px;
+}
+
+.form-response-row:hover {
+    border-color: var(--accent-soft);
+    box-shadow: 0 3px 10px rgba(10, 24, 36, 0.08);
+}
+
+.form-response-file-icon {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    background: var(--accent-soft);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.form-response-file-icon span {
+    width: 18px;
+    height: 18px;
+    display: block;
+    background: var(--accent);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z'/%3E%3Cpath d='M14 2v6h6'/%3E%3C/svg%3E") center/contain no-repeat;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z'/%3E%3Cpath d='M14 2v6h6'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+.form-response-info {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-top: 2px;
+}
+
+.form-response-name {
+    margin: 0 0 3px;
+    font-weight: 700;
+    font-size: 0.96rem;
+    color: var(--text);
+    overflow-wrap: break-word;
+}
+
+.form-response-meta {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--text-soft);
+}
+
+.form-response-edited {
+    margin: 4px 0 0;
+    font-size: 0.78rem;
+    color: var(--text-soft);
+    font-style: italic;
+}
+
+.form-response-actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-top: 2px;
+}
+
+/* Same flat "Canva-style" box-shadow/hover/active rules as every other
+   button in the app (see the APP-WIDE flat button treatment section
+   above) — kept as its own rule rather than joined into that shared
+   selector list purely because these are small circular icon buttons
+   with their own background/sizing, not full labeled pill buttons, but
+   the shadow/hover/press behavior itself matches exactly. */
+.form-response-action-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(10, 24, 36, 0.12);
+    transition: background 0.15s ease, transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease, opacity 0.15s ease;
+}
+
+.form-response-action-btn:hover {
+    filter: brightness(1.06);
+    box-shadow: 0 3px 8px rgba(10, 24, 36, 0.16);
+}
+
+.form-response-action-btn:active {
+    transform: scale(0.97);
+    filter: brightness(0.97);
+    box-shadow: 0 1px 2px rgba(10, 24, 36, 0.1);
+}
+
+.form-response-action-btn:disabled,
+.form-response-action-btn.is-busy {
+    opacity: 0.55;
+    cursor: default;
+    transform: none;
+    filter: none;
+    box-shadow: 0 1px 2px rgba(10, 24, 36, 0.12);
+}
+
+.form-response-action-btn span {
+    width: 15px;
+    height: 15px;
+    display: block;
+}
+
+.form-response-action-btn--view {
+    background: var(--accent-soft);
+}
+.form-response-action-btn--view span {
+    background: var(--accent);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E") center/contain no-repeat;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.form-response-action-btn--view:hover {
+    background: #dbe9ee;
+}
+
+.form-response-action-btn--download {
+    background: var(--success-soft);
+}
+.form-response-action-btn--download span {
+    background: var(--success);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/%3E%3Cpolyline points='7 10 12 15 17 10'/%3E%3Cline x1='12' y1='15' x2='12' y2='3'/%3E%3C/svg%3E") center/contain no-repeat;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/%3E%3Cpolyline points='7 10 12 15 17 10'/%3E%3Cline x1='12' y1='15' x2='12' y2='3'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.form-response-action-btn--download:hover {
+    background: #dcf1e3;
+}
+
+.form-response-action-btn--edit {
+    background: var(--warning-soft);
+}
+.form-response-action-btn--edit span {
+    background: var(--warning);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20h9'/%3E%3Cpath d='M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z'/%3E%3C/svg%3E") center/contain no-repeat;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 20h9'/%3E%3Cpath d='M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.form-response-action-btn--edit:hover {
+    background: #ffe9cc;
+}
+
+.form-response-action-btn--delete {
+    background: var(--danger-soft);
+}
+.form-response-action-btn--delete span {
+    background: var(--danger);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3 6 5 6 21 6'/%3E%3Cpath d='M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'/%3E%3Cline x1='10' y1='11' x2='10' y2='17'/%3E%3Cline x1='14' y1='11' x2='14' y2='17'/%3E%3C/svg%3E") center/contain no-repeat;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3 6 5 6 21 6'/%3E%3Cpath d='M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'/%3E%3Cline x1='10' y1='11' x2='10' y2='17'/%3E%3Cline x1='14' y1='11' x2='14' y2='17'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.form-response-action-btn--delete:hover {
+    background: #fadbd8;
+}
+
+@media (max-width: 560px) {
+    .form-response-row {
+        flex-wrap: wrap;
+    }
+    .form-response-actions {
+        flex-basis: 100%;
+        justify-content: flex-start;
+        margin-left: 52px;
+    }
 }

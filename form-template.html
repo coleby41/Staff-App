@@ -65,7 +65,7 @@
                         id="notificationBell"
                         aria-label="Notifications">
 
-                        🔔
+                        <span class="notification-bell-icon"></span>
 
                         <span class="notification-count">
                             3
@@ -535,6 +535,24 @@
             <button type="button" class="menu-btn" id="closeFormResponsesBtn" aria-label="Close responses">✕</button>
         </div>
         <div id="formResponsesList"></div>
+    </div>
+</div>
+
+
+<!-- Delete Submission Confirm -->
+<div class="popup-overlay hidden" id="deleteSubmissionConfirmOverlay">
+    <div class="popup">
+        <h2>Delete this response?</h2>
+        <p class="auth-inline-copy" id="deleteSubmissionConfirmCopy">
+            This will permanently delete this submission and its PDF. This can't be undone.
+        </p>
+
+        <p class="auth-message" id="deleteSubmissionConfirmMessage"></p>
+
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteSubmissionBtn">Cancel</button>
+            <button type="button" class="auth-button auth-button--red" id="confirmDeleteSubmissionBtn">Delete</button>
+        </div>
     </div>
 </div>
 
