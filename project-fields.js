@@ -15,6 +15,12 @@
 window.ProjectFields = (function () {
 
     const PROJECTS_TABLE = "projects";
+    // Reads go through this view instead of the base table — it masks the
+    // money-adjacent columns (contract_value, utility/trash/porta-potty
+    // account numbers) per-row based on the signed-in user's project role,
+    // via has_financial_access() (see supabase-rls-lockdown.sql). Writes
+    // still go straight to PROJECTS_TABLE, unchanged.
+    const PROJECTS_READ_VIEW = "projects_overview";
     const PROJECT_DOCS_BUCKET = "project-documents";
 
     const WIZARD_STATUS_OPTIONS = ["Not started", "In progress", "Submitted", "Approved"];
@@ -183,6 +189,7 @@ window.ProjectFields = (function () {
 
     return {
         PROJECTS_TABLE,
+        PROJECTS_READ_VIEW,
         PROJECT_DOCS_BUCKET,
         WIZARD_STATUS_OPTIONS,
         PROJECT_STATUSES,

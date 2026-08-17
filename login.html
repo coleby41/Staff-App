@@ -22,32 +22,59 @@
         </div>
       </div>
 
-      <h1>Welcome back</h1>
-      <p>Sign in to access project updates, field support tools, and internal operations.</p>
+      <div id="loginStep">
+        <h1>Welcome back</h1>
+        <p>Sign in to access project updates, field support tools, and internal operations.</p>
 
-      <form id="loginForm" class="auth-form">
-        <label class="auth-field">
-          <span>Username</span>
-          <input id="username" name="username" type="text" placeholder="Enter your username" required>
-        </label>
-
-        <label class="auth-field">
-          <span>Password</span>
-          <input id="password" name="password" type="password" placeholder="Enter your password" required>
-        </label>
-
-        <button class="auth-button" type="submit">Sign in</button>
-
-        <div class="auth-options">
-          <label class="checkbox-row">
-            <input id="rememberMe" type="checkbox">
-            <span>Remember this device</span>
+        <form id="loginForm" class="auth-form">
+          <label class="auth-field">
+            <span>Username</span>
+            <input id="username" name="username" type="text" placeholder="Enter your username" required autocomplete="username">
           </label>
-          <a class="auth-link">Need Help? Contact the IT Department!</a>
-        </div>
 
-        <p id="loginMessage" class="auth-message" role="status"></p>
-      </form>
+          <label class="auth-field">
+            <span>Password</span>
+            <input id="password" name="password" type="password" placeholder="Enter your password" required autocomplete="current-password">
+          </label>
+
+          <button class="auth-button" type="submit">Sign in</button>
+
+          <div class="auth-options">
+            <label class="checkbox-row">
+              <input id="rememberMe" type="checkbox">
+              <span>Remember this device</span>
+            </label>
+            <a class="auth-link">Need Help? Contact the IT Department!</a>
+          </div>
+
+          <p id="loginMessage" class="auth-message" role="status"></p>
+        </form>
+      </div>
+
+      <!-- Shown instead of the login form when a new/reset account signs in
+           for the first time (must_reset_password) — see login.js and
+           auth-guard.js (which redirects an existing session here with
+           ?mustReset=1 if it's still flagged). -->
+      <div id="resetStep" style="display:none;">
+        <h1>Set a new password</h1>
+        <p>For security, please choose a new password before continuing.</p>
+
+        <form id="resetForm" class="auth-form">
+          <label class="auth-field">
+            <span>New password</span>
+            <input id="newPassword" name="newPassword" type="password" placeholder="At least 8 characters" required minlength="8" autocomplete="new-password">
+          </label>
+
+          <label class="auth-field">
+            <span>Confirm new password</span>
+            <input id="confirmPassword" name="confirmPassword" type="password" placeholder="Re-enter your new password" required minlength="8" autocomplete="new-password">
+          </label>
+
+          <button class="auth-button" type="submit">Set password &amp; continue</button>
+
+          <p id="resetMessage" class="auth-message" role="status"></p>
+        </form>
+      </div>
 
       <div class="auth-footer">
         <p class="auth-inline-copy">New accounts are created by IT administrators only.</p>

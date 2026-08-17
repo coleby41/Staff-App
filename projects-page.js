@@ -19,6 +19,9 @@
 // per-project dashboard pages) — make sure that script tag loads before
 // this one.
 const PROJECTS_TABLE = window.ProjectFields.PROJECTS_TABLE;
+// Reads use this view (masks financial fields per-row); writes below still
+// target PROJECTS_TABLE directly — see project-fields.js.
+const PROJECTS_READ_VIEW = window.ProjectFields.PROJECTS_READ_VIEW;
 const PROJECT_DOCS_BUCKET = window.ProjectFields.PROJECT_DOCS_BUCKET;
 const WIZARD_STEPS = window.ProjectFields.WIZARD_STEPS;
 
@@ -314,7 +317,7 @@ async function loadProjects() {
     if (emptyState) emptyState.style.display = "none";
 
     const { data, error } = await window.supabaseClient
-        .from(PROJECTS_TABLE)
+        .from(PROJECTS_READ_VIEW)
         .select("*")
         .order("name", { ascending: true });
 

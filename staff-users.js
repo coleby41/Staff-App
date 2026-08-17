@@ -20,10 +20,14 @@ let filteredUsers = [];
 let selectedUserId = null;
 
 function getSupabaseClient() {
-  if (supabaseClient) return supabaseClient;
-  const config = window.SUPABASE_CONFIG || {};
-  const { createClient } = window.supabase;
-  supabaseClient = createClient(config.url, config.anonKey);
+  // Reuse the single shared client supabase-auth.js creates and keeps a
+  // real, authenticated Supabase Auth session on — this file used to create
+  // its OWN separate client instance here, which under real Supabase Auth
+  // risks two GoTrueClient instances competing over the same session
+  // storage (Supabase explicitly warns against this). window.supabaseClient
+  // is set synchronously by supabase-auth.js before this file's script tag
+  // runs (same load order as every other page), so it should already exist.
+  supabaseClient = window.supabaseClient || supabaseClient;
   return supabaseClient;
 }
 
@@ -41,6 +45,39 @@ function getStoredProfile() {
     console.warn('Unable to load stored profile:', error);
     return null;
   }
+}
+
+// Resets someone else's real Supabase Auth password via the
+// reset-staff-password Edge Function (service-role key server-side,
+// IT/Super-Admin check on the caller). Writing password_hash directly (the
+// old approach) no longer does anything real — login goes through Supabase
+// Auth now, not that column — so this replaces that write entirely.
+async function resetPasswordViaFunction(staffUserId, newPassword) {
+  const config = window.SUPABASE_CONFIG || {};
+  const client = getSupabaseClient();
+  if (!client) return { error: 'Unable to reach the server. Try again.' };
+
+  const { data: sessionData } = await client.auth.getSession();
+  const accessToken = sessionData?.session?.access_token;
+  if (!accessToken) return { error: 'Your session has expired. Please sign in again.' };
+
+  let response;
+  try {
+    response = await fetch(`${config.url}/functions/v1/reset-staff-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      body: JSON.stringify({ staff_user_id: staffUserId, new_password: newPassword }),
+    });
+  } catch (networkError) {
+    console.error('resetPasswordViaFunction: network error', networkError);
+    return { error: 'Unable to reach the server. Try again.' };
+  }
+
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || result.error) {
+    return { error: result.error || 'Unable to reset that password.' };
+  }
+  return { ok: true };
 }
 
 async function hashPassword(password) {
@@ -230,11 +267,20 @@ userDetailsForm.addEventListener('submit', async function (event) {
     account_notes: accountNotesInput ? accountNotesInput.value.trim() : ''
   };
 
-  if (passwordInput.value.trim()) {
-    updates.password_hash = await hashPassword(passwordInput.value);
+  const newPassword = passwordInput.value.trim();
+  const pendingPasswordReset = newPassword ? selectedUserId : null;
+
+  const savedFields = await updateSelectedUser(updates);
+
+  if (pendingPasswordReset) {
+    const result = await resetPasswordViaFunction(pendingPasswordReset, newPassword);
+    if (result.error) {
+      setMessage(directoryMessage, result.error, 'error');
+    } else if (savedFields) {
+      setMessage(directoryMessage, 'User updated and password reset successfully.', 'success');
+    }
   }
 
-  await updateSelectedUser(updates);
   const refreshedUser = allUsers.find((user) => String(user.id) === String(selectedUserId));
   if (refreshedUser) {
     showDetailsForm(refreshedUser);

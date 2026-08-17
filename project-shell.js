@@ -503,8 +503,12 @@
             return;
         }
 
+        // Reads go through PROJECTS_READ_VIEW, not the base table — it masks
+        // the financial fields per-row for anyone without financial access
+        // on this project (see supabase-rls-lockdown.sql). Writes elsewhere
+        // in this app family still target PF.PROJECTS_TABLE directly.
         const { data, error } = await window.supabaseClient
-            .from(PF.PROJECTS_TABLE)
+            .from(PF.PROJECTS_READ_VIEW)
             .select("*")
             .eq("id", projectId)
             .maybeSingle();
