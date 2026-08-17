@@ -1046,6 +1046,48 @@ button { font: inherit; }
     color: var(--text-soft);
 }
 
+/* Rename File's name field — the extension is baked into the wrapper as a
+   fixed, non-editable suffix (see #renameFileExtSuffix in
+   project-files.html) rather than living in the input at all, so it's
+   structurally impossible to type a different one. The wrapper takes over
+   .auth-field input's border/radius/background so the input+suffix pair
+   still reads as one normal-looking text field. */
+.auth-field .rename-file-input-group {
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: white;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.auth-field .rename-file-input-group:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.auth-field .rename-file-input-group input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 12px 0;
+  border: none;
+  background: transparent;
+}
+
+.auth-field .rename-file-input-group input:focus {
+  outline: none;
+}
+
+.rename-file-ext {
+  flex: 0 0 auto;
+  padding-left: 2px;
+  color: var(--text-soft);
+  font-weight: 600;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
 
 
 .auth-button {
@@ -5078,7 +5120,8 @@ body.todo-panel-resizing .todo-panel-resize-handle::after {
   color: var(--text);
 }
 
-.sidebar-search-result:hover {
+.sidebar-search-result:hover,
+.sidebar-search-result.is-active {
   background: var(--accent-soft);
 }
 
@@ -5093,6 +5136,26 @@ body.todo-panel-resizing .todo-panel-resize-handle::after {
 .sidebar-search-result-value {
   font-size: 0.9rem;
   display: block;
+}
+
+/* Query-term highlight inside a result row (see highlightMatches() in
+   project-shell.js). Sits on both the light result background and the
+   .is-active/:hover accent background, so it's a soft, self-contained
+   pill rather than a plain background-color that would clash with either. */
+.sidebar-search-match {
+  background: var(--accent-strong);
+  color: #fff;
+  border-radius: 3px;
+  padding: 0 2px;
+  font-style: normal;
+}
+
+.sidebar-search-count {
+  padding: 6px 10px 2px;
+  font-size: 0.72rem;
+  color: var(--text-soft);
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
 }
 
 .sidebar-search-empty {
@@ -6357,7 +6420,8 @@ body.todo-panel-resizing .main-content {
    .workbook-btn, .company-edit-btn (covers .project-edit-btn too — always
    paired with it), .workbook-edit-btn, .form-response-action-btn,
    .form-field-move-btn, .form-field-remove-btn, .project-page-btn,
-   .project-page-number, .all-files-folder-tile.
+   .project-page-number, .all-files-folder-tile, .all-files-file-menu-btn,
+   .upload-status-icon-btn.
 
    Deliberately excluded: segmented/joined toggle controls
    (.view-toggle-btn, .gantt-view-toggle-btn, .timeline-type-toggle-btn) —
@@ -6395,7 +6459,9 @@ body.todo-panel-resizing .main-content {
 .form-field-remove-btn,
 .project-page-btn,
 .project-page-number,
-.all-files-folder-tile {
+.all-files-folder-tile,
+.all-files-file-menu-btn,
+.upload-status-icon-btn {
   /* No position here on purpose — .company-edit-btn/.project-edit-btn/
      .workbook-edit-btn each set their own position: absolute (pinning
      them to their card's top-right corner) in their own rule elsewhere;
@@ -6426,7 +6492,9 @@ body.todo-panel-resizing .main-content {
 .form-field-remove-btn:hover,
 .project-page-btn:hover,
 .project-page-number:hover,
-.all-files-folder-tile:hover {
+.all-files-folder-tile:hover,
+.all-files-file-menu-btn:hover,
+.upload-status-icon-btn:hover {
   transform: translateY(-1px);
   filter: brightness(1.05);
   box-shadow:
@@ -6450,7 +6518,9 @@ body.todo-panel-resizing .main-content {
 .form-field-remove-btn:active,
 .project-page-btn:active,
 .project-page-number:active,
-.all-files-folder-tile:active {
+.all-files-folder-tile:active,
+.all-files-file-menu-btn:active,
+.upload-status-icon-btn:active {
   transform: translateY(1px) scale(0.98);
   filter: brightness(0.96);
   box-shadow:
@@ -7428,6 +7498,34 @@ body.todo-panel-resizing .main-content {
 .all-files-main {
   flex: 1 1 auto;
   min-width: 0;
+  position: relative;
+}
+
+/* Drag-and-drop upload — a dashed accent-tinted veil over the whole panel
+   while a file is being dragged over it (see the dragenter/dragover/drop
+   wiring in project-files.js), toggled via .is-drag-over on
+   #filesMainPanel. Covers the panel rather than just the empty-state, so
+   dropping works the same whether the folder already has files or not. */
+.all-files-drop-overlay {
+  display: none;
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 20px;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius-md);
+  background: rgba(232, 240, 244, 0.94);
+  color: var(--accent-strong);
+  font-weight: 700;
+  font-size: 1rem;
+  z-index: var(--z-dropdown);
+  pointer-events: none;
+}
+
+.all-files-main.is-drag-over .all-files-drop-overlay {
+  display: flex;
 }
 
 .all-files-main-header {
@@ -7455,30 +7553,443 @@ body.todo-panel-resizing .main-content {
   font-size: 0.9rem;
 }
 
-/* File rows get the same "floats above the page" card treatment as the
-   tree next to them, plus a lift on hover — matching .workbook-card's
-   hover behavior elsewhere in the app, so the whole List/Folders view
-   reads at one consistent depth instead of a raised tree next to flat
-   rows. */
-.all-files-row {
+/* Finder-style file list — replaces the old .record-row card rows with a
+   columnar Name / Kind / Added By / Uploaded layout (real file-type icons,
+   zebra striping, a header row) modeled directly on the macOS Finder list
+   view. The list as a whole gets the same "floats above the page" card
+   treatment as the tree next to it (var(--shadow)), so it still reads at
+   the same depth as the rest of the page even though individual rows are
+   flatter/denser than .record-row was — the reference screenshot's own
+   list is flat, dense rows; the card wrapper + hover lift is where this
+   keeps the app's 3D language instead of copying Finder verbatim.
+
+   No overflow:hidden here (unlike most card containers in this file) —
+   rounding is done explicitly on the header's top corners and the last
+   row's bottom corners instead, so the per-row "⋯" menu can pop out past
+   the list's edge without being clipped. */
+.all-files-list {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.all-files-row:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 22px rgba(10, 24, 36, 0.12);
+.all-files-list-header {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) 170px 150px 170px 40px;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 16px;
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-soft);
 }
 
-.all-files-row .record-row-summary {
-  justify-content: space-between;
+.all-files-file-row {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) 170px 150px 170px 40px;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.12s ease, box-shadow 0.12s ease;
 }
 
-.all-files-row .record-row-title-sub {
+.all-files-file-row:last-child {
+  border-bottom: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+.all-files-file-row:nth-child(even) {
+  background: var(--surface-alt);
+}
+
+/* Hover picks up the same "raised, soft-tinted" language as the tree's
+   rows (.all-files-subfolder-btn:hover) rather than a flat highlight, so
+   the list still feels like the rest of the page's 3D surfaces. */
+.all-files-file-row:hover {
+  background: var(--accent-soft);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 2px 6px rgba(10, 24, 36, 0.1);
+}
+
+.all-files-file-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.all-files-file-name-text {
+  min-width: 0;
+}
+
+.all-files-file-name-main {
+  font-weight: 700;
+  color: var(--text);
+  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.all-files-file-name-sub {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  font-size: 0.76rem;
+  color: var(--text-soft);
+  margin-top: 2px;
+}
+
+.all-files-file-kind-cell,
+.all-files-file-added-by-cell,
+.all-files-file-date-cell {
+  font-size: 0.82rem;
+  color: var(--text-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.all-files-file-actions-cell {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* "⋯" overflow menu — same shape and fill as .company-edit-btn/
+   .project-edit-btn's corner button on cards elsewhere (round icon
+   button, rgba(20,38,58) tint), and joined to the same APP-WIDE 3D
+   button treatment those two use (see that block below) rather than
+   hand-rolling its own flat hover style — so this button gets the same
+   emboss/lift/press as every other button in the app instead of being
+   the one flat exception. Opens a popover styled like
+   .project-switcher-dropdown (border + var(--shadow) + rounded options)
+   rather than the row sprouting a row of separate Open/Delete buttons. */
+.all-files-file-menu-btn {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: rgba(20, 38, 58, 0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.all-files-file-menu-btn:hover {
+  background: rgba(20, 38, 58, 0.16);
+}
+
+/* "is-open" (the menu is currently showing) needs its own rule — it's a
+   JS-toggled class, not a pseudo-class, so it can't ride the shared
+   block's `:hover`/`:active` selectors. Mirrors the shared block's hover
+   treatment exactly so an open menu reads as "engaged" the same way
+   .all-files-subfolder-btn.is-selected does in the tree. */
+.all-files-file-menu-btn.is-open {
+  background: rgba(20, 38, 58, 0.16);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 6px 14px rgba(10, 24, 36, 0.3);
+}
+
+.all-files-file-menu-icon {
+  width: 16px;
+  height: 16px;
+  background: var(--text-soft);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Ccircle cx='12' cy='5' r='2'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3Ccircle cx='12' cy='19' r='2'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor'%3E%3Ccircle cx='12' cy='5' r='2'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3Ccircle cx='12' cy='19' r='2'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+.all-files-file-menu-btn:hover .all-files-file-menu-icon,
+.all-files-file-menu-btn.is-open .all-files-file-menu-icon {
+  background: var(--accent-strong);
+}
+
+.all-files-file-menu-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 168px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 6px;
+  z-index: var(--z-dropdown);
+}
+
+.all-files-file-menu-dropdown.is-open {
+  display: block;
+}
+
+.all-files-file-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.all-files-file-menu-item:hover {
+  background: var(--accent-soft);
+}
+
+.all-files-file-menu-item--danger {
+  color: var(--danger);
+}
+
+.all-files-file-menu-item--danger:hover {
+  background: var(--danger-soft);
+}
+
+.all-files-file-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 6px 2px;
+}
+
+@media (max-width: 860px) {
+  .all-files-list-header,
+  .all-files-file-row {
+    grid-template-columns: minmax(160px, 1fr) 40px;
+  }
+
+  .all-files-list-header span:nth-child(2),
+  .all-files-list-header span:nth-child(3),
+  .all-files-list-header span:nth-child(4),
+  .all-files-file-kind-cell,
+  .all-files-file-added-by-cell,
+  .all-files-file-date-cell {
+    display: none;
+  }
+}
+
+/* File-type icons — a shared "page with folded corner" silhouette, tinted
+   per file type (colored band + monogram) so the Name column reads like
+   Finder's list view. filter: drop-shadow() (not box-shadow) so the
+   shadow follows the page's actual silhouette, same reasoning as
+   .all-files-folder-icon above. */
+.file-type-icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: drop-shadow(0 1px 2px rgba(10, 24, 36, 0.28));
+}
+
+.file-type-icon--word {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23eef2f5' stroke='%23c7d2da' stroke-width='0.6' d='M6 2h7l7 7v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z'/%3E%3Cpath fill='%23d7dee4' d='M13 2l7 7h-6a1 1 0 0 1-1-1z'/%3E%3Crect x='4' y='14.5' width='16' height='6.5' rx='1.2' fill='%232b579a'/%3E%3Ctext x='12' y='19.2' text-anchor='middle' font-family='Arial, Helvetica, sans-serif' font-size='5.6' font-weight='800' fill='%23ffffff' letter-spacing='0.2'%3EW%3C/text%3E%3C/svg%3E");
+}
+
+.file-type-icon--excel {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23eef2f5' stroke='%23c7d2da' stroke-width='0.6' d='M6 2h7l7 7v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z'/%3E%3Cpath fill='%23d7dee4' d='M13 2l7 7h-6a1 1 0 0 1-1-1z'/%3E%3Crect x='4' y='14.5' width='16' height='6.5' rx='1.2' fill='%231d6f42'/%3E%3Ctext x='12' y='19.2' text-anchor='middle' font-family='Arial, Helvetica, sans-serif' font-size='5.6' font-weight='800' fill='%23ffffff' letter-spacing='0.2'%3EX%3C/text%3E%3C/svg%3E");
+}
+
+.file-type-icon--powerpoint {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23eef2f5' stroke='%23c7d2da' stroke-width='0.6' d='M6 2h7l7 7v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z'/%3E%3Cpath fill='%23d7dee4' d='M13 2l7 7h-6a1 1 0 0 1-1-1z'/%3E%3Crect x='4' y='14.5' width='16' height='6.5' rx='1.2' fill='%23c43e1c'/%3E%3Ctext x='12' y='19.2' text-anchor='middle' font-family='Arial, Helvetica, sans-serif' font-size='5.6' font-weight='800' fill='%23ffffff' letter-spacing='0.2'%3EP%3C/text%3E%3C/svg%3E");
+}
+
+.file-type-icon--pdf {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23eef2f5' stroke='%23c7d2da' stroke-width='0.6' d='M6 2h7l7 7v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z'/%3E%3Cpath fill='%23d7dee4' d='M13 2l7 7h-6a1 1 0 0 1-1-1z'/%3E%3Crect x='4' y='14.5' width='16' height='6.5' rx='1.2' fill='%23c0392b'/%3E%3Ctext x='12' y='19.2' text-anchor='middle' font-family='Arial, Helvetica, sans-serif' font-size='4.6' font-weight='800' fill='%23ffffff' letter-spacing='0.1'%3EPDF%3C/text%3E%3C/svg%3E");
+}
+
+.file-type-icon--image {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23eef2f5' stroke='%23c7d2da' stroke-width='0.6' d='M6 2h7l7 7v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z'/%3E%3Cpath fill='%23d7dee4' d='M13 2l7 7h-6a1 1 0 0 1-1-1z'/%3E%3Crect x='4' y='14.5' width='16' height='6.5' rx='1.2' fill='%237c5cbf'/%3E%3Ctext x='12' y='19.2' text-anchor='middle' font-family='Arial, Helvetica, sans-serif' font-size='4.4' font-weight='800' fill='%23ffffff' letter-spacing='0.1'%3EIMG%3C/text%3E%3C/svg%3E");
+}
+
+.file-type-icon--generic {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23f5f7f8' stroke='%23c7d2da' stroke-width='0.6' d='M6 2h7l7 7v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z'/%3E%3Cpath fill='%23d7dee4' d='M13 2l7 7h-6a1 1 0 0 1-1-1z'/%3E%3Crect x='6' y='12' width='12' height='1.4' rx='0.7' fill='%23c7d2da'/%3E%3Crect x='6' y='15' width='12' height='1.4' rx='0.7' fill='%23c7d2da'/%3E%3Crect x='6' y='18' width='8' height='1.4' rx='0.7' fill='%23c7d2da'/%3E%3C/svg%3E");
+}
+
+/* ============================================================================
+   UPLOAD STATUS WIDGET (project-files.html) — a Google-Drive-style
+   bottom-right floating tray showing live progress for uploadFiles() in
+   project-files.js (the file picker and drag-and-drop both funnel through
+   it). Fixed-position, outside the normal page flow, so it stays put
+   through scrolling and through render()'s List/Folders view switching.
+============================================================================ */
+
+.upload-status-widget {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  width: 340px;
+  max-width: calc(100vw - 40px);
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  box-shadow: 0 18px 40px rgba(7, 20, 30, 0.28);
+  overflow: hidden;
+  z-index: var(--z-notification);
+}
+
+.upload-status-widget.hidden {
+  display: none;
+}
+
+.upload-status-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 10px 12px 16px;
+  background: var(--accent-strong);
+  color: #fff;
+  cursor: pointer;
+}
+
+.upload-status-title {
+  font-size: 0.86rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-status-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* Small round icon buttons for the header — own fill/size here, the
+   emboss/lift/press comes from joining the APP-WIDE 3D button treatment
+   (see that block) same as every other button in the app, just re-tinted
+   for sitting on a dark accent header instead of a light surface. */
+.upload-status-icon-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.upload-status-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.upload-status-toggle-icon {
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+
+.upload-status-widget.is-collapsed .upload-status-toggle-icon {
+  transform: rotate(180deg);
+}
+
+.upload-status-widget.is-collapsed .upload-status-list {
+  display: none;
+}
+
+.upload-status-list {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.upload-status-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 8px;
+  transition: background 0.12s ease;
+}
+
+.upload-status-item:hover {
+  background: var(--surface-alt);
+}
+
+.upload-status-item-file-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.upload-status-item-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.84rem;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-status-item--error .upload-status-item-name {
+  color: var(--danger);
+}
+
+/* Spinner — CSS-only, no image/JS animation loop needed. */
+.upload-status-item-spinner {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  animation: upload-status-spin 0.7s linear infinite;
+}
+
+@keyframes upload-status-spin {
+  to { transform: rotate(360deg); }
+}
+
+.upload-status-item-icon {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.upload-status-item-icon--done {
+  background: var(--success);
+}
+
+.upload-status-item-icon--error {
+  background: var(--danger);
+}
+
+@media (max-width: 480px) {
+  .upload-status-widget {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+    max-width: none;
+  }
 }
 
 .all-files-main-slot {

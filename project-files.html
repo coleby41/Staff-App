@@ -169,20 +169,44 @@
                 <div class="all-files-main-actions" id="filesFolderActions"></div>
             </div>
 
-            <input type="file" id="filesUploadInput" hidden>
+            <input type="file" id="filesUploadInput" multiple hidden>
 
             <p class="all-files-hint" id="filesNoFolderHint">Pick a folder to see its files, upload a document, or fill a form into it.</p>
 
             <div class="workbook-empty" id="filesFolderEmpty" style="display:none;">
-                <p>No files in this folder yet.</p>
+                <p>No files in this folder yet. Drag and drop files here, or use Upload File(s) above.</p>
             </div>
 
             <div id="filesFolderList"></div>
+
+            <!-- Shown while dragging file(s) over the panel (any tab —
+                 see the dragenter/dragover/drop wiring in project-files.js);
+                 pointer-events:none so the drop event still lands on the
+                 panel underneath, not this overlay. -->
+            <div class="all-files-drop-overlay" id="filesDropOverlay">Drop to upload into this folder</div>
         </section>
 
     </div>
 
 </main>
+
+<!-- Upload status widget — bottom-right floating tray, Google-Drive-style,
+     showing progress for uploadFiles() in project-files.js (both the file
+     picker and drag-and-drop funnel through it). Lives outside #filesBody
+     as a fixed-position sibling of <main> so it isn't affected by the
+     List/Folders view toggle or by render() rebuilding the folder panel. -->
+<div class="upload-status-widget hidden" id="uploadStatusWidget">
+    <div class="upload-status-header" id="uploadStatusHeader">
+        <span class="upload-status-title" id="uploadStatusTitle">Uploading…</span>
+        <div class="upload-status-header-actions">
+            <button type="button" class="upload-status-icon-btn" id="uploadStatusToggleBtn" aria-label="Minimize">
+                <span class="upload-status-toggle-icon">⌄</span>
+            </button>
+            <button type="button" class="upload-status-icon-btn" id="uploadStatusCloseBtn" aria-label="Close">✕</button>
+        </div>
+    </div>
+    <div class="upload-status-list" id="uploadStatusList"></div>
+</div>
 
 
 <!-- Delete Confirmation -->
@@ -197,6 +221,40 @@
             <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteFileBtn">Cancel</button>
             <button type="button" class="auth-button auth-button--red" id="confirmDeleteFileBtn">Delete</button>
         </div>
+    </div>
+</div>
+
+
+<!-- Rename File — same permission as Delete (uploader or project
+     leadership, per project_files_update_owner_or_leadership). For a plain
+     upload, this actually moves the storage object to a new path (see
+     confirmRenameFile() in project-files.js); a form-filed PDF's storage
+     key is submission-id-based, not filename-based, so there's nothing to
+     move there — its name is kept in sync across project_files and
+     form_submissions instead. The extension is split out into its own
+     fixed, non-editable suffix (#renameFileExtSuffix) so it's simply not
+     possible to type a different one — not just validated after the
+     fact — since the field the person types into never contains it. -->
+<div class="popup-overlay hidden" id="renameFileModalOverlay">
+    <div class="popup">
+        <h2>Rename file</h2>
+
+        <form class="auth-form" id="renameFileForm">
+            <label class="auth-field">
+                File name
+                <div class="rename-file-input-group">
+                    <input type="text" id="renameFileInput" name="fileName" required>
+                    <span class="rename-file-ext" id="renameFileExtSuffix"></span>
+                </div>
+            </label>
+
+            <p class="auth-message" id="renameFileMessage"></p>
+
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="cancelRenameFileBtn">Cancel</button>
+                <button type="submit" class="auth-button auth-button--secondary" id="confirmRenameFileBtn">Save</button>
+            </div>
+        </form>
     </div>
 </div>
 

@@ -194,6 +194,35 @@ window.ProjectFields = (function () {
         return subfolder ? subfolder.label : subfolderKey;
     }
 
+    // Extension → { type, kind } — shared by project-files.html (the
+    // Finder-style file list + upload status tray icons) and
+    // project-shell.js (the sidebar "search everything" results, so a
+    // file result's Kind reads the same way there as it does on the All
+    // Files page itself). `type` picks which .file-type-icon--<type> icon
+    // to show, `kind` is the human-readable label (mirrors macOS Finder's
+    // "Kind" column wording, e.g. "Word Document").
+    const FILE_TYPE_META = {
+        doc: { type: "word", kind: "Word Document" },
+        docx: { type: "word", kind: "Word Document" },
+        xls: { type: "excel", kind: "Excel Spreadsheet" },
+        xlsx: { type: "excel", kind: "Excel Spreadsheet" },
+        csv: { type: "excel", kind: "CSV Document" },
+        ppt: { type: "powerpoint", kind: "PowerPoint Presentation" },
+        pptx: { type: "powerpoint", kind: "PowerPoint Presentation" },
+        pdf: { type: "pdf", kind: "PDF Document" },
+        png: { type: "image", kind: "PNG Image" },
+        jpg: { type: "image", kind: "JPEG Image" },
+        jpeg: { type: "image", kind: "JPEG Image" },
+        gif: { type: "image", kind: "GIF Image" },
+        webp: { type: "image", kind: "WEBP Image" },
+        heic: { type: "image", kind: "HEIC Image" },
+    };
+
+    function getFileTypeMeta(fileName) {
+        const ext = String(fileName || "").split(".").pop().toLowerCase();
+        return FILE_TYPE_META[ext] || { type: "generic", kind: ext ? `${ext.toUpperCase()} File` : "Document" };
+    }
+
     // Canonical project status list — single source of truth for the
     // onboarding wizard's "Status & Tracking" step, the quick-edit popup,
     // the stats header, tabs, and status badges on project-home.html.
@@ -429,6 +458,7 @@ window.ProjectFields = (function () {
         findFileSubfolder,
         fileCategoryLabel,
         fileSubfolderLabel,
+        getFileTypeMeta,
         uploadFile,
         storagePathFromPublicUrl
     };

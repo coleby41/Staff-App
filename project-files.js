@@ -38,6 +38,7 @@
     let currentView = "list";        // "list" | "folders" — two ways to browse to the same folder
     let folderBrowseCategory = null; // Folders view drill state: null = showing the 11 category tiles, else showing that category's subfolder tiles
     let pendingDeleteFile = null;
+    let pendingRenameFile = null;
 
     /* ---------- helpers ---------- */
 
@@ -88,6 +89,24 @@
 
     function canDeleteFile(file) {
         return canManageFiles() || String(file.uploaded_by) === String(getFilesStaffId());
+    }
+
+    // getFileTypeMeta() moved to project-fields.js (window.ProjectFields)
+    // so project-shell.js's sidebar search can show the same Kind label
+    // for a file result as the All Files page itself, without a second
+    // copy of the extension table to keep in sync.
+    const getFileTypeMeta = window.ProjectFields.getFileTypeMeta;
+
+    // Splits "Report.pdf" into { base: "Report", ext: ".pdf" } (ext keeps
+    // the leading dot, or is "" for a file with no extension). A leading
+    // dot with nothing before it (".gitignore"-style) is treated as having
+    // no extension rather than an empty base name. Used by the rename
+    // modal to keep the extension out of the editable field entirely.
+    function splitFileNameExt(fileName) {
+        const name = String(fileName || "");
+        const idx = name.lastIndexOf(".");
+        if (idx <= 0) return { base: name, ext: "" };
+        return { base: name.slice(0, idx), ext: name.slice(idx) };
     }
 
     /* ---------- load ---------- */
@@ -232,7 +251,7 @@
         const matchingForms = projectForms.filter(f => f.default_category === selectedCategory && f.default_subfolder === selectedSubfolder);
 
         actionsEl.innerHTML = `
-            <button type="button" class="workbook-btn workbook-btn--preview" id="filesUploadBtn">+ Upload file</button>
+            <button type="button" class="workbook-btn workbook-btn--preview" id="filesUploadBtn">+ Upload File(s)</button>
             ${matchingForms.map(f => `
                 <a class="workbook-btn workbook-btn--edit" href="form-template.html?project=${encodeURIComponent(currentProject.id)}&template=${encodeURIComponent(f.id)}">+ Fill ${escapeHtmlFiles(f.title)}</a>
             `).join("")}
@@ -251,35 +270,98 @@
         }
         if (emptyEl) emptyEl.style.display = "none";
 
-        listEl.innerHTML = files.map(file => {
+        // Finder-style list: a header row (Name / Kind / Added By /
+        // Uploaded) followed by one row per file with a real file-type
+        // icon, matching the macOS Finder list view the folder-mapping
+        // design was modeled on. Open/Rename/Copy link/Delete are
+        // consolidated behind a single "⋯" menu instead of one button per
+        // action, same "overflow menu" shape used elsewhere in the app
+        // (.project-edit-icon on project cards).
+        const rowsHtml = files.map(file => {
             const isFormFiled = file.source === "form_submission";
-            const badgeText = isFormFiled ? `Form: ${file.form_submissions?.form_title || "submission"}` : "Uploaded";
-            const canDelete = canDeleteFile(file);
+            const canManage = canDeleteFile(file); // same "uploader or leadership" policy gates both rename and delete
+            const meta = getFileTypeMeta(file.file_name);
 
             return `
-                <div class="record-row all-files-row" data-file-id="${file.id}">
-                    <div class="record-row-summary" style="cursor:default;">
-                        <div class="record-row-title">
-                            <div class="record-row-title-main">${escapeHtmlFiles(file.file_name)}</div>
-                            <div class="record-row-title-sub">
-                                <span class="chip ${isFormFiled ? "chip--info" : "chip--muted"}">${escapeHtmlFiles(badgeText)}</span>
-                                ${escapeHtmlFiles(file.uploaded_by_name || "Staff")} • ${escapeHtmlFiles(formatFileDate(file.created_at))}
-                            </div>
+                <div class="all-files-file-row" data-file-id="${file.id}">
+                    <div class="all-files-file-name-cell">
+                        <span class="file-type-icon file-type-icon--${meta.type}"></span>
+                        <div class="all-files-file-name-text">
+                            <div class="all-files-file-name-main">${escapeHtmlFiles(file.file_name)}</div>
+                            ${isFormFiled ? `
+                                <div class="all-files-file-name-sub">
+                                    <span class="chip chip--info">Form: ${escapeHtmlFiles(file.form_submissions?.form_title || "submission")}</span>
+                                </div>
+                            ` : ""}
                         </div>
-                        <div class="record-row-actions" style="margin-top:0;">
-                            <button type="button" class="workbook-btn workbook-btn--preview" data-action="open">Open</button>
-                            ${canDelete ? `<button type="button" class="workbook-btn workbook-btn--danger" data-action="delete">Delete</button>` : ""}
+                    </div>
+                    <div class="all-files-file-kind-cell">${escapeHtmlFiles(meta.kind)}</div>
+                    <div class="all-files-file-added-by-cell">${escapeHtmlFiles(file.uploaded_by_name || "Staff")}</div>
+                    <div class="all-files-file-date-cell">${escapeHtmlFiles(formatFileDate(file.created_at))}</div>
+                    <div class="all-files-file-actions-cell">
+                        <button type="button" class="all-files-file-menu-btn" data-action="menu" aria-label="File actions" aria-haspopup="true" aria-expanded="false">
+                            <span class="all-files-file-menu-icon"></span>
+                        </button>
+                        <div class="all-files-file-menu-dropdown">
+                            <button type="button" class="all-files-file-menu-item" data-action="open">Open</button>
+                            ${canManage ? `<button type="button" class="all-files-file-menu-item" data-action="rename">Rename</button>` : ""}
+                            <button type="button" class="all-files-file-menu-item" data-action="copy-link">Copy link</button>
+                            ${canManage ? `
+                                <div class="all-files-file-menu-divider"></div>
+                                <button type="button" class="all-files-file-menu-item all-files-file-menu-item--danger" data-action="delete">Delete</button>
+                            ` : ""}
                         </div>
                     </div>
                 </div>
             `;
         }).join("");
 
-        listEl.querySelectorAll(".all-files-row").forEach(row => {
+        listEl.innerHTML = `
+            <div class="all-files-list">
+                <div class="all-files-list-header">
+                    <span>Name</span>
+                    <span>Kind</span>
+                    <span>Added By</span>
+                    <span>Uploaded</span>
+                    <span></span>
+                </div>
+                ${rowsHtml}
+            </div>
+        `;
+
+        listEl.querySelectorAll(".all-files-file-row").forEach(row => {
             const file = files.find(f => String(f.id) === row.dataset.fileId);
             if (!file) return;
-            row.querySelector('[data-action="open"]')?.addEventListener("click", () => openFile(file));
-            row.querySelector('[data-action="delete"]')?.addEventListener("click", () => openDeleteFileConfirm(file));
+
+            const menuBtn = row.querySelector('[data-action="menu"]');
+            const dropdown = row.querySelector(".all-files-file-menu-dropdown");
+
+            menuBtn?.addEventListener("click", (event) => {
+                event.stopPropagation();
+                const isOpen = dropdown?.classList.contains("is-open");
+                closeAllFileMenus();
+                if (dropdown && !isOpen) {
+                    dropdown.classList.add("is-open");
+                    menuBtn.classList.add("is-open");
+                    menuBtn.setAttribute("aria-expanded", "true");
+                }
+            });
+
+            row.querySelector('[data-action="open"]')?.addEventListener("click", () => { closeAllFileMenus(); openFile(file); });
+            row.querySelector('[data-action="rename"]')?.addEventListener("click", () => { closeAllFileMenus(); openRenameFileModal(file); });
+            row.querySelector('[data-action="copy-link"]')?.addEventListener("click", () => { closeAllFileMenus(); copyFileLink(file); });
+            row.querySelector('[data-action="delete"]')?.addEventListener("click", () => { closeAllFileMenus(); openDeleteFileConfirm(file); });
+        });
+    }
+
+    // Closes every open "⋯" menu across the list — called before opening a
+    // different one (only one open at a time), on any outside click, and
+    // on Escape.
+    function closeAllFileMenus() {
+        document.querySelectorAll(".all-files-file-menu-dropdown.is-open").forEach(d => d.classList.remove("is-open"));
+        document.querySelectorAll(".all-files-file-menu-btn.is-open").forEach(b => {
+            b.classList.remove("is-open");
+            b.setAttribute("aria-expanded", "false");
         });
     }
 
@@ -439,42 +521,172 @@
         window.open(data.signedUrl, "_blank", "noopener");
     }
 
-    async function handleUploadInputChange(event) {
-        const file = event.target.files && event.target.files[0];
-        event.target.value = "";
-        if (!file || !currentProject || !selectedCategory || !selectedSubfolder) return;
+    // "Copy link" — a signed URL, same mechanism as Open, just copied to
+    // the clipboard instead of opened. Long enough (1 hour) to actually
+    // paste somewhere (Slack, an email) rather than expiring immediately.
+    async function copyFileLink(file) {
+        const bucket = file.bucket === FORM_SUBMISSIONS_BUCKET ? FORM_SUBMISSIONS_BUCKET : PROJECT_DOCS_BUCKET;
 
-        setFilesPageMessage("Uploading…", "");
+        const { data, error } = await window.supabaseClient
+            .storage
+            .from(bucket)
+            .createSignedUrl(file.storage_path, 60 * 60);
+
+        if (error || !data?.signedUrl) {
+            console.error("Failed to create signed URL for file:", error);
+            setFilesPageMessage("Couldn't create a link for that file. Please try again.", "error");
+            return;
+        }
 
         try {
-            const path = await window.ProjectFields.uploadFile(currentProject.id, file, null, {
-                pathSegments: [selectedCategory, selectedSubfolder]
-            });
-
-            const { data: inserted, error } = await window.supabaseClient
-                .from(PROJECT_FILES_TABLE)
-                .insert({
-                    project_id: currentProject.id,
-                    category: selectedCategory,
-                    subfolder: selectedSubfolder,
-                    bucket: PROJECT_DOCS_BUCKET,
-                    storage_path: path,
-                    file_name: file.name,
-                    source: "upload",
-                    uploaded_by_name: getFilesStaffName()
-                })
-                .select("*, form_submissions(form_title)")
-                .single();
-
-            if (error) throw error;
-
-            allFiles.unshift(inserted);
-            render();
-            setFilesPageMessage(`"${file.name}" was uploaded.`, "success");
-        } catch (error) {
-            console.error("Failed to upload file:", error);
-            setFilesPageMessage("Something went wrong uploading that file. Please try again.", "error");
+            await navigator.clipboard.writeText(data.signedUrl);
+            setFilesPageMessage("Link copied — it expires in 1 hour.", "success");
+        } catch (err) {
+            console.error("Failed to copy link to clipboard:", err);
+            setFilesPageMessage("Couldn't copy the link. Please try again.", "error");
         }
+    }
+
+    /* ---------- upload status widget (bottom-right, Drive-style) ---------- */
+
+    // Kept flat rather than per-batch — a new upload while the tray is
+    // still showing an earlier batch's results just appends, same as
+    // Google Drive's tray does, instead of replacing it. Cleared only when
+    // the person closes the tray.
+    let uploadStatusItems = []; // { id, name, status: "uploading" | "done" | "error" }
+    let uploadStatusIdSeq = 0;
+
+    function renderUploadStatusWidget() {
+        const widget = document.getElementById("uploadStatusWidget");
+        const listEl = document.getElementById("uploadStatusList");
+        const titleEl = document.getElementById("uploadStatusTitle");
+        if (!widget || !listEl || !titleEl) return;
+
+        if (!uploadStatusItems.length) {
+            widget.classList.add("hidden");
+            return;
+        }
+
+        widget.classList.remove("hidden");
+
+        const total = uploadStatusItems.length;
+        const inProgress = uploadStatusItems.filter(i => i.status === "uploading").length;
+        const failed = uploadStatusItems.filter(i => i.status === "error").length;
+
+        if (inProgress > 0) {
+            const doneSoFar = total - inProgress;
+            titleEl.textContent = total === 1 ? "Uploading 1 file…" : `Uploading ${doneSoFar + 1} of ${total}…`;
+        } else if (failed > 0) {
+            titleEl.textContent = failed === total
+                ? (total === 1 ? "Couldn't upload 1 file" : `Couldn't upload ${failed} files`)
+                : `${total - failed} of ${total} uploaded — ${failed} failed`;
+        } else {
+            titleEl.textContent = total === 1 ? "1 upload complete" : `${total} uploads complete`;
+        }
+
+        listEl.innerHTML = uploadStatusItems.map(item => {
+            const meta = getFileTypeMeta(item.name);
+            const statusHtml = item.status === "uploading"
+                ? `<span class="upload-status-item-spinner"></span>`
+                : item.status === "error"
+                    ? `<span class="upload-status-item-icon upload-status-item-icon--error" title="Upload failed">✕</span>`
+                    : `<span class="upload-status-item-icon upload-status-item-icon--done">✓</span>`;
+
+            return `
+                <div class="upload-status-item upload-status-item--${item.status}">
+                    <span class="file-type-icon file-type-icon--${meta.type} upload-status-item-file-icon"></span>
+                    <span class="upload-status-item-name">${escapeHtmlFiles(item.name)}</span>
+                    ${statusHtml}
+                </div>
+            `;
+        }).join("");
+    }
+
+    // Shared by both the file-picker input and drag-and-drop — uploads any
+    // number of files, one at a time (simpler error handling/progress
+    // messaging than parallel, and avoids hammering Storage with a big
+    // batch all at once). One failure doesn't stop the rest; the bottom-
+    // right tray tracks per-file status live, and a page-message summary
+    // at the end says how many made it and names anything that didn't.
+    async function uploadFiles(fileList) {
+        const files = Array.from(fileList || []).filter(Boolean);
+        if (!files.length || !currentProject || !selectedCategory || !selectedSubfolder) return;
+
+        const total = files.length;
+        let succeeded = 0;
+        const failedNames = [];
+
+        document.getElementById("uploadStatusWidget")?.classList.remove("is-collapsed");
+        const batchItems = files.map(file => {
+            const item = { id: ++uploadStatusIdSeq, name: file.name, status: "uploading" };
+            uploadStatusItems.push(item);
+            return item;
+        });
+        renderUploadStatusWidget();
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            setFilesPageMessage(total > 1 ? `Uploading ${i + 1} of ${total}…` : "Uploading…", "");
+
+            try {
+                const path = await window.ProjectFields.uploadFile(currentProject.id, file, null, {
+                    pathSegments: [selectedCategory, selectedSubfolder]
+                });
+
+                const { data: inserted, error } = await window.supabaseClient
+                    .from(PROJECT_FILES_TABLE)
+                    .insert({
+                        project_id: currentProject.id,
+                        category: selectedCategory,
+                        subfolder: selectedSubfolder,
+                        bucket: PROJECT_DOCS_BUCKET,
+                        storage_path: path,
+                        file_name: file.name,
+                        source: "upload",
+                        uploaded_by_name: getFilesStaffName()
+                    })
+                    .select("*, form_submissions(form_title)")
+                    .single();
+
+                if (error) throw error;
+
+                allFiles.unshift(inserted);
+                succeeded++;
+                batchItems[i].status = "done";
+            } catch (error) {
+                console.error(`Failed to upload "${file.name}":`, error);
+                failedNames.push(file.name);
+                batchItems[i].status = "error";
+            }
+
+            renderUploadStatusWidget();
+        }
+
+        render();
+
+        if (!failedNames.length) {
+            setFilesPageMessage(succeeded === 1 ? `"${files[0].name}" was uploaded.` : `${succeeded} files were uploaded.`, "success");
+        } else if (succeeded) {
+            setFilesPageMessage(`${succeeded} of ${total} uploaded. Couldn't upload: ${failedNames.join(", ")}.`, "error");
+        } else {
+            setFilesPageMessage("Something went wrong uploading. Please try again.", "error");
+        }
+    }
+
+    async function handleUploadInputChange(event) {
+        // event.target.files is a *live* FileList — resetting .value below
+        // clears that same list in place, so it has to be copied into a
+        // real, independent array first. (The earlier single-file version
+        // of this only ever read files[0] before the reset, which is a
+        // real File object and unaffected by clearing the input — that
+        // safety got lost when this became a FileList for multi-upload.)
+        const files = Array.from(event.target.files || []);
+        event.target.value = ""; // so picking the same file(s) again still fires "change"
+        await uploadFiles(files);
+    }
+
+    function dragCarriesFiles(event) {
+        return !!(event.dataTransfer && Array.from(event.dataTransfer.types || []).includes("Files"));
     }
 
     function openDeleteFileConfirm(file) {
@@ -523,13 +735,205 @@
         }
     }
 
+    function openRenameFileModal(file) {
+        pendingRenameFile = file;
+        const { base, ext } = splitFileNameExt(file.file_name);
+        const input = document.getElementById("renameFileInput");
+        const extEl = document.getElementById("renameFileExtSuffix");
+        const messageEl = document.getElementById("renameFileMessage");
+        if (input) input.value = base;
+        if (extEl) extEl.textContent = ext;
+        if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
+        document.getElementById("renameFileModalOverlay")?.classList.remove("hidden");
+        input?.focus();
+        input?.select();
+    }
+
+    function closeRenameFileModal() {
+        document.getElementById("renameFileModalOverlay")?.classList.add("hidden");
+        pendingRenameFile = null;
+    }
+
+    async function confirmRenameFile(event) {
+        event.preventDefault();
+        if (!pendingRenameFile) return;
+
+        const file = pendingRenameFile;
+        const input = document.getElementById("renameFileInput");
+        const messageEl = document.getElementById("renameFileMessage");
+        const submitBtn = document.getElementById("confirmRenameFileBtn");
+        const newBase = (input?.value || "").trim();
+
+        if (!newBase) {
+            if (messageEl) { messageEl.textContent = "Enter a file name."; messageEl.className = "auth-message error"; }
+            return;
+        }
+
+        // The extension always comes from the original file, never from
+        // the input — the input only ever holds the base name (see
+        // openRenameFileModal()/#renameFileExtSuffix), so there's no path
+        // by which this ends up with a different extension than it
+        // started with.
+        const { ext } = splitFileNameExt(file.file_name);
+        const newName = `${newBase}${ext}`;
+
+        if (newName === file.file_name) {
+            closeRenameFileModal();
+            return;
+        }
+
+        if (submitBtn) submitBtn.disabled = true;
+        if (messageEl) { messageEl.textContent = "Renaming…"; messageEl.className = "auth-message"; }
+
+        try {
+            const updatePayload = { file_name: newName };
+
+            if (file.source === "upload") {
+                // Uploads are the only files whose storage key actually
+                // encodes the filename (see uploadFile() in
+                // project-fields.js: <project>/<category>/<subfolder>/
+                // <timestamp>-<safeName>) — so a real rename here means
+                // actually moving the object, not just relabeling the row.
+                // A fresh timestamp keeps the new path unique even if
+                // another file in the same folder already has this exact
+                // name. Same sanitization as uploadFile() so the storage
+                // key stays consistent with every other path in the bucket.
+                const dir = file.storage_path.includes("/")
+                    ? file.storage_path.slice(0, file.storage_path.lastIndexOf("/") + 1)
+                    : "";
+                const safeName = newName.replace(/[^a-zA-Z0-9_.-]/g, "_");
+                const newStoragePath = `${dir}${Date.now()}-${safeName}`;
+
+                const { error: moveError } = await window.supabaseClient
+                    .storage
+                    .from(PROJECT_DOCS_BUCKET)
+                    .move(file.storage_path, newStoragePath);
+                if (moveError) throw moveError;
+
+                updatePayload.storage_path = newStoragePath;
+            }
+            // Form-filed PDFs (source === "form_submission") are keyed by
+            // <form_id>/<submissionId>.pdf, not by filename — the filename
+            // was never part of the storage key, so there's no object to
+            // move. Full consistency for those means syncing the name on
+            // both places it's stored instead (project_files.file_name
+            // here, and form_submissions.file_name below, so form-
+            // builder.js's own Responses list doesn't disagree with what
+            // All Files shows).
+
+            const { data: updated, error } = await window.supabaseClient
+                .from(PROJECT_FILES_TABLE)
+                .update(updatePayload)
+                .eq("id", file.id)
+                .select("*, form_submissions(form_title)")
+                .single();
+            if (error) throw error;
+
+            if (file.source === "form_submission" && file.form_submission_id) {
+                const { error: subError } = await window.supabaseClient
+                    .from("form_submissions")
+                    .update({ file_name: newName })
+                    .eq("id", file.form_submission_id);
+                if (subError) console.warn("Renamed in All Files, but couldn't sync form_submissions.file_name:", subError);
+            }
+
+            const idx = allFiles.findIndex(f => f.id === file.id);
+            if (idx !== -1) allFiles[idx] = updated;
+
+            closeRenameFileModal();
+            render();
+            setFilesPageMessage("File renamed.", "success");
+        } catch (error) {
+            console.error("Failed to rename file:", error);
+            if (messageEl) { messageEl.textContent = "Something went wrong renaming this file. Please try again."; messageEl.className = "auth-message error"; }
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+        }
+    }
+
     /* ---------- wire up ---------- */
 
     document.getElementById("filesUploadInput")?.addEventListener("change", handleUploadInputChange);
+
+    // Upload status widget — close discards the batch history (a fresh
+    // upload afterward starts a new tray from empty); the toggle (and
+    // clicking the header itself, Drive-style) just collapses/expands the
+    // list without losing it.
+    document.getElementById("uploadStatusCloseBtn")?.addEventListener("click", (event) => {
+        event.stopPropagation();
+        uploadStatusItems = [];
+        renderUploadStatusWidget();
+    });
+    document.getElementById("uploadStatusToggleBtn")?.addEventListener("click", (event) => {
+        event.stopPropagation();
+        document.getElementById("uploadStatusWidget")?.classList.toggle("is-collapsed");
+    });
+    document.getElementById("uploadStatusHeader")?.addEventListener("click", () => {
+        document.getElementById("uploadStatusWidget")?.classList.toggle("is-collapsed");
+    });
+
+    // Drag-and-drop, straight onto the file panel — #filesMainPanel is the
+    // one shared panel instance (see placeMainPanel()), so wiring this
+    // once here covers it in both List and Folders view rather than
+    // needing to re-wire on every render(). dragCounter handles the
+    // "dragenter/dragleave fire for every child element too" browser
+    // quirk so the drop-zone highlight doesn't flicker while dragging
+    // over rows inside the panel.
+    const filesMainPanel = document.getElementById("filesMainPanel");
+    let dragCounter = 0;
+
+    filesMainPanel?.addEventListener("dragover", (event) => {
+        if (!dragCarriesFiles(event)) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+    });
+
+    filesMainPanel?.addEventListener("dragenter", (event) => {
+        if (!dragCarriesFiles(event)) return;
+        event.preventDefault();
+        dragCounter++;
+        if (selectedCategory && selectedSubfolder) filesMainPanel.classList.add("is-drag-over");
+    });
+
+    filesMainPanel?.addEventListener("dragleave", (event) => {
+        if (!dragCarriesFiles(event)) return;
+        dragCounter = Math.max(0, dragCounter - 1);
+        if (dragCounter === 0) filesMainPanel.classList.remove("is-drag-over");
+    });
+
+    filesMainPanel?.addEventListener("drop", async (event) => {
+        if (!dragCarriesFiles(event)) return;
+        event.preventDefault();
+        dragCounter = 0;
+        filesMainPanel.classList.remove("is-drag-over");
+
+        if (!selectedCategory || !selectedSubfolder) {
+            setFilesPageMessage("Pick a folder first, then drop files to upload them.", "error");
+            return;
+        }
+
+        await uploadFiles(event.dataTransfer.files);
+    });
+
     document.getElementById("cancelDeleteFileBtn")?.addEventListener("click", closeDeleteFileConfirm);
     document.getElementById("confirmDeleteFileBtn")?.addEventListener("click", confirmDeleteFile);
     document.getElementById("deleteFileConfirmOverlay")?.addEventListener("click", function (e) {
         if (e.target === this) closeDeleteFileConfirm();
+    });
+
+    document.getElementById("renameFileForm")?.addEventListener("submit", confirmRenameFile);
+    document.getElementById("cancelRenameFileBtn")?.addEventListener("click", closeRenameFileModal);
+    document.getElementById("renameFileModalOverlay")?.addEventListener("click", function (e) {
+        if (e.target === this) closeRenameFileModal();
+    });
+
+    // Close any open "⋯" menu on an outside click or Escape — same pattern
+    // as the header notification bell / project switcher dropdowns.
+    document.addEventListener("click", (event) => {
+        if (!event.target.closest(".all-files-file-actions-cell")) closeAllFileMenus();
+    });
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeAllFileMenus();
     });
 
     document.querySelectorAll(".all-files-view-toggle-btn").forEach(btn => {
@@ -555,7 +959,18 @@
         document.getElementById("filesLoadingState").style.display = "none";
         document.getElementById("filesBody").style.display = "block";
 
-        render();
+        // Arrived via a sidebar search result (project-shell.js links a
+        // file match to project-files.html?...&category=X&subfolder=Y) —
+        // jump straight to that folder instead of landing on "Select a
+        // folder". selectFolder() already calls render() itself.
+        const urlParams = new URLSearchParams(window.location.search);
+        const categoryParam = urlParams.get("category");
+        const subfolderParam = urlParams.get("subfolder");
+        if (categoryParam && subfolderParam && window.ProjectFields.findFileSubfolder(categoryParam, subfolderParam)) {
+            selectFolder(categoryParam, subfolderParam);
+        } else {
+            render();
+        }
     });
 
 })();

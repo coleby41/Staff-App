@@ -29,17 +29,23 @@
     const TIMELINE_TABLE = "project_timeline_items";
     const TODO_ITEMS_TABLE = "project_todo_items";
     const TODO_SUBITEMS_TABLE = "project_todo_subitems";
+    const PROJECT_FILES_TABLE = "project_files";
+    const PROJECT_EVENTS_TABLE = "project_events";
+    const PROJECT_ACTIVITY_TABLE = "project_activity";
 
-    // Timeline/To-Do data for search, fetched once per project load — see
-    // loadSearchData(). The sidebar search box lives on every project-*.html
-    // page, not just project-timeline.html/project-to-do.html, so it can't
-    // rely on those pages' own scripts to have loaded this data; it fetches
-    // its own copy independently. Populated in the background (not awaited
-    // before project-shell:ready fires) since it's a nice-to-have, not
-    // something the rest of the page should wait on.
+    // Search data for every source below, fetched once per project load —
+    // see loadSearchData(). The sidebar search box lives on every
+    // project-*.html page, not just the page each source "belongs" to, so
+    // it can't rely on that page's own script to have loaded this data; it
+    // fetches its own copy independently. Populated in the background (not
+    // awaited before project-shell:ready fires) since it's a nice-to-have,
+    // not something the rest of the page should wait on.
     let searchTimelineData = [];
     let searchTodoItemsData = [];
     let searchTodoSubitemsByItemId = {};
+    let searchFilesData = [];    // project_files — every document in All Files, uploaded or form-filed
+    let searchEventsData = [];   // project_events — everything on the Overview "Upcoming Events" panel, not just the future/limit-5 slice that panel shows
+    let searchActivityData = []; // project_activity — the append-only audit feed behind "Recent Activity"; capped (see loadSearchData) since it only grows
     let rerenderSearchResults = null; // set by wireSidebarSearch — lets loadSearchData refresh results already on screen once it resolves
 
     function escapeHtmlShell(str) {
@@ -162,12 +168,23 @@
 
     /* ===========================
        SIDEBAR SEARCH — "everything in this project"
-       Searches, in order: Project Timeline (phases/tasks/milestones),
-       Project To-Do (big items + checklist rows), and the project's own
+       Every project-scoped data source in the app, one box: Project Files
+       (All Files — uploads and form-filed documents), Project Timeline
+       (phases/tasks/milestones), Project To-Do (big items + checklist
+       rows), Events (the Overview "Upcoming Events" panel), Activity (the
+       append-only "Recent Activity" audit feed), and the project's own
        field values (site address, dates, budget, etc. — via
-       window.ProjectFields). Project Files / Accounting / Site Plans /
-       Contract don't have real data models yet — add their sources here
-       too once they do.
+       window.ProjectFields). RFIs/Change Orders/Submittals are
+       intentionally NOT searched here — those workflow pages were removed
+       in favor of All Files (see the Project doc's Phase 3 notes); the
+       underlying tables still exist but there's no page left to link a
+       result to.
+
+       Ranked, not just matched: every source scores its own results (see
+       scoreMatch()) instead of the old "whichever source ran first wins
+       the top slots" behavior, so the single most relevant hit — whatever
+       source it's from — is always first, and results across all sources
+       are merged into one ranked list before the display cap is applied.
 
        "Complex searching": each source builds one lowercase haystack per
        result (title/label + description + type + status + assignee name +
@@ -178,18 +195,55 @@
        "sarah foundation" substring.
     =========================== */
 
+    const SEARCH_RESULTS_LIMIT = 15;
+
     function queryTerms(query) {
         return query.trim().toLowerCase().split(/\s+/).filter(Boolean);
     }
 
-    function matchesAllTerms(haystackParts, terms) {
-        const haystack = haystackParts.filter(Boolean).join(" ").toLowerCase();
-        return terms.every(term => haystack.includes(term));
+    function escapeRegexShell(str) {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
+    // Every result gets one relevance score instead of a fixed source
+    // order: an exact match on the primary field (title/filename/summary)
+    // scores highest, a prefix match next, all terms present in the
+    // primary field next, and a match that only lands in secondary fields
+    // (description, assignee, dates, status, ...) lowest — with a small
+    // per-term bonus for how much of the match actually landed in the
+    // primary field. Returns null (no push) when the terms don't all
+    // appear somewhere in the combined haystack at all.
+    function scoreMatch(primaryText, secondaryParts, terms) {
+        const primary = (primaryText || "").toLowerCase();
+        const haystack = [primaryText, ...secondaryParts].filter(Boolean).join(" ").toLowerCase();
+        if (!terms.every(term => haystack.includes(term))) return null;
+
+        const query = terms.join(" ");
+        let score;
+        if (primary === query) score = 100;
+        else if (primary.startsWith(query)) score = 70;
+        else if (terms.every(term => primary.includes(term))) score = 40;
+        else score = 10;
+
+        terms.forEach(term => { if (primary.includes(term)) score += 3; });
+        return score;
     }
 
     function formatSearchDate(iso) {
         if (!iso) return "";
         return new Date(`${iso}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    }
+
+    // Short form for full timestamps (project_activity.created_at) — the
+    // result row already has limited width, and the exact time isn't the
+    // point, just "roughly when."
+    function formatSearchDateShort(iso) {
+        if (!iso) return "";
+        try {
+            return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        } catch {
+            return "";
+        }
     }
 
     function searchProjectFields(project, terms) {
@@ -201,14 +255,17 @@
                 if (PF.isBlank(raw)) return;
 
                 const value = String(raw);
-                if (!matchesAllTerms([field.label, value], terms)) return;
+                const displayValue = field.type === "file" ? value.split("/").pop() : value;
+                const score = scoreMatch(displayValue, [field.label], terms);
+                if (score === null) return;
 
                 results.push({
                     sectionTitle: step.title,
                     label: field.label,
-                    value: field.type === "file" ? value.split("/").pop() : value,
+                    value: displayValue,
                     page: step.page,
-                    anchor: `field-${field.name}`
+                    anchor: `field-${field.name}`,
+                    score
                 });
             });
         });
@@ -235,15 +292,17 @@
                 ? formatSearchDate(item.end_date)
                 : [formatSearchDate(item.start_date), formatSearchDate(item.end_date)].filter(Boolean).join(" – ");
 
-            const haystack = [item.title, item.description, typeLabel, statusLabel, item.assigned_to_name, dateText];
-            if (!matchesAllTerms(haystack, terms)) return;
+            const title = item.title || "Untitled";
+            const score = scoreMatch(title, [item.description, typeLabel, statusLabel, item.assigned_to_name, dateText], terms);
+            if (score === null) return;
 
             results.push({
                 sectionTitle: "Timeline",
                 label: `${typeLabel.charAt(0).toUpperCase()}${typeLabel.slice(1)}${statusLabel ? " · " + statusLabel : ""}`,
-                value: item.title || "Untitled",
+                value: title,
                 page: "project-timeline.html",
-                openItem: item.id
+                openItem: item.id,
+                score
             });
         });
 
@@ -254,27 +313,121 @@
         const results = [];
 
         searchTodoItemsData.forEach(item => {
-            const itemHaystack = [item.title, "to-do", "task", item.completed ? "complete" : "open"];
-            if (matchesAllTerms(itemHaystack, terms)) {
+            const title = item.title || "Untitled";
+            const statusLabel = item.completed ? "complete" : "open";
+            const score = scoreMatch(title, ["to-do", "task", statusLabel], terms);
+            if (score !== null) {
                 results.push({
                     sectionTitle: "To-Do",
                     label: item.completed ? "Completed" : "Open",
-                    value: item.title || "Untitled",
+                    value: title,
                     page: "project-to-do.html",
-                    openItem: item.id
+                    openItem: item.id,
+                    score
                 });
             }
 
             (searchTodoSubitemsByItemId[item.id] || []).forEach(sub => {
-                const subHaystack = [sub.label, item.title, sub.assigned_to_name, formatSearchDate(sub.due_date), "to-do", "task", "checklist", sub.completed ? "complete" : "open"];
-                if (!matchesAllTerms(subHaystack, terms)) return;
+                const subLabel = sub.label || "Untitled";
+                const subStatusLabel = sub.completed ? "complete" : "open";
+                const subScore = scoreMatch(subLabel, [title, sub.assigned_to_name, formatSearchDate(sub.due_date), "to-do", "task", "checklist", subStatusLabel], terms);
+                if (subScore === null) return;
                 results.push({
                     sectionTitle: "To-Do",
-                    label: `${item.title || "Untitled"} · checklist`,
-                    value: sub.label || "Untitled",
+                    label: `${title} · checklist`,
+                    value: subLabel,
                     page: "project-to-do.html",
-                    openItem: item.id // opens the parent item's panel, where this checklist row lives
+                    openItem: item.id, // opens the parent item's panel, where this checklist row lives
+                    score: subScore
                 });
+            });
+        });
+
+        return results;
+    }
+
+    // Files — every project_files row, whichever way it got there
+    // (manual upload or an auto-filed form submission). Links straight to
+    // the folder it's in (project-files.html reads these same params on
+    // load and calls selectFolder()), not just the bare All Files page.
+    function searchProjectFiles(terms) {
+        const results = [];
+
+        searchFilesData.forEach(file => {
+            const name = file.file_name || "Untitled file";
+            const meta = PF.getFileTypeMeta(name);
+            const categoryLabel = PF.fileCategoryLabel(file.category);
+            const subfolderLabel = PF.fileSubfolderLabel(file.category, file.subfolder);
+            const sourceLabel = file.source === "form_submission" ? "form" : "upload";
+
+            const score = scoreMatch(name, [
+                categoryLabel, subfolderLabel, meta.kind, sourceLabel,
+                file.uploaded_by_name, formatSearchDate((file.created_at || "").slice(0, 10))
+            ], terms);
+            if (score === null) return;
+
+            results.push({
+                sectionTitle: "Files",
+                label: `${categoryLabel} / ${subfolderLabel}`,
+                value: name,
+                page: "project-files.html",
+                extraParams: { category: file.category, subfolder: file.subfolder },
+                score
+            });
+        });
+
+        return results;
+    }
+
+    // Events — the full list, not just the future/limit-5 slice the
+    // Overview "Upcoming Events" panel shows; search should find a past
+    // event too ("when did we do the site walk"), not only upcoming ones.
+    // No per-event page/anchor exists, so results land on the Overview
+    // page itself, same as Activity below.
+    function searchProjectEvents(terms) {
+        const results = [];
+
+        searchEventsData.forEach(event => {
+            const title = event.title || "Untitled event";
+            const typeLabel = (event.event_type || "other").replace(/_/g, " ");
+            const dateText = formatSearchDate(event.event_date);
+
+            const score = scoreMatch(title, [typeLabel, dateText, "event"], terms);
+            if (score === null) return;
+
+            results.push({
+                sectionTitle: "Events",
+                label: `${typeLabel.charAt(0).toUpperCase()}${typeLabel.slice(1)} · ${dateText}`,
+                value: title,
+                page: "projects.html",
+                score
+            });
+        });
+
+        return results;
+    }
+
+    // Activity — the append-only audit feed (RFI/change order/submittal/
+    // task changes, per Phase 2). Capped in loadSearchData() since it's
+    // the one source here that only ever grows over a project's life;
+    // most recent 200 is plenty for "did someone touch X recently."
+    function searchProjectActivity(terms) {
+        const results = [];
+
+        searchActivityData.forEach(entry => {
+            const summary = entry.summary || "";
+            if (!summary) return;
+            const dateText = formatSearchDateShort(entry.created_at);
+
+            const score = scoreMatch(summary, [entry.actor_name, dateText, "activity"], terms);
+            if (score === null) return;
+
+            results.push({
+                sectionTitle: "Activity",
+                label: `${entry.actor_name || "Someone"} · ${dateText}`,
+                value: summary,
+                page: "projects.html",
+                score
             });
         });
 
@@ -289,7 +442,7 @@
     async function loadSearchData(projectId) {
         if (!window.supabaseClient) return;
 
-        const [timelineResult, todoItemsResult, todoSubitemsResult] = await Promise.all([
+        const [timelineResult, todoItemsResult, todoSubitemsResult, filesResult, eventsResult, activityResult] = await Promise.all([
             window.supabaseClient
                 .from(TIMELINE_TABLE)
                 .select("id, type, title, description, status, start_date, end_date, assigned_to_name")
@@ -301,11 +454,28 @@
             window.supabaseClient
                 .from(TODO_SUBITEMS_TABLE)
                 .select("id, todo_item_id, label, assigned_to_name, due_date, completed")
+                .eq("project_id", projectId),
+            window.supabaseClient
+                .from(PROJECT_FILES_TABLE)
+                .select("id, category, subfolder, file_name, source, uploaded_by_name, created_at")
+                .eq("project_id", projectId),
+            window.supabaseClient
+                .from(PROJECT_EVENTS_TABLE)
+                .select("id, title, event_date, event_type")
+                .eq("project_id", projectId),
+            window.supabaseClient
+                .from(PROJECT_ACTIVITY_TABLE)
+                .select("id, actor_name, summary, created_at")
                 .eq("project_id", projectId)
+                .order("created_at", { ascending: false })
+                .limit(200)
         ]);
 
         if (!timelineResult.error) searchTimelineData = timelineResult.data || [];
         if (!todoItemsResult.error) searchTodoItemsData = todoItemsResult.data || [];
+        if (!filesResult.error) searchFilesData = filesResult.data || [];
+        if (!eventsResult.error) searchEventsData = eventsResult.data || [];
+        if (!activityResult.error) searchActivityData = activityResult.data || [];
 
         searchTodoSubitemsByItemId = {};
         if (!todoSubitemsResult.error) {
@@ -319,9 +489,33 @@
         if (rerenderSearchResults) rerenderSearchResults();
     }
 
+    // result.extraParams (Files' category/subfolder, so the destination
+    // page can jump straight to that folder) rides alongside the existing
+    // openItem (Timeline/To-Do) and anchor (field results) mechanisms —
+    // all three compose into one query string.
     function buildResultUrl(result, projectId) {
-        if (result.openItem) return `${result.page}?id=${encodeURIComponent(projectId)}&openItem=${encodeURIComponent(result.openItem)}`;
-        return buildPageUrl(result.page, projectId, result.anchor);
+        const params = new URLSearchParams();
+        params.set("id", projectId);
+        if (result.openItem) params.set("openItem", result.openItem);
+        if (result.extraParams) {
+            Object.entries(result.extraParams).forEach(([key, value]) => {
+                if (value !== undefined && value !== null && value !== "") params.set(key, value);
+            });
+        }
+        const hash = result.anchor ? `#${result.anchor}` : "";
+        return `${result.page}?${params.toString()}${hash}`;
+    }
+
+    // Wraps every occurrence of any search term in <mark> so a scan of the
+    // results list actually shows *why* each row matched, not just that it
+    // did — text is HTML-escaped first, then the highlight markup is
+    // layered on top of the now-safe string (terms can't contain raw HTML
+    // at that point, so this can't reopen an XSS hole).
+    function highlightMatches(text, terms) {
+        const escaped = escapeHtmlShell(text ?? "");
+        if (!terms.length) return escaped;
+        const pattern = new RegExp(`(${terms.map(escapeRegexShell).join("|")})`, "gi");
+        return escaped.replace(pattern, '<mark class="sidebar-search-match">$1</mark>');
     }
 
     function wireSidebarSearch(project) {
@@ -330,47 +524,110 @@
         const hintEl = document.getElementById("sidebarSearchShortcutHint");
         if (!input || !resultsEl) return;
 
+        let currentResults = []; // last rendered, ranked results (URL pre-built) — what keyboard nav/Enter operates on
+        let activeIndex = -1;
+
         function updateHintVisibility() {
             if (hintEl) hintEl.classList.toggle("is-hidden", input.value.trim().length > 0);
         }
         input.addEventListener("input", updateHintVisibility);
 
+        function applyActiveHighlight() {
+            resultsEl.querySelectorAll(".sidebar-search-result").forEach((el, i) => {
+                const isActive = i === activeIndex;
+                el.classList.toggle("is-active", isActive);
+                if (isActive) el.scrollIntoView({ block: "nearest" });
+            });
+        }
+
         function renderResults() {
             const query = input.value;
+            activeIndex = -1;
 
             if (!query.trim()) {
                 resultsEl.classList.add("hidden");
                 resultsEl.innerHTML = "";
+                currentResults = [];
                 return;
             }
 
             if (!project) {
                 resultsEl.classList.remove("hidden");
                 resultsEl.innerHTML = `<p class="sidebar-search-empty">Select a project first.</p>`;
+                currentResults = [];
                 return;
             }
 
             const terms = queryTerms(query);
-            const results = [
+
+            // Every source scores its own matches; merge and re-rank
+            // together so the single best result — whichever source it
+            // came from — always lands first, instead of one source's
+            // results silently crowding out a more relevant hit from
+            // another just because it ran earlier.
+            const allResults = [
+                ...searchProjectFiles(terms),
                 ...searchTimelineItems(terms),
                 ...searchTodoItems(terms),
+                ...searchProjectEvents(terms),
+                ...searchProjectActivity(terms),
                 ...searchProjectFields(project, terms)
-            ].slice(0, 12);
+            ].sort((a, b) => b.score - a.score);
+
+            const shown = allResults.slice(0, SEARCH_RESULTS_LIMIT);
+            currentResults = shown.map(r => ({ ...r, url: buildResultUrl(r, project.id) }));
 
             resultsEl.classList.remove("hidden");
-            resultsEl.innerHTML = results.length
-                ? results.map(r => `
-                    <a class="sidebar-search-result" href="${buildResultUrl(r, project.id)}">
-                        <span class="sidebar-search-result-label">${escapeHtmlShell(r.sectionTitle)} · ${escapeHtmlShell(r.label)}</span>
-                        <span class="sidebar-search-result-value">${escapeHtmlShell(r.value)}</span>
-                    </a>
-                `).join("")
-                : `<p class="sidebar-search-empty">No matches for "${escapeHtmlShell(query.trim())}" in this project.</p>`;
+
+            if (!shown.length) {
+                resultsEl.innerHTML = `<p class="sidebar-search-empty">No matches for "${escapeHtmlShell(query.trim())}" in this project.</p>`;
+                return;
+            }
+
+            const rowsHtml = currentResults.map(r => `
+                <a class="sidebar-search-result" href="${r.url}">
+                    <span class="sidebar-search-result-label">${escapeHtmlShell(r.sectionTitle)} · ${highlightMatches(r.label, terms)}</span>
+                    <span class="sidebar-search-result-value">${highlightMatches(r.value, terms)}</span>
+                </a>
+            `).join("");
+
+            const countHtml = allResults.length > shown.length
+                ? `<p class="sidebar-search-count">Showing ${shown.length} of ${allResults.length} matches — keep typing to narrow it down</p>`
+                : "";
+
+            resultsEl.innerHTML = rowsHtml + countHtml;
         }
 
         input.addEventListener("input", renderResults);
         input.addEventListener("focus", renderResults);
         rerenderSearchResults = renderResults;
+
+        // Up/Down to move through results, Enter to go to the highlighted
+        // one (or the top result if nothing's been highlighted yet),
+        // Escape to dismiss — the same keyboard model as every other
+        // command-bar-style search (Spotlight, Notion's ⌘K, ...).
+        input.addEventListener("keydown", (event) => {
+            if (resultsEl.classList.contains("hidden") || !currentResults.length) return;
+
+            if (event.key === "ArrowDown") {
+                event.preventDefault();
+                activeIndex = Math.min(activeIndex + 1, currentResults.length - 1);
+                applyActiveHighlight();
+            } else if (event.key === "ArrowUp") {
+                event.preventDefault();
+                activeIndex = Math.max(activeIndex - 1, 0);
+                applyActiveHighlight();
+            } else if (event.key === "Enter") {
+                const target = currentResults[activeIndex] || currentResults[0];
+                if (target) {
+                    event.preventDefault();
+                    window.location.href = target.url;
+                }
+            } else if (event.key === "Escape") {
+                resultsEl.classList.add("hidden");
+                input.blur();
+            }
+        });
 
         document.addEventListener("click", (event) => {
             if (!event.target.closest(".sidebar-search-wrap")) {
