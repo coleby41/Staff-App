@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Project To-Do | The Leeward Group</title>
+    <title>Change Orders | The Leeward Group</title>
 
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" type="image/png" href="logos/leewaed-logo.png">
@@ -15,8 +15,8 @@
 
 <!-- Header/sidebar shell shared by every project-dashboard page
      (project-shell.js). Keep this block in sync across projects.html,
-     project-files.html, project-timeline.html, project-to-do.html,
-     project-accounting.html, project-site-plans.html, project-contract.html
+     project-timeline.html, project-to-do.html, project-rfis.html,
+     project-change-orders.html, project-submittals.html and friends
      if you change it here. -->
 
 <header class="header">
@@ -39,7 +39,7 @@
     </div>
 
     <div class="header-center">
-        <h1 class="header-page-name" id="headerPageName">To-do</h1>
+        <h1 class="header-page-name" id="headerPageName">Change Orders</h1>
     </div>
 
     <div class="header-right">
@@ -102,11 +102,36 @@
             <span class="nav-text">To-do</span>
         </a>
 
+        <a href="#" class="nav-item" data-nav-page="project-rfis.html">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">RFIs</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="project-change-orders.html">
+            <span class="finance-nav-icon"></span>
+            <span class="nav-text">Change Orders</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="project-submittals.html">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">Submittals</span>
+        </a>
+
         <hr style="border:.5px solid rgba(255,255,255,0.14); margin:10px 0;">
 
         <a href="#" class="nav-item" data-nav-page="project-accounting.html">
             <span class="finance-nav-icon"></span>
             <span class="nav-text">Accounting</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="project-site-plans.html">
+            <span class="site-plans-nav-icon"></span>
+            <span class="nav-text">Site Plans</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="project-contract.html">
+            <span class="contract-nav-icon"></span>
+            <span class="nav-text">Contract</span>
         </a>
 
     </nav>
@@ -123,82 +148,60 @@
     <section class="hero-section">
         <div>
             <p class="eyebrow">Project Dashboard</p>
-            <h1 id="todoHeroName">Project To-Do</h1>
-            <p>Big items for this project. Click one to see its checklist and who's on the hook for what.</p>
+            <h1>Change Orders</h1>
+            <p>Contract changes for this project. Amounts are only visible to people with financial access.</p>
+        </div>
+        <div class="hero-actions">
+            <button type="button" class="auth-button auth-button--secondary" id="newChangeOrderBtn">
+                + New Change Order
+            </button>
         </div>
     </section>
 
-    <div id="todoPageMessage" class="workbook-page-message" style="display:none;"></div>
+    <div id="coPageMessage" class="workbook-page-message" style="display:none;"></div>
 
-    <div class="workbook-loading" id="todoLoadingState">
+    <div class="project-tabs" id="coStatusTabs">
+        <button type="button" class="chip dash-tab active" data-status="all">All</button>
+        <button type="button" class="chip dash-tab" data-status="pending">Pending</button>
+        <button type="button" class="chip dash-tab" data-status="approved">Approved</button>
+        <button type="button" class="chip dash-tab" data-status="rejected">Rejected</button>
+    </div>
+
+    <div class="workbook-loading" id="coLoadingState">
         <p>Loading…</p>
     </div>
 
-    <div class="workbook-empty" id="todoEmptyState" style="display:none;">
-        <p>Nothing yet — type below to add your first item.</p>
+    <div class="workbook-empty" id="coEmptyState" style="display:none;">
+        <p>No change orders yet — use "+ New Change Order" to submit the first one.</p>
     </div>
 
-    <div class="todo-item-list" id="todoItemList"></div>
-
-    <div class="todo-item-row todo-item-add-row">
-        <span class="todo-item-add-icon">+</span>
-        <input type="text" id="newTodoItemInlineInput" class="todo-item-add-input" placeholder="New task" maxlength="120">
-    </div>
-
-    <p class="auth-message" id="todoAddItemMessage"></p>
+    <div class="todo-item-list" id="coList"></div>
 
 </main>
 
 
-<!-- Delete Item Confirmation -->
-<div class="popup-overlay hidden" id="deleteTodoItemConfirmOverlay">
+<!-- New Change Order -->
+<div class="popup-overlay hidden" id="newChangeOrderOverlay">
     <div class="popup">
-        <h2>Delete this item?</h2>
-        <p class="auth-inline-copy">This removes the item and its whole checklist. This can't be undone.</p>
+        <h2>New Change Order</h2>
 
-        <p class="auth-message" id="deleteTodoItemConfirmMessage"></p>
+        <p class="auth-message" id="newChangeOrderMessage"></p>
+
+        <label for="newCoTitle">Title</label>
+        <input type="text" id="newCoTitle" maxlength="200" placeholder="e.g. Additional footing depth at grid C">
+
+        <label for="newCoDescription">Description</label>
+        <textarea id="newCoDescription" rows="4" placeholder="What's changing and why…"></textarea>
+
+        <label for="newCoAmount">Amount ($)</label>
+        <input type="number" id="newCoAmount" step="0.01" placeholder="e.g. 12500">
 
         <div class="popup-buttons">
-            <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteTodoItemBtn">Cancel</button>
-            <button type="button" class="auth-button auth-button--red" id="confirmDeleteTodoItemBtn">Delete</button>
+            <button type="button" class="auth-button auth-button--secondary" id="cancelNewCoBtn">Cancel</button>
+            <button type="button" class="auth-button" id="submitNewCoBtn">Submit</button>
         </div>
     </div>
 </div>
-
-
-<!-- Side panel — the big item's own checklist. Slides in from the right and
-     pushes/resizes .main-content over to make room (body.todo-panel-open in
-     styles.css) rather than floating on top of it. No dimmed backdrop, and
-     the list stays fully interactive while it's open — clicking another row
-     just swaps what's shown here. Closes via the ✕ or Esc.
-
-     Drag #todoPanelResizeHandle (the strip along its left edge) to resize —
-     the width is saved to localStorage (see project-todo.js) so it's
-     remembered next time this panel is opened, on any project. -->
-<aside class="todo-panel hidden" id="todoPanel">
-    <div class="todo-panel-resize-handle" id="todoPanelResizeHandle" aria-hidden="true"></div>
-
-    <div class="todo-panel-header">
-        <h2 id="todoPanelTitle">Item</h2>
-        <div class="todo-panel-header-actions">
-            <button type="button" class="workbook-btn workbook-btn--danger" id="deleteTodoItemFromPanelBtn">Delete item</button>
-            <button type="button" class="menu-btn" id="closeTodoPanelBtn" aria-label="Close panel">✕</button>
-        </div>
-    </div>
-
-    <p class="auth-message" id="todoPanelMessage"></p>
-
-    <div class="todo-panel-checklist" id="todoPanelChecklist"></div>
-
-    <div class="todo-add-subitem-row">
-        <input type="text" id="newSubitemLabelInput" placeholder="Add a checklist item…" maxlength="200">
-        <input type="date" id="newSubitemDueDateInput" class="todo-item-add-date" aria-label="Due date">
-        <select id="newSubitemAssigneeSelect"></select>
-        <button type="button" class="auth-button auth-button--secondary" id="addSubitemBtn" style="width:auto; padding:10px 18px;">
-            + Add
-        </button>
-    </div>
-</aside>
 
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -212,7 +215,7 @@
 <script src="nav-access.js"></script>
 <script src="project-fields.js"></script>
 <script src="project-shell.js"></script>
-<script src="project-todo.js"></script>
+<script src="project-change-orders.js"></script>
 
 <script>
 
@@ -234,8 +237,6 @@ if (signOutButton) {
 
 /* ===========================
    HEADER NAME / NAV ACCESS
-   (same pattern as every other page — project-shell.js owns the project
-   name/breadcrumb, this owns the signed-in staff member's own name)
 =========================== */
 
 const userNameElement = document.getElementById("headerUserName");

@@ -4717,7 +4717,7 @@ body.todo-panel-resizing .todo-panel-resize-handle::after {
 =========================== */
 
 .project-wizard-popup {
-  width: min(94vw, 560px);
+  width: min(94vw, 620px);
   max-height: 90vh;
   overflow-y: auto;
   scrollbar-gutter: stable;
@@ -4791,17 +4791,10 @@ body.todo-panel-resizing .todo-panel-resize-handle::after {
   background: var(--accent);
 }
 
-.wizard-step-title {
-  margin: 22px 0 4px;
-  color: var(--accent-strong);
-  font-size: 1.15rem;
-}
-
-.wizard-step-hint {
-  margin: 0 0 20px;
-  color: var(--text-soft);
-  font-size: 0.85rem;
-}
+/* wizard-step-title/wizard-step-hint (the plain, ungrouped step heading)
+   were replaced by wizard-step-header/-number/-header-title/-header-hint
+   below, once every wizard step got the numbered-badge header — see
+   renderWizardStep() in projects-page.js. */
 
 /* Give fields themselves a little more breathing room than the default
    .auth-form gap, per the "space this!" annotations on the sketch. */
@@ -6364,7 +6357,7 @@ body.todo-panel-resizing .main-content {
    .workbook-btn, .company-edit-btn (covers .project-edit-btn too — always
    paired with it), .workbook-edit-btn, .form-response-action-btn,
    .form-field-move-btn, .form-field-remove-btn, .project-page-btn,
-   .project-page-number.
+   .project-page-number, .all-files-folder-tile.
 
    Deliberately excluded: segmented/joined toggle controls
    (.view-toggle-btn, .gantt-view-toggle-btn, .timeline-type-toggle-btn) —
@@ -6401,7 +6394,8 @@ body.todo-panel-resizing .main-content {
 .form-field-move-btn,
 .form-field-remove-btn,
 .project-page-btn,
-.project-page-number {
+.project-page-number,
+.all-files-folder-tile {
   /* No position here on purpose — .company-edit-btn/.project-edit-btn/
      .workbook-edit-btn each set their own position: absolute (pinning
      them to their card's top-right corner) in their own rule elsewhere;
@@ -6431,7 +6425,8 @@ body.todo-panel-resizing .main-content {
 .form-field-move-btn:hover,
 .form-field-remove-btn:hover,
 .project-page-btn:hover,
-.project-page-number:hover {
+.project-page-number:hover,
+.all-files-folder-tile:hover {
   transform: translateY(-1px);
   filter: brightness(1.05);
   box-shadow:
@@ -6454,7 +6449,8 @@ body.todo-panel-resizing .main-content {
 .form-field-move-btn:active,
 .form-field-remove-btn:active,
 .project-page-btn:active,
-.project-page-number:active {
+.project-page-number:active,
+.all-files-folder-tile:active {
   transform: translateY(1px) scale(0.98);
   filter: brightness(0.96);
   box-shadow:
@@ -6732,4 +6728,915 @@ body.todo-panel-resizing .main-content {
         justify-content: flex-start;
         margin-left: 52px;
     }
+}
+
+/* ============================================================================
+   PROJECT OVERVIEW DASHBOARD (redesign)
+   New widgets added above the existing wizard-field "Project Details"
+   section on projects.html: status pill, timeline snapshot stepper,
+   attention-needed panel, upcoming events, financial snapshot donut, and
+   recent activity feed. Reuses .project-stats-bar / .project-stat-tile /
+   .chip / .project-progress-track tokens and color variables throughout so
+   it reads as one consistent visual system with the rest of the app.
+============================================================================ */
+
+.dashboard-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  background: var(--success-soft);
+  color: var(--success);
+  margin-bottom: 14px;
+}
+
+.dashboard-status-pill::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.dashboard-status-pill--behind { background: var(--danger-soft); color: var(--danger); }
+.dashboard-status-pill--ahead { background: var(--info-soft); color: var(--info); }
+.dashboard-status-pill--unknown { background: var(--surface-alt); color: var(--text-soft); }
+
+.dashboard-widgets-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 18px;
+  margin-bottom: 24px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .dashboard-widgets-grid { grid-template-columns: 1fr; }
+}
+
+.dashboard-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  padding: 18px 20px;
+  margin-bottom: 18px;
+}
+
+.dashboard-panel h3 {
+  margin: 0 0 14px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.dashboard-panel-empty {
+  color: var(--text-soft);
+  font-size: 0.88rem;
+  padding: 6px 0;
+}
+
+/* ---- Timeline snapshot stepper ---- */
+
+.timeline-snapshot-track {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  position: relative;
+  padding-top: 22px;
+}
+
+.timeline-snapshot-phase {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.timeline-snapshot-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-alt);
+}
+
+.timeline-snapshot-bar--completed { background: var(--purple); }
+.timeline-snapshot-bar--in_progress { background: var(--success); }
+.timeline-snapshot-bar--on_hold { background: var(--warning); }
+.timeline-snapshot-bar--not_started { background: var(--surface-alt); }
+
+.timeline-snapshot-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timeline-snapshot-today {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent);
+}
+
+.timeline-snapshot-today::before {
+  content: "TODAY";
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+/* ---- Attention needed / upcoming events ---- */
+
+.attention-needed-list,
+.upcoming-events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.attention-needed-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+  text-decoration: none;
+  color: inherit;
+}
+
+.attention-needed-row:hover { background: var(--accent-soft); }
+
+.attention-needed-row-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.attention-needed-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-weight: 800;
+  font-size: 0.82rem;
+}
+
+.attention-needed-count--zero {
+  background: var(--surface-alt);
+  color: var(--text-soft);
+}
+
+.upcoming-event-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.upcoming-event-row:last-child { border-bottom: none; }
+
+.upcoming-event-date {
+  flex: 0 0 auto;
+  width: 44px;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius-sm);
+  padding: 4px 0;
+  line-height: 1.2;
+}
+
+.upcoming-event-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.upcoming-event-type {
+  font-size: 0.76rem;
+  color: var(--text-soft);
+}
+
+/* ---- Financial snapshot donut ---- */
+
+.financial-snapshot-body {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.financial-donut {
+  flex: 0 0 auto;
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.financial-donut-hole {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+}
+
+.financial-donut-hole-value {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.financial-donut-hole-label {
+  font-size: 0.6rem;
+  color: var(--text-soft);
+  font-weight: 600;
+}
+
+.financial-snapshot-legend {
+  flex: 1 1 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.financial-snapshot-legend-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.84rem;
+}
+
+.financial-snapshot-legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.financial-snapshot-legend-name {
+  display: flex;
+  align-items: center;
+  color: var(--text-soft);
+  font-weight: 600;
+}
+
+.financial-snapshot-legend-value {
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ---- Recent activity feed ---- */
+
+.recent-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recent-activity-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.recent-activity-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-top: 6px;
+}
+
+.recent-activity-summary {
+  font-size: 0.86rem;
+  color: var(--text);
+}
+
+.recent-activity-meta {
+  font-size: 0.74rem;
+  color: var(--text-soft);
+  margin-top: 2px;
+}
+
+/* ---- "Project Details" section header (existing wizard-field grid, now
+   below the new dashboard rather than being the whole page) ---- */
+
+.project-details-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0 16px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.project-details-heading::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--border);
+}
+
+
+/* ============================================================================
+   ONBOARDING WIZARD — corporate restyle
+   Applied on top of the existing .popup-overlay/.popup wizard markup in
+   project-home.html / projects-page.js. Adds a numbered step indicator and
+   a shared "contact block" layout used by the 4 contact-style steps
+   (Property Owner, General Contractor, Point of Contact, County/City
+   Office) so they read as one consistent pattern instead of four separately
+   hand-rolled sections.
+============================================================================ */
+
+/* Numbered step header — sits above the existing .wizard-progress dots
+   (unchanged, still rendered/driven by renderWizardStep() in
+   projects-page.js) and wraps the existing .wizard-step-title/
+   .wizard-step-hint text next to a step-number badge. Distinct class names
+   for the title/hint inside this header (rather than reusing
+   .wizard-step-title/.wizard-step-hint directly) so their different
+   spacing here doesn't fight with those classes' existing margins. */
+.wizard-step-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.wizard-step-number {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.wizard-step-header-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.wizard-step-header-hint {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  color: var(--text-soft);
+}
+
+.wizard-field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+/* Textareas/files read better full-width than squeezed into a grid column. */
+.wizard-field-grid .auth-field:has(textarea),
+.wizard-field-grid .auth-field:has(input[type="file"]) {
+  grid-column: 1 / -1;
+}
+
+.wizard-contact-block {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+}
+
+.wizard-contact-block-label {
+  grid-column: 1 / -1;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  margin-bottom: -4px;
+}
+
+
+/* ============================================================================
+   RECORD ROWS — general-purpose expand-in-place list-row component.
+   Originally built for the RFIs/Change Orders/Submittals pages (since
+   removed — that workflow moved to form templates filed into All Files),
+   kept here as a reusable building block for any future list-with-detail
+   UI (e.g. a filed-documents list). Click a row to expand detail content
+   inline underneath.
+============================================================================ */
+
+.record-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.record-row-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+
+.record-row-number {
+  flex: 0 0 auto;
+  font-weight: 800;
+  color: var(--text-soft);
+  font-size: 0.82rem;
+  width: 40px;
+}
+
+.record-row-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.record-row-title-main {
+  font-weight: 700;
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.record-row-title-sub {
+  font-size: 0.78rem;
+  color: var(--text-soft);
+  margin-top: 2px;
+}
+
+.record-row-meta {
+  flex: 0 0 auto;
+  text-align: right;
+  font-size: 0.82rem;
+  color: var(--text-soft);
+}
+
+.record-row-detail {
+  display: none;
+  padding: 0 16px 16px;
+  border-top: 1px solid var(--border);
+}
+
+.record-row.is-open .record-row-detail {
+  display: block;
+  padding-top: 14px;
+}
+
+.record-row-field {
+  margin-bottom: 10px;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.record-row-field-label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-soft);
+  display: block;
+  margin-bottom: 3px;
+}
+
+.record-row-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+
+/* ============================================================================
+   ALL FILES (project-files.html) — a two-pane layout: the fixed 11-category
+   folder tree on the left (window.ProjectFields.PROJECT_FILE_CATEGORIES),
+   the selected subfolder's file list on the right, reusing .record-row for
+   each file (see above).
+============================================================================ */
+
+.all-files-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.all-files-tree {
+  flex: 0 0 300px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
+  /* Same raised-panel feel as the sidebar (.sidebar's box-shadow) and
+     every card in the app (var(--shadow)) — this is the left nav of All
+     Files' List view, so it gets the same "floats above the page"
+     treatment rather than sitting flush/flat. */
+  box-shadow: var(--shadow);
+}
+
+.all-files-category {
+  border-bottom: 1px solid var(--border);
+}
+
+.all-files-category:last-child {
+  border-bottom: none;
+}
+
+.all-files-category-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 8px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  transition: background 0.15s ease, transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+/* Same "inset top highlight + real drop shadow, nudge over on
+   hover/engaged, sink in on press" language as .nav-item in the left nav
+   — just re-tinted for a light surface instead of the sidebar's dark one.
+   An expanded category counts as "engaged" the same way .nav-item.active
+   does for the current page, so it keeps the raised look even after the
+   mouse moves on. */
+.all-files-category-btn:hover,
+.all-files-category.is-expanded .all-files-category-btn {
+  background: var(--accent-soft);
+  transform: translateX(2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 2px 6px rgba(10, 24, 36, 0.12);
+}
+
+.all-files-category-btn:active {
+  transform: translateX(2px) scale(0.98);
+  box-shadow:
+    inset 0 1px 3px rgba(10, 24, 36, 0.15),
+    0 1px 2px rgba(10, 24, 36, 0.12);
+}
+
+.all-files-category-caret {
+  flex: 0 0 auto;
+  width: 14px;
+  color: var(--text-soft);
+  font-weight: 700;
+}
+
+.all-files-category-label {
+  flex: 1 1 auto;
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.all-files-folder-count {
+  flex: 0 0 auto;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 1px 8px;
+  min-width: 20px;
+  text-align: center;
+}
+
+.all-files-folder-count--zero {
+  color: var(--text-soft);
+  background: transparent;
+}
+
+.all-files-subfolder-list {
+  display: none;
+  flex-direction: column;
+  padding: 0 0 8px 30px;
+}
+
+.all-files-category.is-expanded .all-files-subfolder-list {
+  display: flex;
+}
+
+.all-files-subfolder-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  color: var(--text-soft);
+  transition: background 0.15s ease, color 0.15s ease, transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+/* Hover and "this is the open folder" share one raised treatment — same
+   pairing as .nav-item:hover, .nav-item.active in the left nav. */
+.all-files-subfolder-btn:hover,
+.all-files-subfolder-btn.is-selected {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  transform: translateX(2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 2px 6px rgba(10, 24, 36, 0.12);
+}
+
+.all-files-subfolder-btn:active {
+  transform: translateX(2px) scale(0.98);
+  box-shadow:
+    inset 0 1px 3px rgba(10, 24, 36, 0.15),
+    0 1px 2px rgba(10, 24, 36, 0.12);
+}
+
+/* The actually-selected folder still reads as distinct from a plain
+   hover — solid accent fill instead of the soft tint, with the emboss
+   deepened to a pressed-in inset (like .nav-item.active's stronger
+   variant) so it looks "open," not just "hovered." */
+.all-files-subfolder-btn.is-selected {
+  background: var(--accent);
+  color: #fff;
+  box-shadow:
+    inset 0 1px 3px rgba(10, 24, 36, 0.25),
+    0 2px 6px rgba(10, 24, 36, 0.2);
+}
+
+.all-files-subfolder-btn.is-selected:hover {
+  background: var(--accent);
+  filter: brightness(1.08);
+}
+
+.all-files-subfolder-btn.is-selected .all-files-folder-count {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+.all-files-subfolder-label {
+  flex: 1 1 auto;
+  font-size: 0.84rem;
+}
+
+.all-files-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.all-files-main-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.all-files-main-header h2 {
+  margin: 0;
+  color: var(--text);
+}
+
+.all-files-main-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.all-files-hint {
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+
+/* File rows get the same "floats above the page" card treatment as the
+   tree next to them, plus a lift on hover — matching .workbook-card's
+   hover behavior elsewhere in the app, so the whole List/Folders view
+   reads at one consistent depth instead of a raised tree next to flat
+   rows. */
+.all-files-row {
+  box-shadow: var(--shadow);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.all-files-row:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(10, 24, 36, 0.12);
+}
+
+.all-files-row .record-row-summary {
+  justify-content: space-between;
+}
+
+.all-files-row .record-row-title-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.all-files-main-slot {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* List / Folders switcher — same segmented-control look as the Timeline's
+   Week/Month/Quarter/Year toggle (.gantt-view-toggle), just its own class
+   since it lives outside that page. */
+.all-files-view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.all-files-view-toggle-btn {
+  border: none;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-soft);
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.all-files-view-toggle-btn:last-child {
+  border-right: none;
+}
+
+.all-files-view-toggle-btn:hover:not(.is-active) {
+  background: var(--accent-soft);
+}
+
+.all-files-view-toggle-btn.is-active {
+  background: var(--accent);
+  color: #fff;
+}
+
+
+/* ============================================================================
+   FOLDER VIEW — blue folder-icon tiles instead of the tree, same underlying
+   selection state as List view above. Drills 11 categories → a category's
+   subfolders → that subfolder's files (the shared #filesMainPanel again).
+============================================================================ */
+
+.all-files-folder-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 16px;
+  font-size: 0.88rem;
+  color: var(--text-soft);
+}
+
+.all-files-folder-breadcrumb-link {
+  background: none;
+  border: none;
+  font: inherit;
+  color: var(--accent);
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.all-files-folder-breadcrumb-link:hover {
+  text-decoration: underline;
+}
+
+.all-files-folder-breadcrumb-sep {
+  color: var(--text-soft);
+  opacity: 0.6;
+}
+
+.all-files-folder-breadcrumb-current {
+  font-weight: 700;
+  color: var(--text);
+  padding: 2px 4px;
+}
+
+.all-files-folder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.all-files-folder-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  padding: 26px 14px 18px;
+  cursor: pointer;
+  font: inherit;
+  text-align: center;
+}
+
+.all-files-folder-tile:hover {
+  background: var(--accent-soft);
+  border-color: var(--border);
+}
+
+/* A genuinely two-tone folder, not a single-color silhouette: a darker
+   back panel (the tab + body, catching less light) with a lighter front
+   flap panel layered on top (its own gradient, plus a thin white sheen
+   near its top edge) — the same "raised surface catches light" logic as
+   the real folder icon it's imitating, not just a flat glyph with a
+   shadow tacked on. Switched from a CSS `mask` (which can only clip a
+   single flat fill) to a plain multi-shape SVG background-image so the
+   two panels can each carry their own gradient. filter: drop-shadow (not
+   box-shadow) so the elevation shadow hugs the actual folder silhouette
+   instead of drawing a square behind it. */
+.all-files-folder-icon {
+  width: 84px;
+  height: 84px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='allFilesFolderBack' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%232f6f8a'/%3E%3Cstop offset='1' stop-color='%23123144'/%3E%3C/linearGradient%3E%3ClinearGradient id='allFilesFolderFront' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%234a95b3'/%3E%3Cstop offset='1' stop-color='%231e4f63'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23allFilesFolderBack)' d='M3 6a2 2 0 0 1 2-2h4.5l2 2H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/%3E%3Crect fill='url(%23allFilesFolderFront)' x='4' y='11' width='16' height='8' rx='1.6'/%3E%3Crect fill='%23ffffff' fill-opacity='0.3' x='5.5' y='11.6' width='13' height='1.1' rx='0.55'/%3E%3C/svg%3E") center/contain no-repeat;
+  filter: drop-shadow(0 4px 6px rgba(10, 24, 36, 0.35));
+  flex-shrink: 0;
+  transition: filter 0.12s ease;
+}
+
+.all-files-folder-tile-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.all-files-folder-tile .all-files-folder-count {
+  position: relative;
+}
+
+@media (max-width: 900px) {
+  .all-files-layout {
+    flex-direction: column;
+  }
+
+  .all-files-tree {
+    flex: 1 1 auto;
+    width: 100%;
+    max-height: none;
+  }
+
+  .all-files-folder-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+
+  .all-files-folder-icon {
+    width: 64px;
+    height: 64px;
+  }
 }

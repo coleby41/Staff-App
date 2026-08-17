@@ -25,6 +25,175 @@ window.ProjectFields = (function () {
 
     const WIZARD_STATUS_OPTIONS = ["Not started", "In progress", "Submitted", "Approved"];
 
+    // Canonical "All Files" folder taxonomy — single source of truth shared by:
+    //   - project-files.html (renders the folder accordion + file lists)
+    //   - form-builder.js / form-template.html (the "file into a project
+    //     folder?" category/subfolder pickers when creating a template)
+    // `key` values are what actually get stored in form_templates.default_category
+    // /default_subfolder and project_files.category/subfolder — stable even if a
+    // label gets reworded later. Order here is display order.
+    const PROJECT_FILE_CATEGORIES = [
+        {
+            key: "acquisition_due_diligence", number: "01", label: "Acquisition & Due Diligence",
+            subfolders: [
+                { key: "purchase_sale", label: "Purchase & Sale" },
+                { key: "title", label: "Title" },
+                { key: "surveys", label: "Surveys" },
+                { key: "environmental", label: "Environmental" },
+                { key: "geotechnical", label: "Geotechnical" },
+                { key: "property_research", label: "Property Research" },
+                { key: "due_diligence_reports", label: "Due Diligence Reports" }
+            ]
+        },
+        {
+            key: "development_entitlements", number: "02", label: "Development & Entitlements",
+            subfolders: [
+                { key: "zoning", label: "Zoning" },
+                { key: "land_use", label: "Land Use" },
+                { key: "planning", label: "Planning" },
+                { key: "government_approvals", label: "Government Approvals" },
+                { key: "hoa_community_approvals", label: "HOA / Community Approvals" },
+                { key: "entitlements", label: "Entitlements" }
+            ]
+        },
+        {
+            key: "design_engineering", number: "03", label: "Design & Engineering",
+            subfolders: [
+                { key: "architecture", label: "Architecture" },
+                { key: "civil", label: "Civil" },
+                { key: "structural", label: "Structural" },
+                { key: "mep", label: "MEP" },
+                { key: "landscape", label: "Landscape" },
+                { key: "interior_design", label: "Interior Design" },
+                { key: "specifications", label: "Specifications" },
+                { key: "design_reviews", label: "Design Reviews" }
+            ]
+        },
+        {
+            key: "permits_inspections", number: "04", label: "Permits & Inspections",
+            subfolders: [
+                { key: "building_permits", label: "Building Permits" },
+                { key: "trade_permits", label: "Trade Permits" },
+                { key: "inspections", label: "Inspections" },
+                { key: "certificates", label: "Certificates" },
+                { key: "government_correspondence", label: "Government Correspondence" }
+            ]
+        },
+        {
+            key: "contracts_procurement", number: "05", label: "Contracts & Procurement",
+            subfolders: [
+                { key: "general_contractor", label: "General Contractor" },
+                { key: "subcontractors", label: "Subcontractors" },
+                { key: "vendors", label: "Vendors" },
+                { key: "purchase_orders", label: "Purchase Orders" },
+                { key: "contracts", label: "Contracts" },
+                { key: "change_orders", label: "Change Orders" },
+                { key: "vpo", label: "VPO" },
+                { key: "insurance_bonds", label: "Insurance & Bonds" }
+            ]
+        },
+        {
+            key: "construction", number: "06", label: "Construction",
+            subfolders: [
+                { key: "daily_reports", label: "Daily Reports" },
+                { key: "site_photos", label: "Site Photos" },
+                { key: "field_reports", label: "Field Reports" },
+                { key: "rfis", label: "RFIs" },
+                { key: "submittals", label: "Submittals" },
+                { key: "inspections", label: "Inspections" },
+                { key: "safety", label: "Safety" },
+                { key: "quality_control", label: "Quality Control" },
+                { key: "progress_reports", label: "Progress Reports" }
+            ]
+        },
+        {
+            key: "financial", number: "07", label: "Financial",
+            subfolders: [
+                { key: "project_budget", label: "Project Budget" },
+                { key: "cost_tracking", label: "Cost Tracking" },
+                { key: "pay_applications", label: "Pay Applications" },
+                { key: "draws", label: "Draws" },
+                { key: "invoices", label: "Invoices" },
+                { key: "lien_waivers", label: "Lien Waivers" },
+                { key: "forecasts", label: "Forecasts" },
+                { key: "financial_reports", label: "Financial Reports" }
+            ]
+        },
+        {
+            key: "project_schedule", number: "08", label: "Project Schedule",
+            subfolders: [
+                { key: "master_schedule", label: "Master Schedule" },
+                { key: "milestones", label: "Milestones" },
+                { key: "look_ahead_schedules", label: "Look-Ahead Schedules" },
+                { key: "schedule_updates", label: "Schedule Updates" },
+                { key: "critical_path", label: "Critical Path" }
+            ]
+        },
+        {
+            key: "marketing", number: "09", label: "Marketing",
+            subfolders: [
+                { key: "branding", label: "Branding" },
+                { key: "logo_brand_assets", label: "Logo & Brand Assets" },
+                { key: "photography", label: "Photography" },
+                { key: "renderings", label: "Renderings" },
+                { key: "video", label: "Video" },
+                { key: "website", label: "Website" },
+                { key: "social_media", label: "Social Media" },
+                { key: "advertising", label: "Advertising" },
+                { key: "brochures_flyers", label: "Brochures & Flyers" },
+                { key: "signage", label: "Signage" },
+                { key: "press_public_relations", label: "Press & Public Relations" },
+                { key: "marketing_campaigns", label: "Marketing Campaigns" }
+            ]
+        },
+        {
+            key: "communications", number: "10", label: "Communications",
+            subfolders: [
+                { key: "owner", label: "Owner" },
+                { key: "architect", label: "Architect" },
+                { key: "contractor", label: "Contractor" },
+                { key: "subcontractors", label: "Subcontractors" },
+                { key: "vendors", label: "Vendors" },
+                { key: "government", label: "Government" },
+                { key: "public_community", label: "Public / Community" }
+            ]
+        },
+        {
+            key: "closeout", number: "11", label: "Closeout",
+            subfolders: [
+                { key: "punch_list", label: "Punch List" },
+                { key: "as_builts", label: "As-Builts" },
+                { key: "warranties", label: "Warranties" },
+                { key: "om_manuals", label: "O&M Manuals" },
+                { key: "final_inspections", label: "Final Inspections" },
+                { key: "certificates", label: "Certificates" },
+                { key: "certificate_of_occupancy", label: "Certificate of Occupancy" }
+            ]
+        }
+    ];
+
+    function findFileCategory(categoryKey) {
+        return PROJECT_FILE_CATEGORIES.find(c => c.key === categoryKey) || null;
+    }
+
+    function findFileSubfolder(categoryKey, subfolderKey) {
+        const category = findFileCategory(categoryKey);
+        if (!category) return null;
+        return category.subfolders.find(s => s.key === subfolderKey) || null;
+    }
+
+    // Label helpers — fall back to the raw stored key so a file never
+    // disappears from view just because the taxonomy changed later.
+    function fileCategoryLabel(categoryKey) {
+        const category = findFileCategory(categoryKey);
+        return category ? category.label : categoryKey;
+    }
+
+    function fileSubfolderLabel(categoryKey, subfolderKey) {
+        const subfolder = findFileSubfolder(categoryKey, subfolderKey);
+        return subfolder ? subfolder.label : subfolderKey;
+    }
+
     // Canonical project status list — single source of truth for the
     // onboarding wizard's "Status & Tracking" step, the quick-edit popup,
     // the stats header, tabs, and status badges on project-home.html.
@@ -42,6 +211,12 @@ window.ProjectFields = (function () {
             title: "Property Owner Contact Info",
             hint: "Who owns the property this job is on?",
             page: "projects.html",
+            // These 4 steps (owner_contact/gc/poc/county_city) each collect a
+            // Name/Phone/Email-shaped contact — layout: "contact" renders
+            // them as one consistent grouped card (see wizard-contact-block
+            // in styles.css) instead of each hand-rolling its own layout.
+            // No fields were removed/merged — same columns, same data.
+            layout: "contact",
             fields: [
                 { name: "owner_name", label: "Owner name", type: "text", placeholder: "e.g. Jane Smith" },
                 { name: "owner_phone", label: "Phone", type: "tel", placeholder: "e.g. (910) 555-0132" },
@@ -75,6 +250,7 @@ window.ProjectFields = (function () {
             title: "General Contractor",
             hint: "Who's the GC of record for this job?",
             page: "projects.html",
+            layout: "contact",
             fields: [
                 { name: "gc_name", label: "General contractor name", type: "text" },
                 { name: "gc_phone", label: "Phone", type: "tel" },
@@ -86,6 +262,7 @@ window.ProjectFields = (function () {
             title: "Project Point of Contact",
             hint: "Who should staff reach out to with questions about this project?",
             page: "projects.html",
+            layout: "contact",
             fields: [
                 { name: "poc_name", label: "Name", type: "text" },
                 { name: "poc_role", label: "Role", type: "text", placeholder: "e.g. Project Manager" },
@@ -147,6 +324,7 @@ window.ProjectFields = (function () {
             title: "County / City Office Contact",
             hint: "Who do we call for permitting or inspections?",
             page: "projects.html",
+            layout: "contact",
             fields: [
                 { name: "county_city_office_name", label: "Office name", type: "text", placeholder: "e.g. New Hanover County Building Safety" },
                 { name: "county_city_contact_name", label: "Contact name", type: "text" },
@@ -174,6 +352,56 @@ window.ProjectFields = (function () {
         return value === null || value === undefined || String(value).trim() === "";
     }
 
+    // Public-bucket files (cover photo) store a full public URL in the column
+    // instead of a bare storage path — pull the path back out of that URL so
+    // the old file can still be cleaned up when it's replaced.
+    function storagePathFromPublicUrl(url, bucket) {
+        if (!url) return null;
+        const marker = `/${bucket}/`;
+        const idx = url.indexOf(marker);
+        return idx === -1 ? null : url.slice(idx + marker.length);
+    }
+
+    // Shared upload helper — used by the onboarding wizard (projects-page.js,
+    // one file per field, no subfolders) AND by project-files.html (All
+    // Files manual uploads, filed under a category/subfolder). Same
+    // storage-path convention either way: `${projectId}/[...pathSegments/]
+    // ${timestamp}-${safeName}`. The project-documents bucket policy only
+    // checks the FIRST path segment (the project id), so adding extra
+    // segments after it needs no RLS changes — see supabase-rls-lockdown.sql.
+    async function uploadFile(projectId, file, existingValue, options = {}) {
+        const bucket = options.bucket || PROJECT_DOCS_BUCKET;
+        const isPublic = !!options.publicBucket;
+        const extraSegments = Array.isArray(options.pathSegments) ? options.pathSegments.filter(Boolean) : [];
+
+        const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, "_");
+        const prefix = [projectId, ...extraSegments].join("/");
+        const path = `${prefix}/${Date.now()}-${safeName}`;
+
+        const { error: uploadError } = await window.supabaseClient
+            .storage
+            .from(bucket)
+            .upload(path, file, { upsert: false });
+
+        if (uploadError) throw uploadError;
+
+        const oldPath = isPublic ? storagePathFromPublicUrl(existingValue, bucket) : existingValue;
+        if (oldPath) {
+            window.supabaseClient
+                .storage
+                .from(bucket)
+                .remove([oldPath])
+                .catch(err => console.warn("Couldn't remove old project file:", err));
+        }
+
+        if (isPublic) {
+            const { data } = window.supabaseClient.storage.from(bucket).getPublicUrl(path);
+            return data.publicUrl;
+        }
+
+        return path;
+    }
+
     // How many of the wizard's sections have at least one field filled in.
     function computeCompleteness(project) {
         let complete = 0;
@@ -193,9 +421,16 @@ window.ProjectFields = (function () {
         PROJECT_DOCS_BUCKET,
         WIZARD_STATUS_OPTIONS,
         PROJECT_STATUSES,
+        PROJECT_FILE_CATEGORIES,
         WIZARD_STEPS,
         isBlank,
-        computeCompleteness
+        computeCompleteness,
+        findFileCategory,
+        findFileSubfolder,
+        fileCategoryLabel,
+        fileSubfolderLabel,
+        uploadFile,
+        storagePathFromPublicUrl
     };
 
 })();

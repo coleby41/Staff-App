@@ -836,10 +836,25 @@ function renderWizardStep() {
     document.getElementById("projectWizardStepLabel").textContent = `Step ${state.stepIndex + 1} of ${WIZARD_STEPS.length}`;
 
     const bodyEl = document.getElementById("projectWizardStepBody");
+    const fieldsHtml = step.fields.map(field => wizardFieldHtml(field, state)).join("");
+    // The 4 contact-style steps (owner_contact/gc/poc/county_city) render as
+    // one grouped card labeled with the step's own title, instead of the
+    // step title sitting alone above a plain field list — see
+    // project-fields.js's layout: "contact" and .wizard-contact-block in
+    // styles.css. Every other step gets a plain responsive field grid.
+    const fieldsBlock = step.layout === "contact"
+        ? `<div class="wizard-contact-block"><div class="wizard-contact-block-label">${escapeHtmlProject(step.title)}</div>${fieldsHtml}</div>`
+        : `<div class="wizard-field-grid">${fieldsHtml}</div>`;
+
     bodyEl.innerHTML = `
-        <h3 class="wizard-step-title">${escapeHtmlProject(step.title)}</h3>
-        ${step.hint ? `<p class="wizard-step-hint">${escapeHtmlProject(step.hint)}</p>` : ""}
-        ${step.fields.map(field => wizardFieldHtml(field, state)).join("")}
+        <div class="wizard-step-header">
+            <span class="wizard-step-number">${state.stepIndex + 1}</span>
+            <div>
+                <h3 class="wizard-step-header-title">${escapeHtmlProject(step.title)}</h3>
+                ${step.hint ? `<p class="wizard-step-header-hint">${escapeHtmlProject(step.hint)}</p>` : ""}
+            </div>
+        </div>
+        ${fieldsBlock}
     `;
 
     bodyEl.querySelectorAll(".wizard-view-file-link").forEach(link => {
@@ -980,45 +995,13 @@ async function finishProjectWizard() {
    WIZARD — SAVE (insert/update + file uploads)
 =========================== */
 
-// Public-bucket files (cover photo) store a full public URL in the column
-// instead of a bare storage path — pull the path back out of that URL so
-// the old file can still be cleaned up when it's replaced.
-function storagePathFromPublicUrl(url, bucket) {
-    if (!url) return null;
-    const marker = `/${bucket}/`;
-    const idx = url.indexOf(marker);
-    return idx === -1 ? null : url.slice(idx + marker.length);
-}
-
+// Upload + signed-URL logic actually lives in project-fields.js now
+// (window.ProjectFields.uploadFile) so the onboarding wizard here and the
+// All Files page (project-files.html) share one implementation instead of
+// duplicating the storage-path convention. Kept as a thin wrapper so every
+// existing call site in this file keeps working unchanged.
 async function uploadProjectFile(projectId, file, existingValue, options = {}) {
-    const bucket = options.bucket || PROJECT_DOCS_BUCKET;
-    const isPublic = !!options.publicBucket;
-
-    const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, "_");
-    const path = `${projectId}/${Date.now()}-${safeName}`;
-
-    const { error: uploadError } = await window.supabaseClient
-        .storage
-        .from(bucket)
-        .upload(path, file, { upsert: false });
-
-    if (uploadError) throw uploadError;
-
-    const oldPath = isPublic ? storagePathFromPublicUrl(existingValue, bucket) : existingValue;
-    if (oldPath) {
-        window.supabaseClient
-            .storage
-            .from(bucket)
-            .remove([oldPath])
-            .catch(err => console.warn("Couldn't remove old project file:", err));
-    }
-
-    if (isPublic) {
-        const { data } = window.supabaseClient.storage.from(bucket).getPublicUrl(path);
-        return data.publicUrl;
-    }
-
-    return path;
+    return window.ProjectFields.uploadFile(projectId, file, existingValue, options);
 }
 
 async function viewProjectFile(filePath) {

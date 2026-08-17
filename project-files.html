@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Project To-Do | The Leeward Group</title>
+    <title>Project Files | The Leeward Group</title>
 
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" type="image/png" href="logos/leewaed-logo.png">
@@ -16,8 +16,7 @@
 <!-- Header/sidebar shell shared by every project-dashboard page
      (project-shell.js). Keep this block in sync across projects.html,
      project-files.html, project-timeline.html, project-to-do.html,
-     project-accounting.html, project-site-plans.html, project-contract.html
-     if you change it here. -->
+     project-accounting.html if you change it here. -->
 
 <header class="header">
 
@@ -39,7 +38,7 @@
     </div>
 
     <div class="header-center">
-        <h1 class="header-page-name" id="headerPageName">To-do</h1>
+        <h1 class="header-page-name" id="headerPageName">All Files</h1>
     </div>
 
     <div class="header-right">
@@ -120,85 +119,86 @@
 
 <main class="main-content">
 
-    <section class="hero-section">
-        <div>
-            <p class="eyebrow">Project Dashboard</p>
-            <h1 id="todoHeroName">Project To-Do</h1>
-            <p>Big items for this project. Click one to see its checklist and who's on the hook for what.</p>
+    <div id="filesPageMessage" class="workbook-page-message" style="display:none;"></div>
+
+    <div class="workbook-loading" id="filesLoadingState">
+        <p>Loading files…</p>
+    </div>
+
+    <div id="filesBody" style="display:none;">
+
+        <!-- List view / Folders view — same underlying selection state
+             (window.ProjectFields taxonomy), just two different ways to
+             browse to a folder. The right-hand panel (#filesMainPanel,
+             defined once below) gets moved into whichever view is active
+             instead of being duplicated. -->
+        <div class="all-files-view-toggle" id="filesViewToggle" role="group" aria-label="View">
+            <button type="button" class="all-files-view-toggle-btn is-active" data-view="list">List</button>
+            <button type="button" class="all-files-view-toggle-btn" data-view="folders">Folders</button>
         </div>
-    </section>
 
-    <div id="todoPageMessage" class="workbook-page-message" style="display:none;"></div>
+        <div class="all-files-layout" id="filesListView">
 
-    <div class="workbook-loading" id="todoLoadingState">
-        <p>Loading…</p>
+            <!-- Left: 11-category folder tree. Built once from
+                 window.ProjectFields.PROJECT_FILE_CATEGORIES (the shared
+                 taxonomy constant — also used by form-builder.js's "file
+                 into a project folder?" pickers), with live file counts
+                 per folder. -->
+            <aside class="all-files-tree" id="filesTree"></aside>
+
+            <div class="all-files-main-slot" id="filesListMainSlot"></div>
+
+        </div>
+
+        <!-- Folder view: blue folder-icon tiles, drill from the 11
+             categories into a category's subfolders into that subfolder's
+             files (the same shared panel again). -->
+        <div class="all-files-folder-view" id="filesFolderView" style="display:none;">
+            <div class="all-files-folder-breadcrumb" id="filesFolderBreadcrumb"></div>
+            <div class="all-files-folder-grid" id="filesFolderGrid"></div>
+            <div class="all-files-main-slot" id="filesFolderMainSlot"></div>
+        </div>
+
+        <!-- The actual folder-contents panel — a single instance, moved
+             (via appendChild) into #filesListMainSlot or
+             #filesFolderMainSlot depending on which view is active and
+             whether a subfolder is selected. -->
+        <section class="all-files-main" id="filesMainPanel">
+            <div class="all-files-main-header">
+                <h2 id="filesCurrentFolderTitle">Select a folder</h2>
+                <div class="all-files-main-actions" id="filesFolderActions"></div>
+            </div>
+
+            <input type="file" id="filesUploadInput" hidden>
+
+            <p class="all-files-hint" id="filesNoFolderHint">Pick a folder to see its files, upload a document, or fill a form into it.</p>
+
+            <div class="workbook-empty" id="filesFolderEmpty" style="display:none;">
+                <p>No files in this folder yet.</p>
+            </div>
+
+            <div id="filesFolderList"></div>
+        </section>
+
     </div>
-
-    <div class="workbook-empty" id="todoEmptyState" style="display:none;">
-        <p>Nothing yet — type below to add your first item.</p>
-    </div>
-
-    <div class="todo-item-list" id="todoItemList"></div>
-
-    <div class="todo-item-row todo-item-add-row">
-        <span class="todo-item-add-icon">+</span>
-        <input type="text" id="newTodoItemInlineInput" class="todo-item-add-input" placeholder="New task" maxlength="120">
-    </div>
-
-    <p class="auth-message" id="todoAddItemMessage"></p>
 
 </main>
 
 
-<!-- Delete Item Confirmation -->
-<div class="popup-overlay hidden" id="deleteTodoItemConfirmOverlay">
+<!-- Delete Confirmation -->
+<div class="popup-overlay hidden" id="deleteFileConfirmOverlay">
     <div class="popup">
-        <h2>Delete this item?</h2>
-        <p class="auth-inline-copy">This removes the item and its whole checklist. This can't be undone.</p>
+        <h2>Delete this file?</h2>
+        <p class="auth-inline-copy">This can't be undone.</p>
 
-        <p class="auth-message" id="deleteTodoItemConfirmMessage"></p>
+        <p class="auth-message" id="deleteFileConfirmMessage"></p>
 
         <div class="popup-buttons">
-            <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteTodoItemBtn">Cancel</button>
-            <button type="button" class="auth-button auth-button--red" id="confirmDeleteTodoItemBtn">Delete</button>
+            <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteFileBtn">Cancel</button>
+            <button type="button" class="auth-button auth-button--red" id="confirmDeleteFileBtn">Delete</button>
         </div>
     </div>
 </div>
-
-
-<!-- Side panel — the big item's own checklist. Slides in from the right and
-     pushes/resizes .main-content over to make room (body.todo-panel-open in
-     styles.css) rather than floating on top of it. No dimmed backdrop, and
-     the list stays fully interactive while it's open — clicking another row
-     just swaps what's shown here. Closes via the ✕ or Esc.
-
-     Drag #todoPanelResizeHandle (the strip along its left edge) to resize —
-     the width is saved to localStorage (see project-todo.js) so it's
-     remembered next time this panel is opened, on any project. -->
-<aside class="todo-panel hidden" id="todoPanel">
-    <div class="todo-panel-resize-handle" id="todoPanelResizeHandle" aria-hidden="true"></div>
-
-    <div class="todo-panel-header">
-        <h2 id="todoPanelTitle">Item</h2>
-        <div class="todo-panel-header-actions">
-            <button type="button" class="workbook-btn workbook-btn--danger" id="deleteTodoItemFromPanelBtn">Delete item</button>
-            <button type="button" class="menu-btn" id="closeTodoPanelBtn" aria-label="Close panel">✕</button>
-        </div>
-    </div>
-
-    <p class="auth-message" id="todoPanelMessage"></p>
-
-    <div class="todo-panel-checklist" id="todoPanelChecklist"></div>
-
-    <div class="todo-add-subitem-row">
-        <input type="text" id="newSubitemLabelInput" placeholder="Add a checklist item…" maxlength="200">
-        <input type="date" id="newSubitemDueDateInput" class="todo-item-add-date" aria-label="Due date">
-        <select id="newSubitemAssigneeSelect"></select>
-        <button type="button" class="auth-button auth-button--secondary" id="addSubitemBtn" style="width:auto; padding:10px 18px;">
-            + Add
-        </button>
-    </div>
-</aside>
 
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -212,7 +212,7 @@
 <script src="nav-access.js"></script>
 <script src="project-fields.js"></script>
 <script src="project-shell.js"></script>
-<script src="project-todo.js"></script>
+<script src="project-files.js"></script>
 
 <script>
 

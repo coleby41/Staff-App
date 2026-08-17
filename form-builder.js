@@ -59,6 +59,14 @@ let submissionPendingDelete = null; // { record, submission } queued up in the d
 let pendingSubmission = null;   // validated answers/blob-inputs waiting on a file name from the "Name this file" popup, between handleSubmitFillForm() and handleConfirmSubmissionFileName()
 let previewingSubmission = null; // the form_submissions row currently shown in the PDF preview modal, so its Download button knows what to fetch
 
+// All Files project-filing state (see project-files.html for the other
+// side of this). Both nullable/empty by default — every existing form
+// keeps working exactly as before unless a template sets a folder mapping.
+let projectIdFromUrl = null;      // ?project=<id> — set when we got here from a project's All Files page
+let templateIdFromUrl = null;     // ?template=<id> — auto-opens that template's fill modal on load
+let projectsForPicker = [];       // [{id, name}] the current user is a member of, loaded lazily for the name-submission-file project <select>
+let projectsForPickerLoaded = false;
+
 // PDF builder state (form-template.html "New Form" / editing a PDF-based form)
 let pdfBuilderDoc = null;         // pdf.js PDFDocumentProxy currently loaded in the builder
 let pdfBuilderBytes = null;       // ArrayBuffer copy of that PDF, kept for upload (pdf.js consumes its own copy)
@@ -116,6 +124,64 @@ function canManageThisForm(record) {
     return Boolean(myId && record && record.created_by && String(record.created_by) === String(myId));
 }
 
+/* ---------- All Files folder mapping (form_templates.default_category/subfolder) ---------- */
+
+// Populates the category select once, and the subfolder select for
+// whichever category is currently chosen. Called on modal open and again
+// whenever the category select changes.
+function renderFileFolderPicker(selectedCategory, selectedSubfolder) {
+    const categorySelect = document.getElementById("formFileCategorySelect");
+    const subfolderSelect = document.getElementById("formFileSubfolderSelect");
+    if (!categorySelect || !subfolderSelect) return;
+
+    const categories = (window.ProjectFields && window.ProjectFields.PROJECT_FILE_CATEGORIES) || [];
+
+    categorySelect.innerHTML = `<option value="">No filing (org-wide form)</option>` +
+        categories.map(c => `<option value="${formEscapeHtml(c.key)}">${formEscapeHtml(c.number)} — ${formEscapeHtml(c.label)}</option>`).join("");
+    categorySelect.value = selectedCategory || "";
+
+    renderFileSubfolderOptions(selectedCategory, selectedSubfolder);
+}
+
+function renderFileSubfolderOptions(categoryKey, selectedSubfolder) {
+    const subfolderSelect = document.getElementById("formFileSubfolderSelect");
+    if (!subfolderSelect) return;
+
+    const category = categoryKey && window.ProjectFields ? window.ProjectFields.findFileCategory(categoryKey) : null;
+
+    if (!category) {
+        subfolderSelect.innerHTML = `<option value="">—</option>`;
+        subfolderSelect.disabled = true;
+        subfolderSelect.value = "";
+        return;
+    }
+
+    subfolderSelect.disabled = false;
+    subfolderSelect.innerHTML = `<option value="">Choose a subfolder…</option>` +
+        category.subfolders.map(s => `<option value="${formEscapeHtml(s.key)}">${formEscapeHtml(s.label)}</option>`).join("");
+    subfolderSelect.value = selectedSubfolder || "";
+}
+
+// Reads the category/subfolder selects back into a
+// {default_category, default_subfolder} payload — both null if "No filing"
+// is chosen. Returns `false` (and sets an error message) if a category was
+// chosen but no subfolder, since a partial mapping can't file anything.
+function readFileFolderPickerValue(messageEl) {
+    const categorySelect = document.getElementById("formFileCategorySelect");
+    const subfolderSelect = document.getElementById("formFileSubfolderSelect");
+    const category = categorySelect ? categorySelect.value : "";
+    const subfolder = subfolderSelect ? subfolderSelect.value : "";
+
+    if (!category) return { default_category: null, default_subfolder: null };
+
+    if (!subfolder) {
+        if (messageEl) { messageEl.textContent = "Choose a subfolder, or set the category back to \"No filing\"."; messageEl.className = "auth-message error"; }
+        return false;
+    }
+
+    return { default_category: category, default_subfolder: subfolder };
+}
+
 function fieldTypeLabel(type) {
     const match = FORM_FIELD_TYPES.find(t => t.value === type);
     return match ? match.label : type;
@@ -147,6 +213,30 @@ function showFormPageMessage(text, type) {
     el.className = `workbook-page-message ${type || ""}`;
     el.style.display = "block";
     if (type === "success") setTimeout(() => { el.style.display = "none"; }, 4000);
+}
+
+/* ---------- projects (for the name-submission-file project picker) ---------- */
+
+// Loaded lazily (first time a project-mapped form is filled without a
+// ?project= param) rather than on every page load, since most visits to
+// form-template.html never touch a project-mapped form at all.
+async function loadProjectsForPicker() {
+    if (projectsForPickerLoaded || !window.supabaseClient) return projectsForPicker;
+    const PROJECTS_READ_VIEW = (window.ProjectFields && window.ProjectFields.PROJECTS_READ_VIEW) || "projects_overview";
+
+    const { data, error } = await window.supabaseClient
+        .from(PROJECTS_READ_VIEW)
+        .select("id, name")
+        .order("name", { ascending: true });
+
+    if (error) {
+        console.error("Failed to load projects for picker:", error);
+        return projectsForPicker;
+    }
+
+    projectsForPicker = data || [];
+    projectsForPickerLoaded = true;
+    return projectsForPicker;
 }
 
 /* ---------- loading + rendering the grid ---------- */
@@ -742,6 +832,8 @@ async function openFormBuilderModal(record) {
 
     if (isLegacyEdit) renderFieldEditorList();
 
+    renderFileFolderPicker(record?.default_category || "", record?.default_subfolder || "");
+
     document.getElementById("formBuilderModalOverlay")?.classList.remove("hidden");
     document.body.classList.add("popup-active");
 
@@ -809,13 +901,16 @@ async function saveLegacyForm(title, description, messageEl) {
         return;
     }
 
+    const folderMapping = readFileFolderPickerValue(messageEl);
+    if (folderMapping === false) return;
+
     setFormBuilderSaving(true);
     if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
 
     try {
         const { data: updated, error } = await window.supabaseClient
             .from(FORM_TEMPLATES_TABLE)
-            .update({ title, description, fields: cleanedFields, updated_at: new Date().toISOString() })
+            .update({ title, description, fields: cleanedFields, ...folderMapping, updated_at: new Date().toISOString() })
             .eq("id", editingFormRecord.id)
             .select()
             .single();
@@ -848,6 +943,9 @@ async function savePdfForm(title, description, messageEl) {
         return;
     }
 
+    const folderMapping = readFileFolderPickerValue(messageEl);
+    if (folderMapping === false) return;
+
     setFormBuilderSaving(true);
     if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
 
@@ -875,7 +973,8 @@ async function savePdfForm(title, description, messageEl) {
             description,
             fields: cleanedFields,
             pdf_path: pdfPath,
-            page_count: pdfBuilderPageCount
+            page_count: pdfBuilderPageCount,
+            ...folderMapping
         };
 
         if (isEditing) {
@@ -1609,7 +1708,7 @@ function sanitizeSubmissionFileName(name) {
     return cleaned.slice(0, 120) || "Form submission";
 }
 
-function openNameSubmissionFileModal() {
+async function openNameSubmissionFileModal() {
     if (!pendingSubmission) return;
     const { record, isEditing } = pendingSubmission;
 
@@ -1625,6 +1724,30 @@ function openNameSubmissionFileModal() {
 
     const confirmBtn = document.getElementById("confirmNameSubmissionFileBtn");
     if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = "Submit"; }
+
+    // Project picker: only for a project-mapped template (default_category
+    // set) — and only when we don't already know the project from the URL
+    // (came here via a project's All Files page "+ Fill <template>" link)
+    // or, on an edit, from the submission being edited.
+    const projectRow = document.getElementById("submissionProjectRow");
+    const projectSelect = document.getElementById("submissionProjectSelect");
+    const isProjectMapped = Boolean(record.default_category && record.default_subfolder);
+    const knownProjectId = projectIdFromUrl || (isEditing ? editingSubmission?.project_id : null);
+
+    if (projectRow && projectSelect) {
+        if (isProjectMapped && !knownProjectId) {
+            projectRow.style.display = "block";
+            projectSelect.innerHTML = `<option value="">Loading projects…</option>`;
+            const projects = await loadProjectsForPicker();
+            projectSelect.innerHTML = projects.length
+                ? projects.map(p => `<option value="${formEscapeHtml(p.id)}">${formEscapeHtml(p.name || "Untitled project")}</option>`).join("")
+                : `<option value="">No projects available</option>`;
+            if (isEditing && editingSubmission?.project_id) projectSelect.value = editingSubmission.project_id;
+        } else {
+            projectRow.style.display = "none";
+            projectSelect.innerHTML = "";
+        }
+    }
 
     document.getElementById("nameSubmissionFileModalOverlay")?.classList.remove("hidden");
     document.body.classList.add("popup-active");
@@ -1654,6 +1777,21 @@ async function handleConfirmSubmissionFileName(event) {
     const confirmBtn = document.getElementById("confirmNameSubmissionFileBtn");
     const fillMessageEl = document.getElementById("fillFormMessage");
 
+    // Project this submission files into, in priority order: known from the
+    // URL/the submission being edited, otherwise whatever was picked in the
+    // project select just shown (blank/no select = not a project-mapped
+    // form, stays null exactly like it does today).
+    const isProjectMapped = Boolean(record.default_category && record.default_subfolder);
+    const projectSelect = document.getElementById("submissionProjectSelect");
+    const knownProjectId = projectIdFromUrl || (isEditing ? editingSubmission?.project_id : null);
+    const projectId = isProjectMapped ? (knownProjectId || projectSelect?.value || null) : null;
+
+    if (isProjectMapped && !projectId) {
+        if (messageEl) { messageEl.textContent = "Choose which project this belongs to."; messageEl.className = "auth-message error"; }
+        if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = isEditing ? "Save changes" : "Submit"; }
+        return;
+    }
+
     if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = isEditing ? "Saving…" : "Submitting…"; }
     if (messageEl) { messageEl.textContent = isEditing ? "Saving…" : "Submitting…"; messageEl.className = "auth-message"; }
 
@@ -1682,6 +1820,7 @@ async function handleConfirmSubmissionFileName(event) {
                     answers,
                     pdf_path: pdfPath,
                     file_name: fileName,
+                    project_id: projectId,
                     edited_at: new Date().toISOString(),
                     edited_by: getFormStaffId(),
                     edited_by_name: getFormStaffName()
@@ -1712,7 +1851,8 @@ async function handleConfirmSubmissionFileName(event) {
                     submitted_by_name: submittedByName,
                     answers,
                     pdf_path: pdfPath,
-                    file_name: fileName
+                    file_name: fileName,
+                    project_id: projectId
                 });
             if (insertError) throw insertError;
 
@@ -1992,6 +2132,17 @@ async function downloadFormSubmission(submission, triggerBtn) {
     }
 }
 
+// If we landed here from a project's All Files page ("+ Fill <template>"),
+// open that template's fill-out modal directly instead of making the person
+// find it in the grid — form-files.html links here as
+// form-template.html?project=<id>&template=<templateId>.
+async function checkForTemplateLinkParam() {
+    if (!templateIdFromUrl) return;
+    const record = formRecords.find(r => r.id === templateIdFromUrl);
+    if (!record) return;
+    openFillFormModal(record);
+}
+
 // If we landed here from a notification's "View it here" link
 // (form-template.html?viewSubmission=<id>), open that submission directly.
 async function checkForSubmissionLinkParam() {
@@ -2044,8 +2195,19 @@ function initFormSearch() {
 /* ---------- wire up ---------- */
 
 window.addEventListener("DOMContentLoaded", function () {
-    loadFormTemplates().then(checkForSubmissionLinkParam);
+    const urlParams = new URLSearchParams(window.location.search);
+    projectIdFromUrl = urlParams.get("project") || null;
+    templateIdFromUrl = urlParams.get("template") || null;
+
+    loadFormTemplates().then(() => {
+        checkForSubmissionLinkParam();
+        checkForTemplateLinkParam();
+    });
     initFormSearch();
+
+    document.getElementById("formFileCategorySelect")?.addEventListener("change", (e) => {
+        renderFileSubfolderOptions(e.target.value, "");
+    });
 
     const newFormBtn = document.getElementById("newFormBtn");
     if (newFormBtn) {

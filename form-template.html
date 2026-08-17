@@ -355,6 +355,25 @@
                 <textarea id="formDescriptionInput" name="description" rows="2" placeholder="A sentence or two about what this form is for."></textarea>
             </label>
 
+            <!-- Optional: file every submission of this form straight into a
+                 project's All Files folder (project-files.html). Leave both
+                 as "No filing" for org-wide forms like HR requests — nothing
+                 about how those work changes. -->
+            <div class="form-fields-section" id="formFileFolderSection">
+                <span class="company-card-label">File submissions into a project folder?</span>
+                <p class="auth-inline-copy">Optional. When set, filling out this form asks which project and automatically files the resulting PDF into this folder in All Files.</p>
+                <div class="wizard-contact-block" style="display:flex; gap:12px;">
+                    <label class="auth-field" style="flex:1;">
+                        Category
+                        <select id="formFileCategorySelect"><option value="">No filing (org-wide form)</option></select>
+                    </label>
+                    <label class="auth-field" style="flex:1;">
+                        Subfolder
+                        <select id="formFileSubfolderSelect" disabled><option value="">—</option></select>
+                    </label>
+                </div>
+            </div>
+
             <!-- Legacy field editor — only shown when editing an older form that
                  was built the manual way (record has no pdf_path). New forms are
                  always PDF-based; see #formPdfBuilderSection below. -->
@@ -517,6 +536,14 @@
                 <input type="text" id="submissionFileNameInput" name="fileName" required placeholder="e.g. Smith Jobsite Inspection">
             </label>
 
+            <!-- Only shown for a project-mapped form (default_category set)
+                 when we didn't already get here via ?project=<id> from a
+                 project's All Files page. -->
+            <label class="auth-field" id="submissionProjectRow" style="display:none;">
+                Project
+                <select id="submissionProjectSelect"></select>
+            </label>
+
             <p class="auth-message" id="nameSubmissionFileMessage"></p>
 
             <div class="popup-buttons">
@@ -583,6 +610,7 @@
 <script src="timeout.js"></script>
 <script src="notifications.js"></script>
 <script src="nav-access.js"></script>
+<script src="project-fields.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfmake@0.3.10/build/pdfmake.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfmake@0.3.10/build/vfs_fonts.js"></script>
 <!-- pdf.js: renders the uploaded/source PDF to canvas so fields can be
