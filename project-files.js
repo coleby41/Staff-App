@@ -39,6 +39,8 @@
     let folderBrowseCategory = null; // Folders view drill state: null = showing the 11 category tiles, else showing that category's subfolder tiles
     let pendingDeleteFile = null;
     let pendingRenameFile = null;
+    let filesCurrentPage = 1;        // pagination over the currently-selected folder's file list — same component/behavior as project-home.html's project list pagination
+    let filesPageSize = 10;
 
     /* ---------- helpers ---------- */
 
@@ -220,6 +222,7 @@
         selectedSubfolder = subfolderKey;
         expandedCategory = categoryKey;
         folderBrowseCategory = categoryKey;
+        filesCurrentPage = 1; // switching folders always starts back on page 1 of the new list
         render();
     }
 
@@ -239,6 +242,7 @@
             if (hintEl) hintEl.style.display = "block";
             if (emptyEl) emptyEl.style.display = "none";
             listEl.innerHTML = "";
+            renderFilesPagination(0);
             return;
         }
 
@@ -266,9 +270,24 @@
         if (!files.length) {
             if (emptyEl) emptyEl.style.display = "block";
             listEl.innerHTML = "";
+            renderFilesPagination(0);
             return;
         }
         if (emptyEl) emptyEl.style.display = "none";
+
+        // Paginate the same way project-home.html's project list does —
+        // same component (.project-pagination/.project-page-btn/
+        // .project-page-number, reused as-is) and the same
+        // clamp-then-slice pattern, just keyed off this folder's file
+        // count instead of the filtered project count. Clamping here
+        // (rather than only in the click handlers) means a delete/upload
+        // that shrinks the list below the current page can't strand the
+        // view on an empty page.
+        const totalPages = Math.max(1, Math.ceil(files.length / filesPageSize));
+        if (filesCurrentPage > totalPages) filesCurrentPage = totalPages;
+        if (filesCurrentPage < 1) filesCurrentPage = 1;
+        const startIndex = (filesCurrentPage - 1) * filesPageSize;
+        const pageFiles = files.slice(startIndex, startIndex + filesPageSize);
 
         // Finder-style list: a header row (Name / Kind / Added By /
         // Uploaded) followed by one row per file with a real file-type
@@ -277,7 +296,7 @@
         // consolidated behind a single "⋯" menu instead of one button per
         // action, same "overflow menu" shape used elsewhere in the app
         // (.project-edit-icon on project cards).
-        const rowsHtml = files.map(file => {
+        const rowsHtml = pageFiles.map(file => {
             const isFormFiled = file.source === "form_submission";
             const canManage = canDeleteFile(file); // same "uploader or leadership" policy gates both rename and delete
             const meta = getFileTypeMeta(file.file_name);
@@ -352,6 +371,53 @@
             row.querySelector('[data-action="copy-link"]')?.addEventListener("click", () => { closeAllFileMenus(); copyFileLink(file); });
             row.querySelector('[data-action="delete"]')?.addEventListener("click", () => { closeAllFileMenus(); openDeleteFileConfirm(file); });
         });
+
+        renderFilesPagination(files.length);
+    }
+
+    // Same component/behavior as project-home.html's project-list
+    // pagination (renderProjectPagination() in projects-page.js) — reuses
+    // its exact CSS classes (.project-pagination/.project-page-btn/
+    // .project-page-number/...) so it's visually identical, just wired to
+    // this folder's file count/page state instead of the project grid's.
+    // Clicking a page number or the size select only needs to re-run
+    // renderMainPanel() (not the full tree/breadcrumb render()), since
+    // pagination never changes which folder is selected.
+    function renderFilesPagination(totalCount) {
+        const wrap = document.getElementById("filesPagination");
+        const summary = document.getElementById("filesPaginationSummary");
+        const pageNumbers = document.getElementById("filesPageNumbers");
+        const prevBtn = document.getElementById("filesPrevPageBtn");
+        const nextBtn = document.getElementById("filesNextPageBtn");
+        if (!wrap || !summary || !pageNumbers || !prevBtn || !nextBtn) return;
+
+        if (!totalCount) {
+            wrap.style.display = "none";
+            return;
+        }
+        wrap.style.display = "flex";
+
+        const totalPages = Math.max(1, Math.ceil(totalCount / filesPageSize));
+        const startIndex = (filesCurrentPage - 1) * filesPageSize;
+        const endIndex = Math.min(totalCount, startIndex + filesPageSize);
+
+        summary.textContent = `Showing ${startIndex + 1} to ${endIndex} of ${totalCount} files`;
+
+        prevBtn.disabled = filesCurrentPage <= 1;
+        nextBtn.disabled = filesCurrentPage >= totalPages;
+
+        pageNumbers.innerHTML = "";
+        for (let page = 1; page <= totalPages; page++) {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = `project-page-number ${page === filesCurrentPage ? "active" : ""}`;
+            btn.textContent = String(page);
+            btn.addEventListener("click", () => {
+                filesCurrentPage = page;
+                renderMainPanel();
+            });
+            pageNumbers.appendChild(btn);
+        }
     }
 
     // Closes every open "⋯" menu across the list — called before opening a
@@ -662,6 +728,7 @@
             renderUploadStatusWidget();
         }
 
+        filesCurrentPage = 1; // newly uploaded files land at the front of the list (see allFiles.unshift above) — jump back to page 1 so they're actually visible
         render();
 
         if (!failedNames.length) {
@@ -938,6 +1005,19 @@
 
     document.querySelectorAll(".all-files-view-toggle-btn").forEach(btn => {
         btn.addEventListener("click", () => switchView(btn.dataset.view));
+    });
+
+    document.getElementById("filesPrevPageBtn")?.addEventListener("click", () => {
+        if (filesCurrentPage > 1) { filesCurrentPage--; renderMainPanel(); }
+    });
+    document.getElementById("filesNextPageBtn")?.addEventListener("click", () => {
+        filesCurrentPage++;
+        renderMainPanel();
+    });
+    document.getElementById("filesPageSizeSelect")?.addEventListener("change", (event) => {
+        filesPageSize = Number(event.target.value) || 10;
+        filesCurrentPage = 1;
+        renderMainPanel();
     });
 
     window.addEventListener("project-shell:ready", async (event) => {

@@ -179,6 +179,26 @@
 
             <div id="filesFolderList"></div>
 
+            <!-- Same pagination component as project-home.html's project list
+                 (renderProjectPagination() in projects-page.js) — reuses its
+                 exact CSS classes so it looks identical, just wired to this
+                 folder's file count (renderFilesPagination() in
+                 project-files.js). Starts at 10 per page instead of 6, since
+                 a folder of documents runs bigger than a project list. -->
+            <div class="project-pagination" id="filesPagination" style="display:none;">
+                <p class="project-pagination-summary" id="filesPaginationSummary"></p>
+                <div class="project-pagination-controls">
+                    <button type="button" class="project-page-btn" id="filesPrevPageBtn" aria-label="Previous page">&lsaquo;</button>
+                    <div class="project-page-numbers" id="filesPageNumbers"></div>
+                    <button type="button" class="project-page-btn" id="filesNextPageBtn" aria-label="Next page">&rsaquo;</button>
+                </div>
+                <select class="project-page-size-select" id="filesPageSizeSelect">
+                    <option value="10">10 per page</option>
+                    <option value="25">25 per page</option>
+                    <option value="50">50 per page</option>
+                </select>
+            </div>
+
             <!-- Shown while dragging file(s) over the panel (any tab —
                  see the dragenter/dragover/drop wiring in project-files.js);
                  pointer-events:none so the drop event still lands on the
