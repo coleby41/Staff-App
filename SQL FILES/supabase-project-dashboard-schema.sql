@@ -632,7 +632,17 @@ update public.projects set committed_amount = contract_value where committed_amo
 -- contract_value. This is the full view definition from
 -- supabase-rls-lockdown.sql with committed_amount/spent_to_date appended —
 -- keep both files in sync if projects_overview's column list changes again.
-create or replace view public.projects_overview
+--
+-- `drop ... cascade` + `create` instead of `create or replace view`: Postgres
+-- refuses to drop/reorder a view's columns via CREATE OR REPLACE (error
+-- 42P16). supabase-rls-lockdown.sql defines a narrower (26-column) version
+-- of this same view; if that file is re-run after this one, its own
+-- create-or-replace would fail the same way in reverse. Using drop+create in
+-- both files makes each one win cleanly regardless of run order. Nothing
+-- else in this repo selects from projects_overview at the SQL level (only
+-- client JS does), so cascade has nothing else to actually drop.
+drop view if exists public.projects_overview cascade;
+create view public.projects_overview
 with (security_invoker = true)
 as
 select

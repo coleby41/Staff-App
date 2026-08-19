@@ -31,6 +31,8 @@
 -- ============================================================================
 
 drop policy if exists "projects_all_anon" on public.projects;
+drop policy if exists "projects_select_members" on public.projects; -- old name, pre-2026-08-19
+drop policy if exists "projects_select_authenticated" on public.projects;
 
 create policy "projects_select_authenticated"
   on public.projects for select
@@ -47,6 +49,7 @@ create policy "projects_select_authenticated"
   -- Overview, but not its dollar figures unless they also have financial
   -- access on that project.
 
+drop policy if exists "projects_insert_authenticated" on public.projects;
 create policy "projects_insert_authenticated"
   on public.projects for insert
   to authenticated
@@ -55,12 +58,14 @@ create policy "projects_insert_authenticated"
                       -- open to every workgroup). The creator should immediately get a project_members
                       -- row — see the trigger below.
 
+drop policy if exists "projects_update_members" on public.projects;
 create policy "projects_update_members"
   on public.projects for update
   to authenticated
   using (public.is_project_member(id))
   with check (public.is_project_member(id));
 
+drop policy if exists "projects_delete_admins" on public.projects;
 create policy "projects_delete_admins"
   on public.projects for delete
   to authenticated
@@ -87,7 +92,18 @@ grant select, insert, update, delete on public.projects to authenticated;
 -- (project-shell.js's project fetch, projects-page.js's project list) are
 -- updated to read from this view instead of the base table — see
 -- project-fields.js's new PROJECTS_READ_VIEW constant.
-create or replace view public.projects_overview
+-- `create or replace view` can't be used here: Postgres refuses to drop or
+-- reorder a view's output columns via CREATE OR REPLACE (error 42P16), and
+-- this exact view gets its column list extended later (committed_amount/
+-- spent_to_date, added by supabase-project-dashboard-schema.sql's own copy
+-- of this same view). If that file already ran against this database
+-- before this one (or before this one is re-run), a plain `create or
+-- replace view` here would try to shrink the already-wider view and fail.
+-- `drop ... cascade` + `create` sidesteps that — nothing else in this repo
+-- selects from projects_overview at the SQL level (only client JS does),
+-- so there's nothing else for cascade to actually drop.
+drop view if exists public.projects_overview cascade;
+create view public.projects_overview
 with (security_invoker = true)
 as
 select
@@ -140,22 +156,26 @@ create trigger projects_add_creator_as_admin
 -- PROJECT_MEMBERS (new table's own policies)
 -- ============================================================================
 
+drop policy if exists "project_members_select_fellow_members" on public.project_members;
 create policy "project_members_select_fellow_members"
   on public.project_members for select
   to authenticated
   using (public.is_project_member(project_id));
 
+drop policy if exists "project_members_insert_admins" on public.project_members;
 create policy "project_members_insert_admins"
   on public.project_members for insert
   to authenticated
   with check (public.project_role(project_id) = 'project_admin' or public.is_super_admin());
 
+drop policy if exists "project_members_update_admins" on public.project_members;
 create policy "project_members_update_admins"
   on public.project_members for update
   to authenticated
   using (public.project_role(project_id) = 'project_admin' or public.is_super_admin())
   with check (public.project_role(project_id) = 'project_admin' or public.is_super_admin());
 
+drop policy if exists "project_members_delete_admins" on public.project_members;
 create policy "project_members_delete_admins"
   on public.project_members for delete
   to authenticated
@@ -180,6 +200,8 @@ begin
     pid_col := 'project_id';
 
     execute format('drop policy if exists "%1$s_all_anon" on public.%1$s', t);
+    execute format('drop policy if exists "%1$s_select_members" on public.%1$s', t);
+    execute format('drop policy if exists "%1$s_write_members" on public.%1$s', t);
 
     execute format($f$
       create policy "%1$s_select_members" on public.%1$s for select to authenticated
@@ -209,6 +231,8 @@ begin
   foreach t in array array['workgroups', 'workgroup_nav_access']
   loop
     execute format('drop policy if exists "%1$s_all_anon" on public.%1$s', t);
+    execute format('drop policy if exists "%1$s_select_authenticated" on public.%1$s', t);
+    execute format('drop policy if exists "%1$s_write_it_admin" on public.%1$s', t);
 
     execute format($f$
       create policy "%1$s_select_authenticated" on public.%1$s for select to authenticated using (true)
@@ -237,6 +261,8 @@ end $$;
 drop policy if exists "staff_users_insert_anon" on public.staff_users;
 drop policy if exists "staff_users_update_anon" on public.staff_users;
 drop policy if exists "staff_users_select_anon" on public.staff_users;
+drop policy if exists "staff_users_select_authenticated" on public.staff_users;
+drop policy if exists "staff_users_write_it_admin" on public.staff_users;
 
 create policy "staff_users_select_authenticated"
   on public.staff_users for select
@@ -344,22 +370,26 @@ end $$;
 -- may create/edit/delete it. Read and write are deliberately split (unlike a
 -- single "for all" policy) so an employee can't grant themselves a raise by
 -- editing their own row.
+drop policy if exists "payroll_employees_select" on public.payroll_employees;
 create policy "payroll_employees_select"
   on public.payroll_employees for select
   to authenticated
   using (public.has_payroll_access() or public.is_manager_of(staff_id) or staff_id = public.current_staff_id());
 
+drop policy if exists "payroll_employees_write" on public.payroll_employees;
 create policy "payroll_employees_write"
   on public.payroll_employees for insert
   to authenticated
   with check (public.has_payroll_access());
 
+drop policy if exists "payroll_employees_update" on public.payroll_employees;
 create policy "payroll_employees_update"
   on public.payroll_employees for update
   to authenticated
   using (public.has_payroll_access())
   with check (public.has_payroll_access());
 
+drop policy if exists "payroll_employees_delete" on public.payroll_employees;
 create policy "payroll_employees_delete"
   on public.payroll_employees for delete
   to authenticated
@@ -370,6 +400,7 @@ create policy "payroll_employees_delete"
 -- submit their own), their manager (approve/reject — sets approved_by/
 -- approved_at and status='Sent to Accounting'), and Accounting (process/
 -- complete/send back). All three need UPDATE, not just self+payroll.
+drop policy if exists "timesheets_select" on public.timesheets;
 create policy "timesheets_select"
   on public.timesheets for select
   to authenticated
@@ -382,6 +413,7 @@ create policy "timesheets_select"
     )
   );
 
+drop policy if exists "timesheets_insert" on public.timesheets;
 create policy "timesheets_insert"
   on public.timesheets for insert
   to authenticated
@@ -393,6 +425,7 @@ create policy "timesheets_insert"
     )
   );
 
+drop policy if exists "timesheets_update" on public.timesheets;
 create policy "timesheets_update"
   on public.timesheets for update
   to authenticated
@@ -413,6 +446,7 @@ create policy "timesheets_update"
     )
   );
 
+drop policy if exists "timesheets_delete" on public.timesheets;
 create policy "timesheets_delete"
   on public.timesheets for delete
   to authenticated
@@ -423,6 +457,7 @@ create policy "timesheets_delete"
 -- timesheet as a whole (via timesheet_events + timesheets.approved_by) but
 -- doesn't edit someone else's clock entries, so manager access here is
 -- read-only, not write.
+drop policy if exists "timesheet_entries_select" on public.timesheet_entries;
 create policy "timesheet_entries_select"
   on public.timesheet_entries for select
   to authenticated
@@ -436,6 +471,7 @@ create policy "timesheet_entries_select"
     )
   );
 
+drop policy if exists "timesheet_entries_write" on public.timesheet_entries;
 create policy "timesheet_entries_write"
   on public.timesheet_entries for all
   to authenticated
@@ -461,6 +497,7 @@ create policy "timesheet_entries_write"
 -- to it (submit/approve/reject/comment/process/complete). WITH CHECK
 -- mirrors USING exactly so someone can't insert an event row against a
 -- timesheet they have no relationship to.
+drop policy if exists "timesheet_events_select" on public.timesheet_events;
 create policy "timesheet_events_select"
   on public.timesheet_events for select
   to authenticated
@@ -474,6 +511,7 @@ create policy "timesheet_events_select"
     )
   );
 
+drop policy if exists "timesheet_events_insert" on public.timesheet_events;
 create policy "timesheet_events_insert"
   on public.timesheet_events for insert
   to authenticated
@@ -490,6 +528,7 @@ create policy "timesheet_events_insert"
 -- the timesheet workflow itself, append-only by design (same reasoning as
 -- audit_log).
 
+drop policy if exists "pdf_history_access" on public.pdf_history;
 create policy "pdf_history_access"
   on public.pdf_history for all
   to authenticated
@@ -507,6 +546,8 @@ drop policy if exists "Allow anon read pay_periods" on public.pay_periods;
 drop policy if exists "Allow anon insert pay_periods" on public.pay_periods;
 drop policy if exists "Allow anon update pay_periods" on public.pay_periods;
 drop policy if exists "Allow anon delete pay_periods" on public.pay_periods;
+drop policy if exists "pay_periods_read_authenticated" on public.pay_periods;
+drop policy if exists "pay_periods_write_payroll" on public.pay_periods;
 
 create policy "pay_periods_read_authenticated"
   on public.pay_periods for select
@@ -531,6 +572,7 @@ grant select, insert, update, delete on public.pay_periods to authenticated;
 -- ============================================================================
 
 drop policy if exists "form_templates_all_anon" on public.form_templates;
+drop policy if exists "form_templates_authenticated" on public.form_templates;
 create policy "form_templates_authenticated"
   on public.form_templates for all
   to authenticated
@@ -541,6 +583,8 @@ grant select, insert, update, delete on public.form_templates to authenticated;
 
 drop policy if exists "form_submissions_select_anon" on public.form_submissions;
 drop policy if exists "form_submissions_insert_anon" on public.form_submissions;
+drop policy if exists "form_submissions_select_authenticated" on public.form_submissions;
+drop policy if exists "form_submissions_insert_authenticated" on public.form_submissions;
 create policy "form_submissions_select_authenticated"
   on public.form_submissions for select to authenticated using (true);
 create policy "form_submissions_insert_authenticated"
@@ -562,6 +606,7 @@ begin
     execute format('drop policy if exists "%1$s_anon_insert" on public.%1$s', t);
     execute format('drop policy if exists "%1$s_anon_update" on public.%1$s', t);
     execute format('drop policy if exists "%1$s_anon_delete" on public.%1$s', t);
+    execute format('drop policy if exists "%1$s_authenticated" on public.%1$s', t);
 
     execute format('create policy "%1$s_authenticated" on public.%1$s for all to authenticated using (true) with check (true)', t);
 
@@ -585,6 +630,7 @@ begin
     execute 'alter table public."Companies" enable row level security';
     execute 'drop policy if exists "Companies_anon_all" on public."Companies"';
     execute 'drop policy if exists "companies_anon_all" on public."Companies"';
+    execute 'drop policy if exists "Companies_authenticated" on public."Companies"';
 
     execute $p$create policy "Companies_authenticated" on public."Companies" for all to authenticated using (true) with check (true)$p$;
 
@@ -621,6 +667,7 @@ end $$;
 -- write_audit_log() helper called from triggers).
 -- ============================================================================
 
+drop policy if exists "audit_log_select_it_admin" on public.audit_log;
 create policy "audit_log_select_it_admin"
   on public.audit_log for select
   to authenticated
@@ -657,6 +704,7 @@ $$;
 -- "<project_id>/...", matching how project-fields.js already uploads them
 -- (pathField values look like "<uuid>/filename.pdf").
 drop policy if exists "project_documents_bucket_anon_all" on storage.objects;
+drop policy if exists "project_documents_authenticated" on storage.objects;
 create policy "project_documents_authenticated"
 on storage.objects for all to authenticated
 using (bucket_id = 'project-documents' and public.is_project_member(public.try_uuid((storage.foldername(name))[1])))
@@ -667,6 +715,7 @@ with check (bucket_id = 'project-documents' and public.is_project_member(public.
 -- (matches payroll-pdf-stub.js generating into someone else's folder); an
 -- employee can only read their own (folder name = their staff_users.id).
 drop policy if exists "staff_documents_anon_all" on storage.objects;
+drop policy if exists "staff_documents_authenticated" on storage.objects;
 create policy "staff_documents_authenticated"
 on storage.objects for all to authenticated
 using (
@@ -677,6 +726,7 @@ with check (bucket_id = 'staff-documents' and public.has_payroll_access());
 
 -- form-submissions: generated submission PDFs.
 drop policy if exists "form_submissions_bucket_anon_all" on storage.objects;
+drop policy if exists "form_submissions_authenticated" on storage.objects;
 create policy "form_submissions_authenticated"
 on storage.objects for all to authenticated
 using (bucket_id = 'form-submissions')
@@ -686,6 +736,10 @@ with check (bucket_id = 'form-submissions');
 -- render in a public-facing card grid, low sensitivity), write restricted to
 -- project members.
 drop policy if exists "project_covers_bucket_anon_all" on storage.objects;
+drop policy if exists "project_covers_public_read" on storage.objects;
+drop policy if exists "project_covers_members_write" on storage.objects;
+drop policy if exists "project_covers_members_update" on storage.objects;
+drop policy if exists "project_covers_members_delete" on storage.objects;
 create policy "project_covers_public_read"
 on storage.objects for select
 using (bucket_id = 'project-covers');
@@ -705,6 +759,7 @@ do $$
 begin
   if exists (select 1 from storage.buckets where id = 'company-w9s') then
     execute 'drop policy if exists "company_w9s_bucket_anon_all" on storage.objects';
+    execute 'drop policy if exists "company_w9s_authenticated" on storage.objects';
     execute $p$create policy "company_w9s_authenticated" on storage.objects for all to authenticated
       using (bucket_id = 'company-w9s' and public.has_payroll_access())
       with check (bucket_id = 'company-w9s' and public.has_payroll_access())$p$;

@@ -28,7 +28,6 @@
 
 const NAV_ITEMS = [
     { key: "dashboard", selector: 'a[href="dashboard.html"]' },
-    { key: "new_project", selector: 'a[href="new-project.html"]' },
     { key: "excel_workbook", selector: 'a[href="excel-workbook.html"]' },
     { key: "form_templates", selector: 'a[href="form-template.html"]' },
     { key: "personal_finance", selector: 'a[href="time sheet.html"]' },
@@ -46,7 +45,6 @@ const NAV_ITEMS = [
 // not just hide sidebar links to it.
 const PATH_TO_KEY = {
     "dashboard.html": "dashboard",
-    "new-project.html": "new_project",
     "excel-workbook.html": "excel_workbook",
     "form-template.html": "form_templates",
     "time sheet.html": "personal_finance",
