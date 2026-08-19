@@ -39,6 +39,7 @@
     let folderBrowseCategory = null; // Folders view drill state: null = showing the 11 category tiles, else showing that category's subfolder tiles
     let pendingDeleteFile = null;
     let pendingRenameFile = null;
+    let pendingPreviewFile = null;
     let filesCurrentPage = 1;        // pagination over the currently-selected folder's file list — same component/behavior as project-home.html's project list pagination
     let filesPageSize = 10;
 
@@ -109,6 +110,24 @@
         const idx = name.lastIndexOf(".");
         if (idx <= 0) return { base: name, ext: "" };
         return { base: name.slice(0, idx), ext: name.slice(idx) };
+    }
+
+    // Which extensions the Preview modal will attempt to render inline as
+    // an <img>. HEIC/HEIF is included here even though it's not
+    // universally decodable — Safari (macOS/iOS) renders it natively,
+    // Chrome/Firefox/Edge generally don't — because previewFile() below
+    // wires an onerror fallback on the <img> itself, so a browser that
+    // can't decode it just falls through to the same "can't preview this"
+    // + Download message every other unsupported type gets, instead of a
+    // silently broken image icon. Anything not in this set and not "pdf"
+    // skips straight to that fallback (see getPreviewKind()).
+    const PREVIEWABLE_IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "heic", "heif"]);
+
+    function getPreviewKind(fileName) {
+        const ext = splitFileNameExt(fileName).ext.replace(/^\./, "").toLowerCase();
+        if (PREVIEWABLE_IMAGE_EXTENSIONS.has(ext)) return "image";
+        if (ext === "pdf") return "pdf";
+        return "none";
     }
 
     /* ---------- load ---------- */
@@ -322,7 +341,8 @@
                             <span class="all-files-file-menu-icon"></span>
                         </button>
                         <div class="all-files-file-menu-dropdown">
-                            <button type="button" class="all-files-file-menu-item" data-action="open">Open</button>
+                            <button type="button" class="all-files-file-menu-item" data-action="preview">Preview</button>
+                            <button type="button" class="all-files-file-menu-item" data-action="download">Download</button>
                             ${canManage ? `<button type="button" class="all-files-file-menu-item" data-action="rename">Rename</button>` : ""}
                             <button type="button" class="all-files-file-menu-item" data-action="copy-link">Copy link</button>
                             ${canManage ? `
@@ -357,16 +377,21 @@
 
             menuBtn?.addEventListener("click", (event) => {
                 event.stopPropagation();
-                const isOpen = dropdown?.classList.contains("is-open");
-                closeAllFileMenus();
-                if (dropdown && !isOpen) {
-                    dropdown.classList.add("is-open");
-                    menuBtn.classList.add("is-open");
-                    menuBtn.setAttribute("aria-expanded", "true");
-                }
+                toggleFileRowMenu(menuBtn, dropdown);
             });
 
-            row.querySelector('[data-action="open"]')?.addEventListener("click", () => { closeAllFileMenus(); openFile(file); });
+            // Right-click anywhere on the row opens this same "⋯" menu
+            // instead of the browser's native context menu, positioned
+            // right at the cursor (event.clientX/Y) rather than the "⋯"
+            // button's usual spot.
+            row.addEventListener("contextmenu", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                openFileRowMenu(menuBtn, dropdown, { x: event.clientX, y: event.clientY });
+            });
+
+            row.querySelector('[data-action="preview"]')?.addEventListener("click", () => { closeAllFileMenus(); previewFile(file); });
+            row.querySelector('[data-action="download"]')?.addEventListener("click", () => { closeAllFileMenus(); downloadFile(file); });
             row.querySelector('[data-action="rename"]')?.addEventListener("click", () => { closeAllFileMenus(); openRenameFileModal(file); });
             row.querySelector('[data-action="copy-link"]')?.addEventListener("click", () => { closeAllFileMenus(); copyFileLink(file); });
             row.querySelector('[data-action="delete"]')?.addEventListener("click", () => { closeAllFileMenus(); openDeleteFileConfirm(file); });
@@ -418,6 +443,57 @@
             });
             pageNumbers.appendChild(btn);
         }
+    }
+
+    // Opens a specific row's "⋯" menu (closing any other open one first —
+    // only one at a time). Shared by the menu button's click handler and
+    // the row's contextmenu handler.
+    //
+    // `atPoint` (optional {x, y} in viewport coordinates) is how the
+    // right-click path makes the menu appear at the cursor instead of its
+    // usual spot below the "⋯" button: the dropdown normally relies on
+    // CSS (position: absolute; top/right) anchored to
+    // .all-files-file-actions-cell, so landing it at the cursor means
+    // switching it to position: fixed with inline top/left for just this
+    // opening, then clearing those inline styles again for a plain "⋯"
+    // click (the `else` branch) so it falls back to its normal
+    // CSS-anchored position.
+    function openFileRowMenu(menuBtn, dropdown, atPoint) {
+        closeAllFileMenus();
+        if (!dropdown || !menuBtn) return;
+        dropdown.classList.add("is-open");
+        menuBtn.classList.add("is-open");
+        menuBtn.setAttribute("aria-expanded", "true");
+
+        if (atPoint) {
+            dropdown.style.position = "fixed";
+            dropdown.style.right = "auto";
+            dropdown.style.left = `${atPoint.x}px`;
+            dropdown.style.top = `${atPoint.y}px`;
+
+            // Nudge back on-screen if the cursor was near the right/bottom
+            // edge — getBoundingClientRect() here forces the layout the
+            // menu just got from adding "is-open", so this reads its real
+            // rendered size rather than a stale (display:none) one.
+            const rect = dropdown.getBoundingClientRect();
+            const overflowX = rect.right - window.innerWidth;
+            const overflowY = rect.bottom - window.innerHeight;
+            if (overflowX > 0) dropdown.style.left = `${Math.max(4, atPoint.x - overflowX)}px`;
+            if (overflowY > 0) dropdown.style.top = `${Math.max(4, atPoint.y - overflowY)}px`;
+        } else {
+            dropdown.style.position = "";
+            dropdown.style.right = "";
+            dropdown.style.left = "";
+            dropdown.style.top = "";
+        }
+    }
+
+    // Click toggles: if this row's menu is already open, clicking "⋯"
+    // again closes it instead of re-opening it.
+    function toggleFileRowMenu(menuBtn, dropdown) {
+        const isOpen = dropdown?.classList.contains("is-open");
+        if (isOpen) { closeAllFileMenus(); return; }
+        openFileRowMenu(menuBtn, dropdown);
     }
 
     // Closes every open "⋯" menu across the list — called before opening a
@@ -570,21 +646,99 @@
 
     /* ---------- open / upload / delete ---------- */
 
-    async function openFile(file) {
+    // "Download" — signed with { download: file_name } so Supabase Storage
+    // sends Content-Disposition: attachment and the browser saves the file
+    // instead of navigating to/rendering it, regardless of file type.
+    async function downloadFile(file) {
         const bucket = file.bucket === FORM_SUBMISSIONS_BUCKET ? FORM_SUBMISSIONS_BUCKET : PROJECT_DOCS_BUCKET;
 
         const { data, error } = await window.supabaseClient
             .storage
             .from(bucket)
-            .createSignedUrl(file.storage_path, 60 * 5);
+            .createSignedUrl(file.storage_path, 60 * 5, { download: file.file_name });
 
         if (error || !data?.signedUrl) {
             console.error("Failed to create signed URL for file:", error);
-            setFilesPageMessage("Couldn't open that file. Please try again.", "error");
+            setFilesPageMessage("Couldn't download that file. Please try again.", "error");
             return;
         }
 
         window.open(data.signedUrl, "_blank", "noopener");
+    }
+
+    // "Preview" — opens #filePreviewModalOverlay and renders the file
+    // in-place: images via <img>, PDFs via <iframe>, everything else falls
+    // back to a message + a Download button rather than attempting an
+    // inline preview the browser can't actually render.
+    async function previewFile(file) {
+        pendingPreviewFile = file;
+        const overlay = document.getElementById("filePreviewModalOverlay");
+        const titleEl = document.getElementById("filePreviewTitle");
+        const bodyEl = document.getElementById("filePreviewBody");
+        if (!overlay || !bodyEl) return;
+
+        if (titleEl) titleEl.textContent = file.file_name;
+        bodyEl.innerHTML = `<div class="file-preview-loading">Loading preview…</div>`;
+        overlay.classList.remove("hidden");
+
+        const bucket = file.bucket === FORM_SUBMISSIONS_BUCKET ? FORM_SUBMISSIONS_BUCKET : PROJECT_DOCS_BUCKET;
+        const { data, error } = await window.supabaseClient
+            .storage
+            .from(bucket)
+            .createSignedUrl(file.storage_path, 60 * 5);
+
+        // The person may have closed the modal (or opened a different
+        // file's preview) while this signed-URL request was in flight —
+        // don't stomp whatever's showing now.
+        if (pendingPreviewFile !== file) return;
+
+        if (error || !data?.signedUrl) {
+            console.error("Failed to create signed URL for preview:", error);
+            bodyEl.innerHTML = `<div class="file-preview-error">Couldn't load a preview for this file.</div>`;
+            return;
+        }
+
+        const kind = getPreviewKind(file.file_name);
+        if (kind === "image") {
+            // No src in the initial markup — set it after wiring the
+            // error listener below, so a decode failure (e.g. HEIC in a
+            // browser that can't render it) is always caught rather than
+            // racing an instant cache hit.
+            bodyEl.innerHTML = `<img class="file-preview-image" id="filePreviewImg" alt="${escapeHtmlFiles(file.file_name)}">`;
+            const imgEl = document.getElementById("filePreviewImg");
+            imgEl?.addEventListener("error", () => {
+                // Only replace the body if this is still the file being
+                // previewed (guards the same race as the signed-URL fetch
+                // above, if the person switched files in between).
+                if (pendingPreviewFile !== file) return;
+                renderUnsupportedPreview(file, bodyEl, "Your browser can't display this image. This is common for HEIC/HEIF photos outside Safari.");
+            }, { once: true });
+            if (imgEl) imgEl.src = data.signedUrl;
+        } else if (kind === "pdf") {
+            bodyEl.innerHTML = `<iframe class="file-preview-frame" src="${escapeHtmlFiles(data.signedUrl)}" title="${escapeHtmlFiles(file.file_name)}"></iframe>`;
+        } else {
+            renderUnsupportedPreview(file, bodyEl, "Preview isn't available for this file type.");
+        }
+    }
+
+    // Shared fallback for both "no inline preview exists for this
+    // extension" and "we tried to render it but the browser couldn't" —
+    // a short message plus a Download button so the person isn't stuck.
+    function renderUnsupportedPreview(file, bodyEl, message) {
+        bodyEl.innerHTML = `
+            <div class="file-preview-unsupported">
+                <p>${escapeHtmlFiles(message)}</p>
+                <button type="button" class="workbook-btn workbook-btn--preview" id="filePreviewDownloadBtn">Download instead</button>
+            </div>
+        `;
+        document.getElementById("filePreviewDownloadBtn")?.addEventListener("click", () => downloadFile(file));
+    }
+
+    function closeFilePreviewModal() {
+        document.getElementById("filePreviewModalOverlay")?.classList.add("hidden");
+        const bodyEl = document.getElementById("filePreviewBody");
+        if (bodyEl) bodyEl.innerHTML = ""; // stop a <video>/<iframe> from continuing to load/play in the background
+        pendingPreviewFile = null;
     }
 
     // "Copy link" — a signed URL, same mechanism as Open, just copied to
@@ -994,13 +1148,25 @@
         if (e.target === this) closeRenameFileModal();
     });
 
+    document.getElementById("filePreviewCloseBtn")?.addEventListener("click", closeFilePreviewModal);
+    document.getElementById("filePreviewModalOverlay")?.addEventListener("click", function (e) {
+        if (e.target === this) closeFilePreviewModal();
+    });
+
     // Close any open "⋯" menu on an outside click or Escape — same pattern
     // as the header notification bell / project switcher dropdowns.
+    // Escape also closes the Preview modal, matching Delete/Rename's own
+    // overlay-click-to-close behavior.
     document.addEventListener("click", (event) => {
         if (!event.target.closest(".all-files-file-actions-cell")) closeAllFileMenus();
     });
     document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape") closeAllFileMenus();
+        if (event.key === "Escape") {
+            closeAllFileMenus();
+            if (!document.getElementById("filePreviewModalOverlay")?.classList.contains("hidden")) {
+                closeFilePreviewModal();
+            }
+        }
     });
 
     document.querySelectorAll(".all-files-view-toggle-btn").forEach(btn => {

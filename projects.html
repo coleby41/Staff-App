@@ -102,6 +102,11 @@
             <span class="nav-text">To-do</span>
         </a>
 
+        <a href="#" class="nav-item" data-nav-page="project-accounts.html">
+            <span class="accounts-nav-icon"></span>
+            <span class="nav-text">Accounts / Contacts</span>
+        </a>
+
         <hr style="border:.5px solid rgba(255,255,255,0.14); margin:10px 0;">
 
         <a href="#" class="nav-item" data-nav-page="project-accounting.html">
@@ -124,7 +129,7 @@
         <div>
             <p class="eyebrow">Project Dashboard</p>
             <h1>Overview</h1>
-            <p>A live snapshot of this project — status, schedule, money, and what needs attention — plus everything on file below, grouped by section.</p>
+            <p>A live snapshot of this project — status, schedule, money, and what needs attention. Property/GC/POC contact info and account details now live under Accounts / Contacts in the sidebar.</p>
         </div>
         <div class="hero-actions">
             <button type="button" class="auth-button auth-button--secondary" id="editProjectBtn" style="display:none;">
@@ -166,10 +171,6 @@
             </div>
         </div>
     </div>
-
-    <h2 class="project-details-heading">Project Details</h2>
-
-    <div class="project-summary-grid" id="projectSummaryGrid"></div>
 
 </main>
 
@@ -260,15 +261,20 @@ function setOverviewMessage(text, type) {
     el.style.display = "block";
 }
 
+// Note: this used to also render a "Project Details" wizard-field grid
+// (window.ProjectFields.WIZARD_STEPS, page === "projects.html") into
+// #projectSummaryGrid below the dashboard widgets. That moved to its own
+// page — project-accounts.html ("Accounts / Contacts") — along with a new
+// Project Contacts CRM layer; see supabase-project-accounts-contacts-schema.sql.
+// This function still owns the hero banner (name, cover photo background,
+// Edit Project button) and the dashboard widgets below it.
 function renderProjectOverview(project) {
-    const grid = document.getElementById("projectSummaryGrid");
     const editBtn = document.getElementById("editProjectBtn");
     const heroSection = document.querySelector(".hero-section");
     const heroName = document.querySelector(".hero-section h1");
 
     if (!project) {
         setOverviewMessage("No project selected. Pick one from Project Overview.", "error");
-        if (grid) grid.innerHTML = "";
         if (editBtn) editBtn.style.display = "none";
         if (heroSection) heroSection.style.backgroundImage = "";
         return;
@@ -296,30 +302,6 @@ function renderProjectOverview(project) {
             window.location.href = `project-home.html?openWizard=${encodeURIComponent(project.id)}`;
         };
     }
-
-    const steps = window.ProjectFields.WIZARD_STEPS.filter(step => step.page === "projects.html");
-
-    grid.innerHTML = steps.map(step => {
-        const rows = step.fields.map(field => {
-            const key = field.type === "file" ? field.pathField : field.name;
-            const raw = project[key];
-            if (window.ProjectFields.isBlank(raw)) return "";
-            const value = field.type === "file" ? String(raw).split("/").pop() : raw;
-            return `
-                <div class="project-summary-row">
-                    <span class="company-card-label">${escapeHtmlOverview(field.label)}</span><br>
-                    ${escapeHtmlOverview(value)}
-                </div>
-            `;
-        }).filter(Boolean).join("");
-
-        return `
-            <div class="project-summary-section" id="field-${step.fields[0].name}">
-                <h3>${escapeHtmlOverview(step.title)}</h3>
-                ${rows || `<p class="project-summary-empty-note">Nothing on file yet.</p>`}
-            </div>
-        `;
-    }).join("");
 }
 
 /* ===========================

@@ -239,6 +239,84 @@ Then ship these client files the same way as step 5:
   else's filed document, but the uploader and a project_admin both can.
 - Once you're confident, delete the `_to_delete/` folder from the repo.
 
+## 10. Accounts / Contacts page (new project_contacts / project_organizations / project_utility_accounts / project_gov_offices tables)
+Adds a new "Accounts / Contacts" tab to the project sidebar, between To-do
+and Accounting. Only run this after step 9 is live — it calls
+`is_project_member()`, `project_role()`, and `current_staff_id()` directly.
+Additive/safe to run while the app is live.
+
+Supabase → SQL Editor → run `SQL FILES/supabase-project-accounts-contacts-schema.sql`
+in full:
+- **`project_contacts`** — people (Property Owner, General Contractor,
+  Project Point of Contact, Utilities, Trash/Porta Potties, County/City
+  Office, or a free-form "Other"). Backs both the six quick-access cards on
+  the new page's Project Details tab and the full "All Contacts" tab.
+- **`project_organizations`** — companies/agencies tied to the project.
+  Deliberately separate from the existing vendor/Companies system
+  (`companies.js`/`venders.html`) — that's an org-wide vendor directory,
+  this is a lightweight, project-scoped reference list, same relationship
+  `project_files` has to the org-wide form/document system.
+- **`project_utility_accounts`** — an open-ended list of utility accounts
+  (electric, water, gas, trash, internet, ...), each with a provider and
+  account number. Distinct from the existing "Utilities Account Info"
+  wizard step on Project Details, which is just two fixed fields
+  (electric + water) — this tab isn't capped at 2 accounts.
+- **`project_gov_offices`** — government/permitting offices beyond the
+  single County/City Office wizard field (Building Dept, Fire Marshal,
+  Health Dept, ...).
+- All four follow the same RLS shape as `project_files`: any project member
+  can see/add, only the creator or project leadership
+  (`project_admin`/`project_manager`) can edit/delete. Every `create
+  policy` is preceded by `drop policy if exists`, so the file is safe to
+  re-run.
+
+I test-ran this migration against a real local Postgres 16 instance (schema
++ RLS + both triggers) three times in a row (fresh install, then two
+immediate re-runs) — all three succeeded with exit code 0. Functionally
+verified (impersonating different `auth.uid()`s under `set role
+authenticated`) on all four tables: a project member's insert correctly
+auto-populates `created_by`/`created_by_name`; a non-member sees 0 rows and
+is rejected on insert; the creator and a `project_admin` can each
+update/delete a record; a same-project non-creator/non-leadership member
+cannot (0 rows affected).
+
+Then ship these client files the same way as step 5:
+- `project-fields.js` (adds `CONTACT_TYPES` — the six quick-access contact
+  categories — and `contactTypeMeta()`)
+- `projects.html` (Overview's "Project Details" heading/grid removed —
+  moved to the new page below; hero description text updated to point
+  there; dashboard widgets above it are unchanged)
+- `project-files.html`, `project-timeline.html`, `project-to-do.html`
+  (sidebar nav updated with the new "Accounts / Contacts" item)
+- `styles.css` (adds the `.hero-section--teal` banner variant — a reusable
+  style, not page-specific, following the same pattern as
+  `.hero-section--construction` — plus the new page's card/list/tab
+  styling and six new `.project-stat-icon` glyphs: person, building,
+  badge, droplet, trash, bank)
+- New: `project-accounts.html`, `project-accounts.js` (the Accounts /
+  Contacts page itself)
+
+**Verify:**
+- Open a project's new Accounts / Contacts tab. Confirm the Project
+  Details panel shows exactly what used to be on Overview (same data, same
+  empty states), and Overview no longer shows it.
+- Confirm the Status & Tracking card (cover photo, status, project
+  manager, progress) matches what's on the onboarding wizard for that
+  project.
+- Add a contact from a quick-access card's "+ Add Contact" link, confirm
+  it appears on that card AND in the All Contacts tab; edit it via the
+  card's "⋯" menu, confirm the change reflects in both places; delete it
+  from All Contacts, confirm it's gone from the card too.
+- Add an Organization, a Utility Account, and a Government/Office record;
+  confirm each tab's search box and (where present) type filter narrow the
+  list correctly.
+- As a plain Staff project member, confirm you can add records but only
+  edit/delete your own — a project_admin/project_manager test account
+  should be able to edit/delete anyone's.
+- Confirm a non-member of the project can't reach any of this data (same
+  spot-check style as prior steps — impersonate or use a non-member test
+  account and confirm 0 rows / access denied).
+
 ## Known follow-ups (not done in this pass)
 - `Companies` (vendors) table: locked to `authenticated`, but `"SSN/FID"`
   isn't field-masked yet — I don't have that table's full column list. Get
@@ -282,3 +360,14 @@ Then ship these client files the same way as step 5:
 - Dashboard's "Attention Needed" panel now only shows Overdue Tasks — RFIs/
   Change Orders/Submittals no longer have a dedicated status to surface
   there now that they're filed as documents instead of tracked records.
+- The sidebar's "search this project" box (project-shell.js) doesn't cover
+  the new project_contacts/project_organizations/project_utility_accounts/
+  project_gov_offices tables yet — only Timeline, To-Do, Files, Events, and
+  Activity. Same shape of change as when Files/Events/Activity were added
+  to it, just not done in this pass.
+- Adding a contact/organization/utility account/gov office does NOT fill
+  in the matching onboarding-wizard field (e.g. adding a "Property Owner"
+  contact card entry doesn't touch `projects.owner_name`/`owner_phone`/
+  `owner_email`) — they're deliberately separate data models. If you want
+  them kept in sync, or the wizard fields dropped in favor of the new
+  contacts table, that's a follow-up conversation.

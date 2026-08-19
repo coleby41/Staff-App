@@ -234,6 +234,27 @@ window.ProjectFields = (function () {
         { value: "archived", label: "Archived", chip: "chip--muted" }
     ];
 
+    // The six "who do we call" contact categories on the Accounts / Contacts
+    // page (project-accounts.html / .js) — one quick-access card each, plus
+    // the full type list in the "All Contacts" filter. `wizardStep` links a
+    // category back to the matching WIZARD_STEPS entry below purely for
+    // documentation (the two are separate data models — project_contacts
+    // rows are NOT auto-populated from wizard fields, and vice versa) and
+    // `icon` selects which .project-stat-icon--<icon> mask to use.
+    const CONTACT_TYPES = [
+        { key: "property_owner", label: "Property Owner", wizardStep: "owner_contact", icon: "person", color: "accent" },
+        { key: "general_contractor", label: "General Contractor", wizardStep: "gc", icon: "building", color: "info" },
+        { key: "point_of_contact", label: "Project Point of Contact", wizardStep: "poc", icon: "badge", color: "success" },
+        { key: "utilities", label: "Utilities", wizardStep: "utilities", icon: "droplet", color: "info" },
+        { key: "trash_porta_potties", label: "Trash / Porta Potties", wizardStep: "temp_services", icon: "trash", color: "completed" },
+        { key: "county_city_office", label: "County / City Office", wizardStep: "county_city", icon: "bank", color: "accent" },
+        { key: "other", label: "Other", wizardStep: null, icon: "person", color: "completed" }
+    ];
+
+    function contactTypeMeta(key) {
+        return CONTACT_TYPES.find(t => t.key === key) || CONTACT_TYPES[CONTACT_TYPES.length - 1];
+    }
+
     const WIZARD_STEPS = [
         {
             key: "owner_contact",
@@ -451,6 +472,8 @@ window.ProjectFields = (function () {
         WIZARD_STATUS_OPTIONS,
         PROJECT_STATUSES,
         PROJECT_FILE_CATEGORIES,
+        CONTACT_TYPES,
+        contactTypeMeta,
         WIZARD_STEPS,
         isBlank,
         computeCompleteness,

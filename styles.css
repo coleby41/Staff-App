@@ -305,7 +305,8 @@ button { font: inherit; }
 .timeline-nav-icon,
 .todo-nav-icon,
 .site-plans-nav-icon,
-.contract-nav-icon {
+.contract-nav-icon,
+.accounts-nav-icon {
   width: 18px;
   height: 18px;
   border-radius: 4px;
@@ -348,6 +349,14 @@ button { font: inherit; }
 .contract-nav-icon {
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h16'/%3E%3Cpath d='M6 16 15 7l3 3-9 9H6v-3z'/%3E%3C/svg%3E") center/contain no-repeat;
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h16'/%3E%3Cpath d='M6 16 15 7l3 3-9 9H6v-3z'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+/* Accounts / Contacts nav item — an address-card glyph (rounded card,
+   person circle + two detail lines) distinct from the People icon used
+   elsewhere for staff/task assignees. */
+.accounts-nav-icon {
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='5' width='20' height='14' rx='2'/%3E%3Ccircle cx='8.5' cy='12' r='2.2'/%3E%3Cpath d='M5 17c.5-1.8 1.8-2.8 3.5-2.8s3 1 3.5 2.8'/%3E%3Cpath d='M14.5 9.5h4'/%3E%3Cpath d='M14.5 13h4'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='5' width='20' height='14' rx='2'/%3E%3Ccircle cx='8.5' cy='12' r='2.2'/%3E%3Cpath d='M5 17c.5-1.8 1.8-2.8 3.5-2.8s3 1 3.5 2.8'/%3E%3Cpath d='M14.5 9.5h4'/%3E%3Cpath d='M14.5 13h4'/%3E%3C/svg%3E") center/contain no-repeat;
 }
 
 .sidebar-footer {
@@ -415,6 +424,15 @@ button { font: inherit; }
 
 .hero-section--construction {
   background: linear-gradient(135deg, #17364a 0%, #355d6d 45%, #6f7d5c 100%);
+}
+
+/* Teal/green banner variant — a reusable alternative to the navy default
+   above, not tied to any one page. Introduced for project-accounts.html
+   (Accounts / Contacts) to match a provided mockup, but any page can opt
+   in with class="hero-section hero-section--teal" the same way
+   --construction works today. */
+.hero-section--teal {
+  background: linear-gradient(135deg, #0e5c50 0%, #1c8562 100%);
 }
 
 .eyebrow {
@@ -5980,6 +5998,55 @@ body.todo-panel-resizing .main-content {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='12' y1='1' x2='12' y2='23'/%3E%3Cpath d='M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'/%3E%3C/svg%3E");
 }
 
+/* Six extra icon modifiers — added for the Accounts / Contacts page's
+   quick-access contact cards (window.ProjectFields.CONTACT_TYPES), but
+   available anywhere .project-stat-icon is used since they're just more
+   entries in the same shared mask-icon system. */
+.project-stat-icon--person::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8' r='4'/%3E%3Cpath d='M4 21c1-4 4.5-6 8-6s7 2 8 6'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8' r='4'/%3E%3Cpath d='M4 21c1-4 4.5-6 8-6s7 2 8 6'/%3E%3C/svg%3E");
+}
+
+.project-stat-icon--building::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='3' width='11' height='18' rx='1'/%3E%3Cpath d='M15 8h5v13h-5'/%3E%3Cpath d='M7.5 7h1'/%3E%3Cpath d='M11.5 7h1'/%3E%3Cpath d='M7.5 11h1'/%3E%3Cpath d='M11.5 11h1'/%3E%3Cpath d='M7.5 15h1'/%3E%3Cpath d='M11.5 15h1'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='3' width='11' height='18' rx='1'/%3E%3Cpath d='M15 8h5v13h-5'/%3E%3Cpath d='M7.5 7h1'/%3E%3Cpath d='M11.5 7h1'/%3E%3Cpath d='M7.5 11h1'/%3E%3Cpath d='M11.5 11h1'/%3E%3Cpath d='M7.5 15h1'/%3E%3Cpath d='M11.5 15h1'/%3E%3C/svg%3E");
+}
+
+.project-stat-icon--badge::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='9' r='4'/%3E%3Cpath d='m8.5 12.5-2 8 5.5-3 5.5 3-2-8'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='9' r='4'/%3E%3Cpath d='m8.5 12.5-2 8 5.5-3 5.5 3-2-8'/%3E%3C/svg%3E");
+}
+
+.project-stat-icon--droplet::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2.5s7 7.2 7 12a7 7 0 0 1-14 0c0-4.8 7-12 7-12z'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2.5s7 7.2 7 12a7 7 0 0 1-14 0c0-4.8 7-12 7-12z'/%3E%3C/svg%3E");
+}
+
+.project-stat-icon--trash::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h18'/%3E%3Cpath d='M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'/%3E%3Cpath d='M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6'/%3E%3Cpath d='M10 11v6'/%3E%3Cpath d='M14 11v6'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h18'/%3E%3Cpath d='M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'/%3E%3Cpath d='M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6'/%3E%3Cpath d='M10 11v6'/%3E%3Cpath d='M14 11v6'/%3E%3C/svg%3E");
+}
+
+.project-stat-icon--bank::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 10.5 12 4l9 6.5'/%3E%3Cpath d='M4.5 10.5v9'/%3E%3Cpath d='M9 10.5v9'/%3E%3Cpath d='M15 10.5v9'/%3E%3Cpath d='M19.5 10.5v9'/%3E%3Cpath d='M3 19.5h18'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 10.5 12 4l9 6.5'/%3E%3Cpath d='M4.5 10.5v9'/%3E%3Cpath d='M9 10.5v9'/%3E%3Cpath d='M15 10.5v9'/%3E%3Cpath d='M19.5 10.5v9'/%3E%3Cpath d='M3 19.5h18'/%3E%3C/svg%3E");
+}
+
+/* Map pin — added for the Project Details "Job Site Address" card icon. */
+.project-stat-icon--pin::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z'/%3E%3Ccircle cx='12' cy='9.5' r='2.4'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z'/%3E%3Ccircle cx='12' cy='9.5' r='2.4'/%3E%3C/svg%3E");
+}
+
+/* Lightning bolt — added for the Project Details "Electric" card icon
+   (Utilities Account Info split into separate Electric/Water cards). Same
+   glyph as .accounts-tab-icon--utility, just re-drawn as a stroke path to
+   match this icon set's style instead of a filled polygon. */
+.project-stat-icon--bolt::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='13 2 4 14 11 14 10 22 20 9 13 9 13 2'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='13 2 4 14 11 14 10 22 20 9 13 9 13 2'/%3E%3C/svg%3E");
+}
+
 .project-stat-value {
   margin: 0;
   font-size: 1.3rem;
@@ -6421,7 +6488,7 @@ body.todo-panel-resizing .main-content {
    paired with it), .workbook-edit-btn, .form-response-action-btn,
    .form-field-move-btn, .form-field-remove-btn, .project-page-btn,
    .project-page-number, .all-files-folder-tile, .all-files-file-menu-btn,
-   .upload-status-icon-btn.
+   .upload-status-icon-btn, .file-preview-close-btn.
 
    Deliberately excluded: segmented/joined toggle controls
    (.view-toggle-btn, .gantt-view-toggle-btn, .timeline-type-toggle-btn) —
@@ -6461,7 +6528,8 @@ body.todo-panel-resizing .main-content {
 .project-page-number,
 .all-files-folder-tile,
 .all-files-file-menu-btn,
-.upload-status-icon-btn {
+.upload-status-icon-btn,
+.file-preview-close-btn {
   /* No position here on purpose — .company-edit-btn/.project-edit-btn/
      .workbook-edit-btn each set their own position: absolute (pinning
      them to their card's top-right corner) in their own rule elsewhere;
@@ -6494,7 +6562,8 @@ body.todo-panel-resizing .main-content {
 .project-page-number:hover,
 .all-files-folder-tile:hover,
 .all-files-file-menu-btn:hover,
-.upload-status-icon-btn:hover {
+.upload-status-icon-btn:hover,
+.file-preview-close-btn:hover {
   transform: translateY(-1px);
   filter: brightness(1.05);
   box-shadow:
@@ -6520,7 +6589,8 @@ body.todo-panel-resizing .main-content {
 .project-page-number:active,
 .all-files-folder-tile:active,
 .all-files-file-menu-btn:active,
-.upload-status-icon-btn:active {
+.upload-status-icon-btn:active,
+.file-preview-close-btn:active {
   transform: translateY(1px) scale(0.98);
   filter: brightness(0.96);
   box-shadow:
@@ -7783,6 +7853,105 @@ body.todo-panel-resizing .main-content {
   }
 }
 
+/* File preview modal — reuses .popup-overlay/.popup (same overlay/backdrop
+   as Delete/Rename), but .popup on its own is capped at 460px, too narrow
+   for an actual document. .popup--preview widens/heightens just this
+   instance rather than changing the shared .popup rule everyone else
+   relies on. */
+.popup--preview {
+  width: min(92vw, 860px);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.file-preview-header h2 {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Own fill here, not .upload-status-icon-btn's (that class is tinted
+   white-on-white for the upload tray's dark accent header — reusing it on
+   this modal's light .popup background rendered the "✕" essentially
+   invisible against its own near-white circle, just a bare outline).
+   Dark tint instead, same fill as .all-files-file-menu-btn's "⋯" button,
+   which sits on the same kind of light surface. */
+.file-preview-close-btn {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: rgba(20, 38, 58, 0.08);
+  color: var(--text-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.file-preview-close-btn:hover {
+  background: rgba(20, 38, 58, 0.16);
+  color: var(--accent-strong);
+}
+
+.file-preview-body {
+  flex: 1 1 auto;
+  min-height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: auto;
+  padding: 12px;
+}
+
+.file-preview-image {
+  max-width: 100%;
+  max-height: min(70vh, 700px);
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.file-preview-frame {
+  width: 100%;
+  height: min(70vh, 700px);
+  border: none;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.file-preview-loading,
+.file-preview-error {
+  color: var(--text-soft);
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 24px;
+}
+
+.file-preview-unsupported {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+  color: var(--text-soft);
+}
+
 /* File-type icons — a shared "page with folded corner" silhouette, tinted
    per file type (colored band + monogram) so the Name column reads like
    Finder's list view. filter: drop-shadow() (not box-shadow) so the
@@ -8150,4 +8319,471 @@ body.todo-panel-resizing .main-content {
     width: 64px;
     height: 64px;
   }
+}
+
+/* ===========================================================
+   ACCOUNTS / CONTACTS (project-accounts.html)
+
+   Project Details (moved here from projects.html's Overview — reuses
+   .project-summary-grid/.project-summary-section as-is, unchanged) +
+   Project Contacts quick-access cards + a Status & Tracking summary card,
+   under "Project Details" / "All Contacts" / "Organizations" /
+   "Utility Accounts" / "Government / Offices" tabs (.dash-tabs, reused
+   as-is from the Accounting dashboard). All Contacts / Organizations /
+   Utility Accounts / Government Offices each reuse the exact
+   .all-files-list/.all-files-list-header/.all-files-file-row/
+   .all-files-file-menu-* classes from All Files (project-files.html) for
+   their record lists — same 5-column shape (name-ish, type-ish, detail-ish,
+   date, actions) fits all four record types, so no new list CSS was
+   needed, just the classes applied to different content.
+=========================================================== */
+
+.accounts-tab-panel.hidden {
+  display: none;
+}
+
+/* Small icon glyphs inside .dash-tab (Accounting dashboard's tab bar,
+   reused verbatim here) — .dash-tab itself has no icon slot elsewhere in
+   the app, so these are scoped to this page's tab bar only. */
+.accounts-tab-icon {
+  display: inline-block;
+  width: 15px;
+  height: 15px;
+  margin-right: 6px;
+  vertical-align: -3px;
+  background: currentColor;
+}
+
+.accounts-tab-icon--details {
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='3' width='14' height='18' rx='2'/%3E%3Cpath d='M9 8h6'/%3E%3Cpath d='M9 12h6'/%3E%3Cpath d='M9 16h4'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='3' width='14' height='18' rx='2'/%3E%3Cpath d='M9 8h6'/%3E%3Cpath d='M9 12h6'/%3E%3Cpath d='M9 16h4'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+.accounts-tab-icon--contacts {
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='8' r='3.2'/%3E%3Cpath d='M3.5 19c.8-3.2 3-4.8 5.5-4.8s4.7 1.6 5.5 4.8'/%3E%3Ccircle cx='17' cy='7' r='2.4'/%3E%3Cpath d='M15.5 14.3c2 .2 3.4 1.8 4 4.7'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='9' cy='8' r='3.2'/%3E%3Cpath d='M3.5 19c.8-3.2 3-4.8 5.5-4.8s4.7 1.6 5.5 4.8'/%3E%3Ccircle cx='17' cy='7' r='2.4'/%3E%3Cpath d='M15.5 14.3c2 .2 3.4 1.8 4 4.7'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+.accounts-tab-icon--organizations {
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='8' height='18' rx='1'/%3E%3Crect x='13' y='8' width='8' height='13' rx='1'/%3E%3Cpath d='M6.5 7h1'/%3E%3Cpath d='M6.5 11h1'/%3E%3Cpath d='M6.5 15h1'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='8' height='18' rx='1'/%3E%3Crect x='13' y='8' width='8' height='13' rx='1'/%3E%3Cpath d='M6.5 7h1'/%3E%3Cpath d='M6.5 11h1'/%3E%3Cpath d='M6.5 15h1'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+.accounts-tab-icon--utility {
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='13 2 4 14 11 14 10 22 20 9 13 9 13 2'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolygon points='13 2 4 14 11 14 10 22 20 9 13 9 13 2'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+.accounts-tab-icon--gov {
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 10.5 12 4l9 6.5'/%3E%3Cpath d='M4.5 10.5v9'/%3E%3Cpath d='M9 10.5v9'/%3E%3Cpath d='M15 10.5v9'/%3E%3Cpath d='M19.5 10.5v9'/%3E%3Cpath d='M3 19.5h18'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 10.5 12 4l9 6.5'/%3E%3Cpath d='M4.5 10.5v9'/%3E%3Cpath d='M9 10.5v9'/%3E%3Cpath d='M15 10.5v9'/%3E%3Cpath d='M19.5 10.5v9'/%3E%3Cpath d='M3 19.5h18'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+/* ---- Project Details tab: two-column layout ---- */
+
+.accounts-details-layout {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 980px) {
+  .accounts-details-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.accounts-details-col h2,
+.accounts-contacts-col h2 {
+  margin: 0 0 14px;
+}
+
+/* ---- Project Details cards (left column) ----
+   New classes (`pd-*`) rather than reusing the old `.project-summary-*`
+   set from Overview — the mockup's cards need an icon badge in the header
+   that `.project-summary-section` never had, and this page is now the
+   only place that data renders (Overview no longer shows it), so there's
+   no shared-usage reason to keep bending the old classes to fit. Field
+   IDs stay `field-<fieldname>` (unchanged) so project-shell.js's sidebar
+   search deep-linking (highlightHashTarget()) still finds the right card
+   — it just needs `.pd-card.is-highlighted` defined instead of
+   `.project-summary-section.is-highlighted`. */
+.pd-grid {
+  display: grid;
+  /* 3 columns (not 2) so the same 10 cards pack into fewer rows — keeps
+     this column from running much taller than the Project Contacts column
+     next to it. align-items: stretch (not start) so every card in a row
+     is the same height as its row-mates, instead of each card hugging its
+     own content and leaving a jagged bottom edge. */
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .pd-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .pd-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pd-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+  scroll-margin-top: calc(var(--header-height) + 16px);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.pd-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+}
+
+/* Every .pd-card is clickable now (opens #pdCardDetailOverlay with the
+   card's full, unabridged info) — the existing :hover lift above already
+   reads as "interactive", this just adds the cursor and a keyboard focus
+   ring since these are role="button" divs, not real <button>s. */
+.pd-card--clickable {
+  cursor: pointer;
+}
+
+.pd-card--clickable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.pd-card.is-highlighted {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow);
+}
+
+.pd-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.pd-card-header .project-stat-icon {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+}
+
+.pd-card-header .project-stat-icon::before {
+  width: 16px;
+  height: 16px;
+  mask-size: 16px 16px;
+  -webkit-mask-size: 16px 16px;
+}
+
+.pd-card-title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+/* Wraps the field rows (or the empty note) below the header. flex: 1 with
+   justify-content: center means a sparse card (e.g. just a name, or one
+   line) has its content centered in the space align-items: stretch gives
+   it, rather than hugging the top and leaving dead space underneath —
+   what made the stretched-to-match-row-height cards look unfinished. */
+.pd-card-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+}
+
+.pd-field-row {
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.92rem;
+}
+
+.pd-field-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.pd-field-row:first-child {
+  padding-top: 0;
+}
+
+.pd-field-label {
+  color: var(--text-soft);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: block;
+  margin-bottom: 3px;
+}
+
+.pd-field-value {
+  color: var(--text);
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+/* A row with no label (Job Site Address, and the name-only contact cards)
+   is the whole point of that card, so it reads a size up from a normal
+   labeled value instead of blending in as just another line of text. */
+.pd-field-row--headline .pd-field-value {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.pd-empty-note {
+  margin: 0;
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--text-soft);
+}
+
+/* ---- Project Contacts panel (right column) ---- */
+
+.account-contacts-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  padding: 18px 20px;
+}
+
+.account-contacts-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.account-contacts-toolbar .workbook-search-input {
+  min-width: 0;
+  max-width: none;
+  flex: 1 1 140px;
+}
+
+.account-contacts-toolbar .project-page-size-select {
+  flex: 0 0 auto;
+}
+
+.account-contact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 560px) {
+  .account-contact-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.account-contact-card {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-alt);
+  padding: 14px 16px;
+}
+
+.account-contact-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding-right: 28px;
+}
+
+.account-contact-card-header .project-stat-icon {
+  width: 32px;
+  height: 32px;
+}
+
+.account-contact-card-header .project-stat-icon::before {
+  width: 17px;
+  height: 17px;
+  mask-size: 17px 17px;
+  -webkit-mask-size: 17px 17px;
+}
+
+.account-contact-card-title {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.account-contact-card-body {
+  font-size: 0.86rem;
+  color: var(--text-soft);
+}
+
+.account-contact-name {
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.account-contact-meta-line {
+  color: var(--text-soft);
+  font-size: 0.82rem;
+}
+
+.account-contact-more-note {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.account-contact-add-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--accent-strong);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.account-contact-add-link:hover {
+  text-decoration: underline;
+}
+
+/* Wraps the "⋯" button + its dropdown so the dropdown's "top: 100%"
+   (see .all-files-file-menu-dropdown) resolves against this small,
+   button-sized box instead of the whole card — otherwise the dropdown
+   would anchor 100% of the *card's* height down instead of right below
+   the button. */
+.account-contact-card-menu-wrap {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.account-contact-card-menu-btn {
+  width: 28px;
+  height: 28px;
+}
+
+.account-contacts-view-all {
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin-top: 16px;
+}
+
+/* ---- Status & Tracking card (below the two-column layout) ---- */
+
+.account-status-card {
+  display: flex;
+  gap: 20px;
+  align-items: stretch;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  padding: 18px 20px;
+  margin-top: 20px;
+}
+
+@media (max-width: 720px) {
+  .account-status-card {
+    flex-direction: column;
+  }
+}
+
+.account-status-cover {
+  flex: 0 0 220px;
+}
+
+@media (max-width: 720px) {
+  .account-status-cover {
+    flex-basis: auto;
+  }
+}
+
+.account-status-cover img {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+}
+
+.account-status-cover-placeholder {
+  width: 100%;
+  height: 140px;
+  border-radius: 12px;
+  background: var(--surface-alt);
+  border: 1px dashed var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-soft);
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 8px;
+}
+
+.account-status-details {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.account-status-details-row .company-card-label {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.account-status-progress-value {
+  font-weight: 700;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+/* ---- All Contacts / Organizations / Utility Accounts / Government
+       Offices tabs: shared toolbar + reused All-Files-style list ---- */
+
+.accounts-record-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.accounts-record-toolbar .workbook-search-input {
+  flex: 1 1 220px;
+}
+
+.accounts-record-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-soft);
 }

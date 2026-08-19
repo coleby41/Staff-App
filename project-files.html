@@ -101,6 +101,11 @@
             <span class="nav-text">To-do</span>
         </a>
 
+        <a href="#" class="nav-item" data-nav-page="project-accounts.html">
+            <span class="accounts-nav-icon"></span>
+            <span class="nav-text">Accounts / Contacts</span>
+        </a>
+
         <hr style="border:.5px solid rgba(255,255,255,0.14); margin:10px 0;">
 
         <a href="#" class="nav-item" data-nav-page="project-accounting.html">
@@ -275,6 +280,23 @@
                 <button type="submit" class="auth-button auth-button--secondary" id="confirmRenameFileBtn">Save</button>
             </div>
         </form>
+    </div>
+</div>
+
+
+<!-- File Preview — opened by the "Preview" action in a file row's "⋯" menu
+     (and by right-clicking a row, which opens that same menu instead of the
+     browser's native context menu — see project-files.js). Images render
+     inline via <img>, PDFs via <iframe>; anything else falls back to a
+     message with a Download button rather than attempting an unsupported
+     inline preview. -->
+<div class="popup-overlay hidden" id="filePreviewModalOverlay">
+    <div class="popup popup--preview">
+        <div class="file-preview-header">
+            <h2 id="filePreviewTitle">Preview</h2>
+            <button type="button" class="file-preview-close-btn" id="filePreviewCloseBtn" aria-label="Close preview">✕</button>
+        </div>
+        <div class="file-preview-body" id="filePreviewBody"></div>
     </div>
 </div>
 
