@@ -77,12 +77,23 @@ Everyone (including you) gets signed out. Log back in with your new password.
   Should return `[]` or a permission error — not real project data.
 - Log in as a Super Admin, an Accounting test account, and a plain Staff
   test account. Confirm:
-  - Each sees the projects they should on Project Overview.
-  - Contract value / utility account numbers show for Accounting/Super Admin
-    and are blank ("Nothing on file yet") for a plain Staff account on the
-    **same** project.
+  - **2026-08-19 change**: Project Overview access is no longer gated by
+    `project_members` — any authenticated staff account can open any
+    project's Overview page (`projects_select_authenticated` policy, was
+    `projects_select_members`). Confirm all three test accounts can load
+    the Overview for a project they're *not* a member of.
+  - Contract value / utility account numbers still show for Accounting/Super
+    Admin and are blank ("Nothing on file yet") for a plain Staff account on
+    the **same** project, regardless of membership — financial masking is
+    unchanged, still keyed off `has_financial_access()`/`can_view_financials`,
+    not membership.
   - Changing `?id=` in a project-dashboard URL to a project the Staff test
-    account isn't a member of now fails to load instead of showing data.
+    account isn't a member of now **loads the Overview** (by design, see
+    above) — but dashboard widgets sourced from still membership-gated
+    tables (Timeline, To-Do, Files, Events, Activity, RFIs/Change Orders/
+    Submittals, Accounts/Contacts) will render empty for that non-member,
+    since those tables' RLS wasn't changed. Confirm that's the behavior you
+    want; if you want those to open up too, that's a separate follow-up.
   - Payroll Tools still works end to end for an Accounting account: roster,
     approvals, PDF generation into another employee's staff-documents
     folder.

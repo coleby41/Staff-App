@@ -69,11 +69,6 @@
     let editingUtilityAccountId = null;
     let editingGovOfficeId = null;
 
-    // Rebuilt every renderProjectDetailsGrid() call: field-name -> the full
-    // (unabridged, blank-safe) detail for that Project Details card, shown
-    // in #pdCardDetailOverlay when the card itself is clicked.
-    let pdCardDetails = {};
-
     /* ---------- helpers ---------- */
 
     function escapeHtmlAccounts(str) {
@@ -185,71 +180,45 @@
     };
 
     // One .pd-card, given its own anchor field (for sidebar-search
-    // highlightHashTarget()), icon/color, title, pre-built compact row HTML,
-    // and the full (unabridged) detail body shown when the card is clicked
-    // — recorded into pdCardDetails keyed by that same anchor field.
-    function pdCardHtml(anchorFieldName, icon, color, title, rowsHtml, detailBodyHtml) {
-        pdCardDetails[anchorFieldName] = { icon, color, title, bodyHtml: detailBodyHtml || rowsHtml };
-
+    // highlightHashTarget()), icon/color, title, and pre-built row HTML.
+    function pdCardHtml(anchorFieldName, icon, color, title, rowsHtml) {
         return `
-            <div class="pd-card pd-card--clickable" id="field-${anchorFieldName}" data-pd-detail-key="${escapeHtmlAccounts(anchorFieldName)}" role="button" tabindex="0" aria-haspopup="dialog">
+            <div class="pd-card" id="field-${anchorFieldName}">
                 <div class="pd-card-header">
                     <span class="project-stat-icon project-stat-icon--${color} project-stat-icon--${icon}"></span>
                     <h3 class="pd-card-title">${escapeHtmlAccounts(title)}</h3>
                 </div>
-                <div class="pd-card-body">
-                    ${rowsHtml || `<p class="pd-empty-note">Nothing on file yet.</p>`}
-                </div>
+                ${rowsHtml || `<p class="pd-empty-note">Nothing on file yet.</p>`}
             </div>
         `;
     }
 
-    // label === null is a "headline" row (the whole point of the card —
-    // a name, a combined address) and renders a size up from a normal
-    // labeled field via .pd-field-row--headline.
     function pdFieldRow(label, value) {
         return `
-            <div class="pd-field-row${label ? "" : " pd-field-row--headline"}">
+            <div class="pd-field-row">
                 ${label ? `<span class="pd-field-label">${escapeHtmlAccounts(label)}</span>` : ""}
-                <span class="pd-field-value">${escapeHtmlAccounts(value)}</span>
+                ${escapeHtmlAccounts(value)}
             </div>
         `;
-    }
-
-    // Full, blank-safe row list for a set of fields (unlike the compact
-    // card body, blank fields still show up here as "—" instead of being
-    // dropped) — this is what the "view full info" detail modal shows.
-    function pdDetailRows(fields, project) {
-        return fields.map(field => {
-            const key = field.type === "file" ? field.pathField : field.name;
-            const raw = project[key];
-            const value = window.ProjectFields.isBlank(raw) ? "—" : (field.type === "file" ? String(raw).split("/").pop() : raw);
-            return pdFieldRow(field.label, value);
-        }).join("");
     }
 
     function renderProjectDetailsGrid(project) {
         const grid = document.getElementById("accountsSummaryGrid");
         if (!grid) return;
 
-        // job_name dropped from this grid — the project name is already the
-        // page's own hero title, so its own card here was pure redundancy.
-        const steps = window.ProjectFields.WIZARD_STEPS.filter(step => step.page === "projects.html" && step.key !== "tracking" && step.key !== "job_name");
+        const steps = window.ProjectFields.WIZARD_STEPS.filter(step => step.page === "projects.html" && step.key !== "tracking");
 
         grid.innerHTML = steps.map(step => {
             const meta = PROJECT_DETAILS_STEP_ICONS[step.key] || { icon: "person", color: "accent" };
 
             // Job Site Address: one combined "Street, City, State, Zip" line
-            // on the card itself, but clicking it opens the 4 fields
-            // (Street/City/State/Zip) separately, since that's genuinely
-            // easier to read than one run-on line once you're looking for
-            // a specific piece of it.
+            // instead of 4 separate labeled rows.
             if (step.key === "site_address") {
                 const combined = [project.site_address, project.site_city, project.site_state, project.site_zip]
                     .filter(v => !window.ProjectFields.isBlank(v))
                     .join(", ");
                 const rows = combined ? pdFieldRow(null, combined) : "";
-                return pdCardHtml(step.fields[0].name, meta.icon, meta.color, step.title, rows, pdDetailRows(step.fields, project));
+                return pdCardHtml(step.fields[0].name, meta.icon, meta.color, step.title, rows);
             }
 
             // Trash and Porta Potties are two separate real-world vendor
@@ -270,8 +239,8 @@
                     : "";
 
                 return [
-                    pdCardHtml(trashFields[0].name, "trash", "completed", "Trash", fieldRows(trashFields) + notesRow, pdDetailRows(notesField ? [...trashFields, notesField] : trashFields, project)),
-                    pdCardHtml(pottyFields[0].name, "droplet", "completed", "Porta Potties", fieldRows(pottyFields), pdDetailRows(pottyFields, project))
+                    pdCardHtml(trashFields[0].name, "trash", "completed", "Trash", fieldRows(trashFields) + notesRow),
+                    pdCardHtml(pottyFields[0].name, "droplet", "completed", "Porta Potties", fieldRows(pottyFields))
                 ].join("");
             }
 
@@ -294,21 +263,20 @@
                     : "";
 
                 return [
-                    pdCardHtml(electricFields[0].name, "bolt", "accent", "Electric", fieldRows(electricFields) + notesRow, pdDetailRows(notesField ? [...electricFields, notesField] : electricFields, project)),
-                    pdCardHtml(waterFields[0].name, "droplet", "info", "Water", fieldRows(waterFields), pdDetailRows(waterFields, project))
+                    pdCardHtml(electricFields[0].name, "bolt", "accent", "Electric", fieldRows(electricFields) + notesRow),
+                    pdCardHtml(waterFields[0].name, "droplet", "info", "Water", fieldRows(waterFields))
                 ].join("");
             }
 
             // The 4 "contact" steps (owner_contact/gc/poc/county_city) only
             // show the primary name field on this page — no role, phone,
-            // email, or address. Click the card to see the rest (role,
-            // phone, email, mailing address/office name — whatever that
-            // step actually collects).
+            // email, or address. Full contact details live in the Project
+            // Contacts panel/All Contacts tab instead.
             if (step.layout === "contact") {
                 const nameField = step.fields[0];
                 const raw = project[nameField.name];
                 const rows = window.ProjectFields.isBlank(raw) ? "" : pdFieldRow(null, raw);
-                return pdCardHtml(nameField.name, meta.icon, meta.color, step.title, rows, pdDetailRows(step.fields, project));
+                return pdCardHtml(nameField.name, meta.icon, meta.color, step.title, rows);
             }
 
             const rows = step.fields.map(field => {
@@ -319,21 +287,8 @@
                 return pdFieldRow(field.label, value);
             }).filter(Boolean).join("");
 
-            return pdCardHtml(step.fields[0].name, meta.icon, meta.color, step.title, rows, pdDetailRows(step.fields, project));
+            return pdCardHtml(step.fields[0].name, meta.icon, meta.color, step.title, rows);
         }).join("");
-    }
-
-    function openPdCardDetail(key) {
-        const detail = pdCardDetails[key];
-        if (!detail) return;
-        document.getElementById("pdCardDetailIcon").className = `project-stat-icon project-stat-icon--${detail.color} project-stat-icon--${detail.icon}`;
-        document.getElementById("pdCardDetailTitle").textContent = detail.title;
-        document.getElementById("pdCardDetailBody").innerHTML = detail.bodyHtml || `<p class="pd-empty-note">Nothing on file yet.</p>`;
-        document.getElementById("pdCardDetailOverlay")?.classList.remove("hidden");
-    }
-
-    function closePdCardDetail() {
-        document.getElementById("pdCardDetailOverlay")?.classList.add("hidden");
     }
 
     /* ---------- Status & Tracking card ---------- */
@@ -427,19 +382,10 @@
             `;
 
             if (matching.length === 0) {
-                // A truly empty category (no search/filter narrowing it
-                // down) skips the "No contact added yet." filler text —
-                // the "+ Add Contact" link is the whole empty state, so
-                // clicking it is the only thing there is to do. "No match."
-                // still shows when a search/filter is what emptied it out,
-                // since that's a different situation (a contact exists,
-                // it's just not showing) and isn't about adding one.
-                const emptyNote = (search || typeFilter) ? `<p class="project-summary-empty-note">No match.</p>` : "";
                 return `
                     <div class="account-contact-card" data-type="${escapeHtmlAccounts(type.key)}">
                         ${header}
                         <div class="account-contact-card-body">
-                            ${emptyNote}
                             <button type="button" class="account-contact-add-link" data-action="quick-add" data-type="${escapeHtmlAccounts(type.key)}">+ Add Contact</button>
                         </div>
                     </div>
@@ -919,12 +865,6 @@
     /* ---------- delegated click handling for menus / row actions / quick-add ---------- */
 
     function handleGlobalClick(event) {
-        const pdCard = event.target.closest(".pd-card[data-pd-detail-key]");
-        if (pdCard) {
-            openPdCardDetail(pdCard.dataset.pdDetailKey);
-            return;
-        }
-
         const menuBtn = event.target.closest("[data-action='menu']");
         if (menuBtn) {
             event.stopPropagation();
@@ -1024,20 +964,6 @@
         document.getElementById("confirmDeleteRecordBtn")?.addEventListener("click", confirmDeleteRecord);
         document.getElementById("deleteRecordConfirmOverlay")?.addEventListener("click", (e) => { if (e.target === e.currentTarget) closeDeleteRecordConfirm(); });
 
-        document.getElementById("closePdCardDetailBtn")?.addEventListener("click", closePdCardDetail);
-        document.getElementById("pdCardDetailOverlay")?.addEventListener("click", (e) => { if (e.target === e.currentTarget) closePdCardDetail(); });
-        // Cards are role="button"/tabindex="0" rather than real <button>s
-        // (a card full of plain text reads better semantically as content
-        // than as a button), so Enter/Space activation has to be wired by
-        // hand — real buttons get this for free.
-        document.getElementById("accountsSummaryGrid")?.addEventListener("keydown", (e) => {
-            if (e.key !== "Enter" && e.key !== " ") return;
-            const card = e.target.closest(".pd-card[data-pd-detail-key]");
-            if (!card) return;
-            e.preventDefault();
-            openPdCardDetail(card.dataset.pdDetailKey);
-        });
-
         ["contactCardSearchInput", "contactCardTypeFilter", "contactCardSort"].forEach(id => {
             document.getElementById(id)?.addEventListener("input", renderContactQuickCards);
             document.getElementById(id)?.addEventListener("change", renderContactQuickCards);
@@ -1066,7 +992,6 @@
                 closeGovOfficeModal();
                 closeDeleteRecordConfirm();
                 closeAllAccountMenus();
-                closePdCardDetail();
             }
         });
     }

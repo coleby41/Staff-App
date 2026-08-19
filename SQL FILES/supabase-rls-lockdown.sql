@@ -32,10 +32,20 @@
 
 drop policy if exists "projects_all_anon" on public.projects;
 
-create policy "projects_select_members"
+create policy "projects_select_authenticated"
   on public.projects for select
   to authenticated
-  using (public.is_project_member(id));
+  using (true);
+  -- 2026-08-19: changed from `using (public.is_project_member(id))` — Coleby
+  -- asked for every logged-in staff member to be able to view any project's
+  -- Overview, not just project_members rows for that project. This only
+  -- widens READ access to the basic project row; insert/update/delete below
+  -- are still gated to project_members via is_project_member()/project_role(),
+  -- and financial fields (contract_value, utility/trash/porta-potty account
+  -- numbers) are still masked per-row by has_financial_access() through the
+  -- projects_overview view below — a non-member can now see a project's
+  -- Overview, but not its dollar figures unless they also have financial
+  -- access on that project.
 
 create policy "projects_insert_authenticated"
   on public.projects for insert
