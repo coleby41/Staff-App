@@ -154,9 +154,13 @@
   // Account creation now goes through the create-staff-account Edge
   // Function (service-role key server-side, checks the caller is IT/Super
   // Admin from their real JWT) instead of inserting into staff_users
-  // directly. Signature and return shape (an object with .full_name and
-  // .workgroup[0]) are kept identical to before, so admin-users.js needs no
-  // changes at all.
+  // directly.
+  //
+  // 2026-08-19: no longer sends a caller-typed password — the Edge Function
+  // generates a random one-time temp password server-side (same as
+  // scripts/migrate-staff-to-auth.ts) and hands it back exactly once. The
+  // returned object still has .full_name/.workgroup[0] like before, plus a
+  // new .temp_password for admin-users.js to display.
   window.createSupabaseUser = async function (payload, statusElement) {
     if (!isConfigured) {
       setStatusText(statusElement, 'Supabase is not configured yet. Add your URL and anon key to supabase-config.js.', 'error');
@@ -187,7 +191,6 @@
         body: JSON.stringify({
           full_name: payload.name,
           username: payload.username,
-          password: payload.password,
           workgroup: payload.group || 'Operations',
         }),
       });
@@ -204,7 +207,7 @@
       return null;
     }
 
-    return result.staff_user;
+    return { ...result.staff_user, temp_password: result.temp_password };
   };
 
   // Called right after supabase.auth.updateUser({ password }) succeeds on

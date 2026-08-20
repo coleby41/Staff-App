@@ -13,8 +13,16 @@
 // may call this; everyone else gets 403, enforced here server-side with the
 // service-role key — not just hidden behind a UI check.
 //
-// POST body: { "full_name": "...", "username": "...", "password": "...", "workgroup": "Office" }
-// Response:  { "ok": true, "staff_user": { id, username, full_name, workgroup } }
+// 2026-08-19: no longer accepts a caller-supplied password. IT no longer
+// types (and therefore never learns/reuses) a new hire's password — this
+// generates a random one-time temp password the same way
+// scripts/migrate-staff-to-auth.ts does, hands it back in the response
+// exactly once so admin-users.js can display it for IT to relay out of
+// band, and flags the account must_reset_password (already did) so the
+// temp password stops working the moment the person sets their own.
+//
+// POST body: { "full_name": "...", "username": "...", "workgroup": "Office" }
+// Response:  { "ok": true, "staff_user": { id, username, full_name, workgroup }, "temp_password": "..." }
 //         or { "error": "..." }
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -29,6 +37,17 @@ const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+}
+
+// Same generator as scripts/migrate-staff-to-auth.ts's randomTempPassword():
+// 16 random bytes -> base64url-ish, ~20 chars. Meets Supabase Auth's default
+// password requirements; the person is forced to change it on first login
+// (must_reset_password), so it never needs to be memorable.
+function randomTempPassword(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "A").replace(/\//g, "B").replace(/=/g, "");
 }
 
 function asGroupList(workgroup: unknown): string[] {
@@ -62,7 +81,7 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Only IT or Super Admin can create staff accounts." }, 403);
   }
 
-  let body: { full_name?: string; username?: string; password?: string; workgroup?: string };
+  let body: { full_name?: string; username?: string; workgroup?: string };
   try {
     body = await req.json();
   } catch {
@@ -71,15 +90,13 @@ Deno.serve(async (req) => {
 
   const full_name = (body.full_name ?? "").trim();
   const username = (body.username ?? "").trim();
-  const password = body.password ?? "";
   const workgroup = (body.workgroup ?? "Operations").trim();
 
-  if (!full_name || !username || !password) {
-    return jsonResponse({ error: "full_name, username, and password are all required." }, 400);
+  if (!full_name || !username) {
+    return jsonResponse({ error: "full_name and username are both required." }, 400);
   }
-  if (password.length < 8) {
-    return jsonResponse({ error: "Password must be at least 8 characters." }, 400);
-  }
+
+  const password = randomTempPassword();
 
   const { data: existing } = await supabaseAdmin
     .from("staff_users")
@@ -130,5 +147,6 @@ Deno.serve(async (req) => {
   return jsonResponse({
     ok: true,
     staff_user: { id: newStaffRow.id, username, full_name, workgroup: [workgroup] },
+    temp_password: password,
   });
 });

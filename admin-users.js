@@ -1,6 +1,37 @@
 const adminForm = document.getElementById('adminUserForm');
 const adminMessage = document.getElementById('adminMessage');
 const adminAccessNote = document.getElementById('adminAccessNote');
+const tempPasswordReveal = document.getElementById('tempPasswordReveal');
+const tempPasswordForName = document.getElementById('tempPasswordForName');
+const tempPasswordValue = document.getElementById('tempPasswordValue');
+const copyTempPasswordBtn = document.getElementById('copyTempPasswordBtn');
+
+function hideTempPasswordReveal() {
+  if (tempPasswordReveal) tempPasswordReveal.style.display = 'none';
+}
+
+function showTempPasswordReveal(createdUser) {
+  if (!tempPasswordReveal || !createdUser || !createdUser.temp_password) return;
+  if (tempPasswordForName) tempPasswordForName.textContent = createdUser.full_name || createdUser.username || 'this user';
+  if (tempPasswordValue) tempPasswordValue.textContent = createdUser.temp_password;
+  if (copyTempPasswordBtn) copyTempPasswordBtn.textContent = 'Copy';
+  tempPasswordReveal.style.display = 'block';
+}
+
+if (copyTempPasswordBtn) {
+  copyTempPasswordBtn.addEventListener('click', async function () {
+    const value = tempPasswordValue ? tempPasswordValue.textContent : '';
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      copyTempPasswordBtn.textContent = 'Copied';
+      setTimeout(() => { copyTempPasswordBtn.textContent = 'Copy'; }, 2000);
+    } catch (error) {
+      console.warn('Unable to copy temp password automatically:', error);
+      copyTempPasswordBtn.textContent = 'Select & copy manually';
+    }
+  });
+}
 
 function getStoredProfile() {
   try {
@@ -95,18 +126,20 @@ if (adminForm) {
 
     const name = document.getElementById('adminFullName').value.trim();
     const username = document.getElementById('adminUsername').value.trim();
-    const password = document.getElementById('adminPassword').value.trim();
     const group = document.getElementById('adminGroup').value.trim();
 
-    if (!name || !username || !password) {
+    if (!name || !username) {
       setMessage(adminMessage, 'Please fill in all required fields.', 'error');
       return;
     }
 
-    const createdUser = await window.createSupabaseUser({ name, username, password, group }, adminMessage);
+    hideTempPasswordReveal();
+
+    const createdUser = await window.createSupabaseUser({ name, username, group }, adminMessage);
     if (createdUser) {
       adminForm.reset();
       setMessage(adminMessage, `Created ${createdUser.full_name} in the ${createdUser.workgroup[0]} group.`, 'success');
+      showTempPasswordReveal(createdUser);
     }
   });
 }

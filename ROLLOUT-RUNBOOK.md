@@ -52,11 +52,21 @@ deploy/push as you normally would:
 - `project-shell.js`
 - `projects-page.js`
 - `staff-users.js`
+- `admin-users.html`
+- `admin-users.js`
 
-`admin-users.html` / `admin-users.js` are **unchanged** — account creation
-now goes through the Edge Function automatically because
-`window.createSupabaseUser()`'s signature didn't change, only what it does
-internally.
+**2026-08-19 change**: `admin-users.html` / `admin-users.js` are no longer
+unchanged — the Password field was removed from "Create a staff account."
+IT now types just a name/username/group; `create-staff-account` generates a
+random one-time temp password server-side (same generator
+`scripts/migrate-staff-to-auth.ts` already used for the bulk migration in
+step 2) and hands it back once, shown in a copyable reveal box on
+`admin-users.html` for IT to relay to the new hire out of band (Slack DM,
+in person — never a shared doc or email). Both files must be shipped
+together with `supabase-auth.js` (whose `createSupabaseUser()` no longer
+sends a password in the request body) and the redeployed
+`create-staff-account` Edge Function from step 4 — deploying only one half
+of this change leaves the client sending/expecting the old shape.
 
 At this point, login works through real Supabase Auth, but RLS is still
 open — this is a good moment to log in as yourself and confirm the app looks
