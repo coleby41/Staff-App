@@ -35,8 +35,27 @@ const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
+// 2026-08-19: this is called with fetch() cross-origin (the app is served
+// from stafftheleewardgroup.vercel.app, this function from
+// ostaqjuawieqpwuhrvsm.supabase.co), and the request carries a custom
+// Authorization header — that combination makes the browser send a
+// preflight OPTIONS request first. Deno Edge Functions don't add CORS
+// headers on their own; without them the browser blocks even a successful
+// response (Coleby hit exactly this: "Response to preflight request
+// doesn't pass access control check: It does not have HTTP ok status").
+// Every response (including errors) needs these headers, and OPTIONS needs
+// its own 200 short-circuit before any of the real logic below runs.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+  });
 }
 
 // Same generator as scripts/migrate-staff-to-auth.ts's randomTempPassword():
@@ -60,6 +79,7 @@ function isItOrSuperAdmin(workgroup: unknown): boolean {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
   const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");

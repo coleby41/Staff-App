@@ -40,6 +40,19 @@ supabase functions deploy reset-staff-password
 already should be, since `calendar-disconnect` etc. use the same one. Check
 with `supabase secrets list`.)
 
+**2026-08-19: both functions now handle CORS.** The app is served from
+`stafftheleewardgroup.vercel.app` and calls these functions on
+`ostaqjuawieqpwuhrvsm.supabase.co` — a different origin — with a custom
+`Authorization` header, so the browser sends a preflight `OPTIONS` request
+first. Deno Edge Functions don't add CORS headers automatically; without
+them the browser blocks the call outright, even when the function itself
+would have succeeded (surfaced as "Response to preflight request doesn't
+pass access control check" in the console, with the real POST never
+actually reaching Supabase). Both files were missing this until Coleby hit
+it live creating the first real account post-deploy, so **make sure
+you're deploying the versions with the `CORS_HEADERS` block and the
+`OPTIONS` short-circuit** — redeploy both if you deployed earlier copies.
+
 ## 5. Ship the client files
 Replace these files in the repo with the versions in this delivery, then
 deploy/push as you normally would:

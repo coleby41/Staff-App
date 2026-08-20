@@ -22,8 +22,23 @@ const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
+// 2026-08-19: same CORS fix as create-staff-account/index.ts — this is also
+// called with fetch() cross-origin (app on Vercel, function on Supabase)
+// with a custom Authorization header, which triggers a browser preflight
+// OPTIONS request. Without these headers on every response (including
+// OPTIONS itself) the browser blocks the call before it ever reaches the
+// real logic below, even on success.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+  });
 }
 
 function isItOrSuperAdmin(workgroup: unknown): boolean {
@@ -32,6 +47,7 @@ function isItOrSuperAdmin(workgroup: unknown): boolean {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
   const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
