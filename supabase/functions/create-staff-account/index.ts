@@ -37,6 +37,14 @@
 // band, and flags the account must_reset_password (already did) so the
 // temp password stops working the moment the person sets their own.
 //
+// 2026-08-20: the very first live account creation after the above fixes
+// hit a 500 with Postgres error `null value in column "password_hash" of
+// relation "staff_users" violates not-null constraint`. password_hash is
+// legacy (real auth is Supabase Auth now) and never granted to any client
+// role, but the column is still NOT NULL until it's dropped for good — see
+// legacyPasswordHash() below for the fix (fills it with a real hash of the
+// generated temp password rather than leaving it unset).
+//
 // POST body: { "full_name": "...", "username": "...", "workgroup": "Office" }
 // Response:  { "ok": true, "staff_user": { id, username, full_name, workgroup }, "temp_password": "..." }
 //         or { "error": "..." }
@@ -83,6 +91,28 @@ function randomTempPassword(): string {
   crypto.getRandomValues(bytes);
   return btoa(String.fromCharCode(...bytes))
     .replace(/\+/g, "A").replace(/\//g, "B").replace(/=/g, "");
+}
+
+// staff_users.password_hash is legacy — real auth goes entirely through
+// Supabase Auth now (see supabase-auth.js), and every client-facing grant on
+// this column was already revoked (supabase-rls-lockdown.sql). It's slated to
+// be dropped once the Auth migration is fully confirmed (see the
+// commented-out `alter table ... drop column if exists password_hash;` near
+// the bottom of that file) but hasn't been dropped yet, and the column is
+// still NOT NULL — so inserting a brand-new staff_users row (unlike a
+// migrated row, which already had a password_hash from before) fails with
+// `null value in column "password_hash" of relation "staff_users" violates
+// not-null constraint` unless something is written here. Filling it with a
+// real SHA-256 hex hash of the actual temp password (same hex format
+// staff-users.js's old client-side hashPassword() used, now dead code) keeps
+// this harmless even if something unexpected reads the column before it's
+// dropped — it's never treated as a source of truth for login either way.
+async function legacyPasswordHash(password: string): Promise<string> {
+  const bytes = new TextEncoder().encode(password);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function asGroupList(workgroup: unknown): string[] {
@@ -143,10 +173,19 @@ Deno.serve(async (req) => {
 
   // Insert the staff_users row first (without auth_user_id yet) so we have a
   // real id to build the synthetic email from — same convention as
-  // migrate-staff-to-auth.ts (staff-<staff_users.id>@...).
+  // migrate-staff-to-auth.ts (staff-<staff_users.id>@...). password_hash is
+  // legacy/unused (see legacyPasswordHash() above) but still NOT NULL, so it
+  // has to be filled in here or this insert fails.
   const { data: newStaffRow, error: insertError } = await supabaseAdmin
     .from("staff_users")
-    .insert({ username, full_name, workgroup: [workgroup], active: true, must_reset_password: true })
+    .insert({
+      username,
+      full_name,
+      workgroup: [workgroup],
+      active: true,
+      must_reset_password: true,
+      password_hash: await legacyPasswordHash(password),
+    })
     .select("id")
     .single();
 
