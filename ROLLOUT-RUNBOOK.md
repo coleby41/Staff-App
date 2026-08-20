@@ -33,14 +33,30 @@ roughly (staff count) × (project count).
 
 ## 4. Deploy the Edge Functions
 ```
-supabase functions deploy create-staff-account
-supabase functions deploy reset-staff-password
+supabase functions deploy create-staff-account --no-verify-jwt
+supabase functions deploy reset-staff-password --no-verify-jwt
 ```
 (Both need `SUPABASE_SERVICE_ROLE_KEY` set as a secret on the project — it
 already should be, since `calendar-disconnect` etc. use the same one. Check
 with `supabase secrets list`.)
 
-**2026-08-19: both functions now handle CORS.** The app is served from
+**2026-08-19/20: `--no-verify-jwt` is now required on both — this is a
+change from earlier.** These functions used to be deployed WITHOUT that
+flag on purpose, so Supabase's platform would reject any request with no
+valid session before the function code even ran. That turned out to be
+incompatible with CORS: a browser's `OPTIONS` preflight request never
+carries an `Authorization` header (that's inherent to how preflight
+works), so with JWT verification left on, Supabase's own gateway rejected
+the preflight itself with `401 {"code":"UNAUTHORIZED_NO_AUTH_HEADER"}`
+before either function's own `OPTIONS` handling ever ran — this is what
+Coleby hit right after the CORS fix below went out. Deploying with
+`--no-verify-jwt` removes that platform-level gate; the real `POST`
+request still gets a full auth + role check, just done by the function's
+own code (`supabaseAdmin.auth.getUser(jwt)`, then a `staff_users` role
+check) rather than the platform, so nothing about who can successfully
+call these has gotten looser.
+
+**Both functions now also handle CORS.** The app is served from
 `stafftheleewardgroup.vercel.app` and calls these functions on
 `ostaqjuawieqpwuhrvsm.supabase.co` — a different origin — with a custom
 `Authorization` header, so the browser sends a preflight `OPTIONS` request
@@ -51,7 +67,8 @@ pass access control check" in the console, with the real POST never
 actually reaching Supabase). Both files were missing this until Coleby hit
 it live creating the first real account post-deploy, so **make sure
 you're deploying the versions with the `CORS_HEADERS` block and the
-`OPTIONS` short-circuit** — redeploy both if you deployed earlier copies.
+`OPTIONS` short-circuit, using the `--no-verify-jwt` flag above** —
+redeploy both if you deployed earlier copies.
 
 ## 5. Ship the client files
 Replace these files in the repo with the versions in this delivery, then

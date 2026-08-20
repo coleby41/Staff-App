@@ -1,6 +1,19 @@
 // supabase/functions/reset-staff-password/index.ts
 //
-// Deploy: supabase functions deploy reset-staff-password
+// Deploy: supabase functions deploy reset-staff-password --no-verify-jwt
+//
+// 2026-08-19/20: THIS FLAG CHANGED — see the matching note in
+// create-staff-account/index.ts. Without --no-verify-jwt, Supabase's own
+// gateway requires an Authorization header on EVERY request including the
+// browser's CORS preflight OPTIONS request — which never carries one, by
+// design — so the platform rejects the preflight itself with 401
+// `{"code":"UNAUTHORIZED_NO_AUTH_HEADER"}` before this file's own OPTIONS
+// handling below ever runs. Deploying with --no-verify-jwt removes that
+// platform-level gate; the real POST still gets a full auth + role check
+// from this code (`supabaseAdmin.auth.getUser(jwt)` below), so nothing
+// about who can call this successfully changes — the check just moved
+// from the platform into this file, where it already was for the ROLE
+// part anyway.
 //
 // Replaces staff-users.js's old direct `password_hash` update — after the
 // Auth migration, writing password_hash no longer changes anyone's real

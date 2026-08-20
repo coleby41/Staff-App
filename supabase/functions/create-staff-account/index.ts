@@ -1,10 +1,26 @@
 // supabase/functions/create-staff-account/index.ts
 //
-// Deploy: supabase functions deploy create-staff-account
-// (NO --no-verify-jwt here, unlike the calendar-* functions — we want
-// Supabase's platform-level check that the caller has a real, valid session
-// before this code even runs. We then check their ROLE ourselves below,
-// since "signed in" and "allowed to create accounts" are different checks.)
+// Deploy: supabase functions deploy create-staff-account --no-verify-jwt
+//
+// 2026-08-19/20: THIS FLAG CHANGED. It used to be deployed WITHOUT
+// --no-verify-jwt on the theory that Supabase's platform-level check (is
+// there a real, valid session at all?) should happen before this code even
+// runs, with the ROLE check done here. That reasoning turned out to be
+// incompatible with the CORS fix above: a browser's OPTIONS preflight
+// request never carries an Authorization header (that's inherent to how
+// preflight works — it only *announces* which headers the real request
+// will send), so with JWT verification left on, Supabase's own gateway
+// rejects the preflight itself with 401 `{"code":"UNAUTHORIZED_NO_AUTH_HEADER"}`
+// before this file's `if (req.method === "OPTIONS")` line ever gets a
+// chance to run — this is exactly the 500/401 Coleby hit right after the
+// CORS headers were added. Deploying with --no-verify-jwt removes that
+// platform-level gate so the OPTIONS short-circuit below can actually
+// execute; the real POST request still gets a full auth check, just done
+// by THIS code (`supabaseAdmin.auth.getUser(jwt)` below, cryptographically
+// verified against Supabase Auth) rather than the platform, so nothing
+// about who can call this successfully has gotten looser — if anything
+// it's stricter, since the platform gate alone never checked ROLE, only
+// that a session existed. Same reasoning applies to reset-staff-password.
 //
 // This is the ONLY way new staff accounts get created — replaces
 // admin-users.js's old direct `staff_users` insert (which, under the old
