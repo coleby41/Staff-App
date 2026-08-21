@@ -972,6 +972,19 @@ button { font: inherit; }
   place-items: center;
   padding: 24px;
   background: linear-gradient(135deg, #152f3f 0%, #265467 45%, #7a855f 100%);
+  /* 2026-08-20: the base `body { overflow: hidden }` rule above assumes the
+     dashboard layout, where .main-content is its own scrolling region — but
+     auth pages (login/index/admin-users/staff-users) have no such region, so
+     that rule left them unable to scroll at all. That was invisible while
+     these forms were always shorter than the viewport, but admin-users.html's
+     Create-a-staff-account form can now be taller than the viewport (the
+     temp-password reveal box appears below the fold on shorter screens), with
+     no way to scroll down to see/copy it. This class is more specific than
+     the base `body` rule (both target <body>, but a class selector always
+     outranks a bare element selector), so overriding overflow here is enough
+     — it doesn't touch the dashboard pages, which never get this class. */
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .auth-shell {

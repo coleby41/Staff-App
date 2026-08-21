@@ -11,6 +11,16 @@
       min-height: 100vh;
       background: linear-gradient(135deg, #071220 0%, #13263d 100%);
       color: #f5f7fb;
+      /* 2026-08-20: this page also has no independently-scrolling region
+         (unlike the dashboard pages), so it relies on styles.css's
+         `.auth-page` rule to allow the whole page to scroll once the
+         directory panel is taller than the viewport — see that rule's
+         comment for the admin-users.html bug this same issue came from.
+         Declared again here, directly alongside this page's own inline
+         styles, so it isn't only working by relying on cascade order
+         against a separate stylesheet. */
+      overflow-y: auto;
+      overflow-x: hidden;
     }
 
     .directory-shell {
@@ -256,7 +266,22 @@
           <div class="directory-form__row">
             <label>
               Group
-              <input id="group" type="text" placeholder="Operations">
+              <!-- 2026-08-20: was a free-text input — the only place in the
+                   app someone's workgroup could be typed by hand instead of
+                   picked from the live Workgroups list, same inconsistency
+                   already fixed on admin-users.html's Create-a-staff-account
+                   form. Ships with the same hardcoded fallback options so
+                   editing an account still works before
+                   supabase-workgroups-setup.sql has been run; staff-users.js
+                   swaps these for the live Workgroups list on load, same as
+                   admin-users.js does. -->
+              <select id="group">
+                <option value="Owner">Owner</option>
+                <option value="Field">Field</option>
+                <option value="IT">IT</option>
+                <option value="Office">Office</option>
+                <option value="Accounting">Accounting</option>
+              </select>
             </label>
             <label>
             New password

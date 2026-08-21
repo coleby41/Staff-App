@@ -109,6 +109,62 @@ function renderUserList(users) {
   }).join('');
 }
 
+// 2026-08-20: Group used to be a free-text input — the only place in the app
+// someone's workgroup could be typed by hand instead of picked from the live
+// Workgroups list, same fix already applied to admin-users.html's
+// Create-a-staff-account form (populateGroupOptionsFromWorkgroups() there).
+// The select ships with a hardcoded fallback list (Owner/Field/IT/Office/
+// Accounting) so this page still works before supabase-workgroups-setup.sql
+// has been run; once that migration exists this swaps in whatever's actually
+// in the Workgroups tab, so a workgroup added there becomes selectable here
+// automatically. Called once on page load — unlike admin-users.html's
+// version, this doesn't need to preserve "the value someone was about to
+// submit" (there's no in-progress selection yet at load time), it only needs
+// to run before the first showDetailsForm() call so the real select has real
+// options before anything tries to select one.
+async function populateGroupOptionsFromWorkgroups() {
+  if (!groupInput || !window.supabaseClient) return;
+
+  const { data, error } = await window.supabaseClient
+    .from('workgroups')
+    .select('name')
+    .order('name', { ascending: true });
+
+  if (error || !data || !data.length) return; // fail open: keep the hardcoded fallback options
+
+  const escapeHtml = (str) => {
+    const d = document.createElement('div');
+    d.textContent = str ?? '';
+    return d.innerHTML;
+  };
+
+  groupInput.innerHTML = data
+    .map((wg) => `<option value="${escapeHtml(wg.name)}">${escapeHtml(wg.name)}</option>`)
+    .join('');
+}
+
+// Guards against a real staff account's saved workgroup not being one of the
+// live Workgroups options (a workgroup that's since been renamed/removed
+// there, or any other legacy value) — a plain `select.value = x` silently
+// does nothing if x isn't one of the <option>s, which here would show
+// whatever option happened to be first instead of this person's real group,
+// and then saving the form (which reads groupInput.value) would silently
+// overwrite their real workgroup with that wrong one. Adding the value as its
+// own option first means it always displays correctly and a save that
+// doesn't touch this field can't corrupt it — the IT admin still sees an
+// explicit "(not in Workgroups list)" marker if it's stale, rather than the
+// page just quietly showing the wrong group.
+function ensureGroupOption(value) {
+  if (!groupInput || !value) return;
+  const alreadyThere = Array.from(groupInput.options).some((opt) => opt.value === value);
+  if (!alreadyThere) {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = `${value} (not in Workgroups list)`;
+    groupInput.appendChild(opt);
+  }
+}
+
 // Rebuilds the Manager <select> from every other staff user (a user can't be
 // their own manager). Called whenever allUsers refreshes and before setting
 // staffManagerInput.value, since a <select> can't select a value that isn't
@@ -138,7 +194,11 @@ function showDetailsForm(user) {
   if (selectedUserIdInput) selectedUserIdInput.value = user.id || '';
   if (fullNameInput) fullNameInput.value = user.full_name || '';
   if (usernameInput) usernameInput.value = user.username || '';
-  if (groupInput) groupInput.value = Array.isArray(user.workgroup) ? user.workgroup[0] || '' : user.workgroup || '';
+  if (groupInput) {
+    const groupValue = Array.isArray(user.workgroup) ? user.workgroup[0] || '' : user.workgroup || '';
+    ensureGroupOption(groupValue);
+    groupInput.value = groupValue;
+  }
   if (passwordInput) passwordInput.value = '';
   if (staffRoleInput) staffRoleInput.value = user.role || 'Employee';
   populateManagerOptions();
@@ -295,4 +355,12 @@ toggleActiveBtn.addEventListener('click', async function () {
   await updateSelectedUser({ active: nextActiveState });
 });
 
-window.addEventListener('DOMContentLoaded', loadStaffUsers);
+window.addEventListener('DOMContentLoaded', async function () {
+  // Populate the live Workgroups list into the Group <select> before the
+  // first showDetailsForm() call (inside loadStaffUsers) tries to select a
+  // value into it — ensureGroupOption() still covers any per-user legacy
+  // value even if this fails or hasn't loaded yet (fail-open, same as
+  // admin-users.js's version).
+  await populateGroupOptionsFromWorkgroups();
+  await loadStaffUsers();
+});
