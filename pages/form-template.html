@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>The Leeward Group | Form Templates</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+</head>
+
+<body>
+
+<header class="header">
+
+    <div class="header-left">
+
+        <div class="brand-mark">
+
+            <div class="brand-mark__icon" id="brandInitials">
+                ST
+            </div>
+
+            <div>
+                <div class="brand-title">
+                    The Leeward Group
+                </div>
+
+                <div class="brand-subtitle">
+                    Staff Portal
+                </div>
+            </div>
+
+        </div>
+
+
+        <button class="menu-btn" id="menuBtn" aria-label="Toggle navigation">
+            ☰
+        </button>
+
+    </div>
+
+
+
+    <div class="header-right">
+
+        <div class="header-user-area">
+
+            <div class="header-user-pill" id="headerUserPill">
+
+
+                <span id="headerUserName">
+                    Staff
+                </span>
+
+
+
+                <div class="notification-wrapper">
+
+
+                    <button
+                        class="notification-bell"
+                        id="notificationBell"
+                        aria-label="Notifications">
+
+                        <span class="notification-bell-icon"></span>
+
+                        <span class="notification-count">
+                            3
+                        </span>
+
+                    </button>
+
+
+
+
+                    <div class="notification-dropdown" id="notificationDropdown">
+
+
+                        <div class="notification-header">
+                        <span>Notifications</span>
+                        <button class="mark-read-btn">Mark as read</button>
+                        </div>
+
+
+                        <div id="notificationList"></div>
+
+                        <div id="notificationEmpty" class="notification-item" style="display:none;">
+                            <p>No notifications yet.</p>
+                        </div>
+
+
+                        <div class="notification-footer">
+
+                            <a
+                                class="report-bug-btn"
+                                href="https://tally.so/r/QKyGj8"
+                                target="_blank"
+                                rel="noopener">
+
+                                Report bug
+
+                            </a>
+
+                            <button
+                                class="auth-button auth-button--secondary header-signout"
+                                id="signOutButton"
+                                type="button">
+
+                                Sign out
+
+                            </button>
+
+                        </div>
+
+
+                    </div>
+
+
+                </div>
+
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+
+</header>
+
+<aside class="sidebar" id="sidebar">
+
+    <div class="sidebar-header">
+        COMPANY WIDE
+    </div>
+
+    <nav class="sidebar-nav">
+
+        <a href="/pages/dashboard.html" class="nav-item">
+            <span class="home-nav-icon"></span>
+            <span class="nav-text">
+                Dashboard
+            </span>
+        </a>
+
+        <div class="nav-item-group" id="companyDocsNavGroup">
+
+            <a href="#"
+               class="nav-item nav-parent"
+               onclick="toggleSubnav(event, this)">
+                <span class="docs-nav-icon"></span>
+                <span class="nav-text">
+                    Company docs
+                </span>
+                <span class="nav-arrow"></span>
+            </a>
+
+            <div class="subnav expanded">
+
+                <a href="/pages/excel-workbook.html" class="subnav-item">
+                    <span class="nav-text">
+                        Excel Workbook Templates
+                    </span>
+                </a>
+
+                <a href="/pages/form-template.html" class="subnav-item active">
+                    <span class="nav-text">
+                        Form Templates
+                    </span>
+                </a>
+            </div>
+        </div>
+
+       <a href="/pages/timesheet.html" class="nav-item">
+            <span class="finance-nav-icon"></span>
+            <span class="nav-text">
+                Staff Finance
+            </span>
+        </a>
+
+        <a href="/pages/project-home.html" class="nav-item">
+            <span class="projects-nav-icon"></span>
+            <span class="nav-text">
+                Project Overview
+            </span>
+        </a>
+
+        <a href="https://www.theleewardgroup.us/"
+           class="nav-item"
+           target="_blank">
+            <span class="website-nav-icon"></span>
+            <span class="nav-text">
+                Company site
+            </span>
+        </a>
+
+        <hr style="border:.5px solid rgba(255,255,255,0.14); margin:10px 0;">
+
+        <div class="sidebar-header">
+            Department Wide
+        </div>
+
+        <a href="/pages/vendors.html" class="nav-item">
+            <span class="companies-nav-icon"></span>
+            <span class="nav-text">
+                Vendor Contacts
+            </span>
+        </a>
+
+        <a href="/pages/payroll-tools.html"
+           class="nav-item"
+           id="payrollToolsNavItem"
+           style="display:none;">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">
+                Payroll Tools
+            </span>
+        </a>
+
+        <a href="/pages/manage-employees.html"
+           class="nav-item"
+           id="manageEmployeesNavItem"
+           style="display:none;">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">
+                Manage Employees
+            </span>
+        </a>
+
+        <div class="nav-item-group"
+             id="adminNavGroup"
+             style="display:none;">
+
+            <a href="#"
+               class="nav-item nav-parent"
+               onclick="toggleSubnav(event, this)">
+                <span class="it-tools-nav-icon"></span>
+                <span class="nav-text">
+                    IT Tools
+                </span>
+                <span class="nav-arrow"></span>
+            </a>
+
+            <div class="subnav">
+
+                <a href="/pages/admin-users.html"
+                   class="subnav-item">
+                    <span class="nav-text">
+                        Create account
+                    </span>
+                </a>
+
+                <a href="/pages/staff-users.html"
+                   class="subnav-item">
+                    <span class="nav-text">
+                        Staff users
+                    </span>
+                </a>
+
+                <a href="/pages/workgroups.html"
+                   class="subnav-item">
+                    <span class="nav-text">
+                        Workgroups
+                    </span>
+                </a>
+
+            </div>
+
+        </div>
+
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="footer-pill" id="sidebarGroupPill"></div>
+        <div class="sidebar-brand">
+            LeeWard Group
+        </div>
+        <div class="version">
+            Version XF-729-BETA
+        </div>
+    </div>
+</aside>
+
+<main class="main-content">
+
+    <section class="hero-section">
+        <div>
+            <p class="eyebrow">Company Docs</p>
+            <h1>Form Templates</h1>
+            <p>Build a form once, then let anyone on staff fill it out right here — no downloads needed.</p>
+        </div>
+    </section>
+
+    <div class="workbook-toolbar">
+
+        <input
+            type="text"
+            id="formSearchInput"
+            class="workbook-search-input"
+            placeholder="Search forms…"
+            autocomplete="off">
+
+        <button class="auth-button auth-button--secondary" id="newFormBtn" type="button" style="display:none;">
+            + New Form
+        </button>
+
+    </div>
+
+    <div id="formPageMessage" class="workbook-page-message" style="display:none;"></div>
+
+    <div class="workbook-loading" id="formLoadingState">
+        <p>Loading forms…</p>
+    </div>
+
+    <div class="workbook-empty" id="formEmptyState" style="display:none;">
+        <p>No forms yet. If you have builder access, click "New Form" to create the first one.</p>
+    </div>
+
+    <div class="workbook-empty" id="formNoResultsState" style="display:none;">
+        <p>No forms match your search.</p>
+    </div>
+
+    <div class="workbook-grid" id="formGrid"></div>
+
+</main>
+
+
+<!-- Form Builder Modal (create / edit) -->
+<div class="popup-overlay hidden" id="formBuilderModalOverlay">
+    <div class="popup workbook-popup form-builder-popup">
+
+        <div class="wizard-topbar">
+            <button type="button" class="wizard-topbar-link" id="cancelFormBtn">&lsaquo; Cancel</button>
+        </div>
+
+        <h2 id="formBuilderModalTitle">New Form</h2>
+        <p class="auth-inline-copy" id="formBuilderModalSubtitle">Build the form by adding questions below.</p>
+
+        <form class="auth-form" id="formBuilderForm">
+
+            <input type="hidden" id="formIdInput" value="">
+
+            <label class="auth-field">
+                Form title
+                <input type="text" id="formTitleInput" name="title" required placeholder="e.g. IT Equipment Request">
+            </label>
+
+            <label class="auth-field">
+                Description (optional)
+                <textarea id="formDescriptionInput" name="description" rows="2" placeholder="A sentence or two about what this form is for."></textarea>
+            </label>
+
+            <!-- Optional: file every submission of this form straight into a
+                 project's All Files folder (project-files.html). Leave both
+                 as "No filing" for org-wide forms like HR requests — nothing
+                 about how those work changes. -->
+            <div class="form-fields-section" id="formFileFolderSection">
+                <span class="company-card-label">File submissions into a project folder?</span>
+                <p class="auth-inline-copy">Optional. When set, filling out this form asks which project and automatically files the resulting PDF into this folder in All Files.</p>
+                <div class="wizard-contact-block" style="display:flex; gap:12px;">
+                    <label class="auth-field" style="flex:1;">
+                        Category
+                        <select id="formFileCategorySelect"><option value="">No filing (org-wide form)</option></select>
+                    </label>
+                    <label class="auth-field" style="flex:1;">
+                        Subfolder
+                        <select id="formFileSubfolderSelect" disabled><option value="">—</option></select>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Legacy field editor — only shown when editing an older form that
+                 was built the manual way (record has no pdf_path). New forms are
+                 always PDF-based; see #formPdfBuilderSection below. -->
+            <div class="form-fields-section" id="formLegacyFieldsSection" style="display:none;">
+                <span class="company-card-label">Questions</span>
+                <div id="formFieldsList"></div>
+
+                <div class="form-add-field-row">
+                    <select id="addFieldTypeSelect"></select>
+                    <button type="button" class="auth-button auth-button--secondary" id="addFieldBtn" style="width:auto; padding:10px 18px;">
+                        + Add question
+                    </button>
+                </div>
+            </div>
+
+            <!-- PDF-based builder: upload the real form, then click-drag on the
+                 rendered pages to drop fields onto it. -->
+            <div class="form-fields-section mobile-unavailable" id="formPdfBuilderSection" style="display:none;">
+
+                <div class="mobile-unavailable__notice">
+                    <span class="mobile-unavailable__notice-icon" aria-hidden="true">⚠️</span>
+                    <div class="mobile-unavailable__notice-body">
+                        <strong>Form builder needs a bigger screen</strong>
+                        <p>Placing fields onto a PDF by click-and-drag isn't practical on a phone or small tablet. Switch to a laptop or desktop to build this form.</p>
+                        <a class="mobile-unavailable__notice-cta" href="/pages/dashboard.html">Back to Dashboard</a>
+                    </div>
+                </div>
+
+                <div class="mobile-unavailable__content">
+                    <span class="company-card-label">Form PDF</span>
+
+                    <div id="formPdfUploadPrompt" class="pdf-upload-prompt">
+                        <label class="auth-button auth-button--secondary pdf-upload-btn" for="formPdfFileInput">
+                            Upload PDF
+                        </label>
+                        <input type="file" id="formPdfFileInput" accept="application/pdf" hidden>
+                        <p class="auth-inline-copy">Upload the actual form. You'll click and drag on it to drop in fillable fields.</p>
+                    </div>
+
+                    <div id="formPdfWorkspace" class="pdf-workspace" style="display:none;">
+                        <div class="pdf-workspace-toolbar">
+                            <span id="formPdfFileMeta" class="pdf-workspace-meta"></span>
+                            <label class="auth-link pdf-upload-btn" for="formPdfFileInput">Replace PDF</label>
+                        </div>
+                        <p class="auth-inline-copy">Click and drag anywhere on the document to place a field.</p>
+                        <div id="formPdfPagesContainer" class="pdf-pages-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Floating popover for adding/editing a single field, positioned
+                 near whatever box was just drawn or clicked. -->
+            <div id="pdfFieldPopover" class="pdf-field-popover hidden">
+                <label class="auth-field">
+                    Field type
+                    <select id="pdfFieldTypeSelect">
+                        <option value="text">Text</option>
+                        <option value="number">Number</option>
+                        <option value="date">Date</option>
+                        <option value="checkbox">Checkbox</option>
+                        <option value="dropdown">Dropdown</option>
+                        <option value="signature">Signature</option>
+                    </select>
+                </label>
+                <label class="auth-field">
+                    Label
+                    <input type="text" id="pdfFieldLabelInput" placeholder="e.g. Full name">
+                </label>
+                <label class="auth-field" id="pdfFieldOptionsWrap" style="display:none;">
+                    Options (one per line)
+                    <textarea id="pdfFieldOptionsInput" rows="3" placeholder="Option A&#10;Option B"></textarea>
+                </label>
+                <label class="form-field-required-row">
+                    <input type="checkbox" id="pdfFieldRequiredInput">
+                    Required
+                </label>
+                <div class="pdf-field-popover-buttons">
+                    <button type="button" class="auth-button auth-button--red" id="pdfFieldDeleteBtn" style="display:none;">Delete</button>
+                    <button type="button" class="auth-button auth-button--secondary" id="pdfFieldSaveBtn">Save field</button>
+                    <button type="button" class="auth-button auth-button--red" id="pdfFieldCancelBtn">Cancel</button>
+                </div>
+            </div>
+
+            <p class="auth-message" id="formBuilderMessage"></p>
+
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--red" id="deleteFormBtn" style="display:none;">Delete Form</button>
+                <button type="submit" class="auth-button auth-button--secondary" id="saveFormBtn">Create form</button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+
+<!-- Delete Form Confirmation Modal -->
+<div class="popup-overlay hidden" id="deleteFormConfirmOverlay">
+    <div class="popup">
+        <h2>Delete this form?</h2>
+        <p class="auth-inline-copy">
+            This will permanently remove the form. Existing responses are kept, but no one will be able to fill it out anymore. This can't be undone.
+        </p>
+
+        <p class="auth-message" id="deleteFormConfirmMessage"></p>
+
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteFormBtn">Cancel</button>
+            <button type="button" class="auth-button auth-button--red" id="confirmDeleteFormBtn">Delete</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- Fill Out Form Modal — also reused (in "edit" mode, via
+     openEditSubmissionModal() in form-builder.js) to correct an
+     already-submitted response from the Responses modal below, rather than
+     being a separate modal of its own. -->
+<div class="popup-overlay hidden" id="fillFormModalOverlay">
+    <div class="popup workbook-preview-popup">
+        <div class="workbook-preview-header">
+            <h2 id="fillFormTitle">Form</h2>
+            <button type="button" class="menu-btn" id="cancelFillFormBtn" aria-label="Close form">✕</button>
+        </div>
+        <p class="auth-inline-copy" id="fillFormDescription"></p>
+
+        <form class="auth-form" id="fillForm">
+            <!-- Legacy forms (no source PDF): plain generic-question inputs. -->
+            <div id="fillFormFieldsContainer"></div>
+
+            <!-- PDF-based forms: the real document rendered page by page, with
+                 real inputs overlaid exactly where the admin placed them. -->
+            <div id="fillFormPdfContainer" class="pdf-pages-container" style="display:none;"></div>
+
+            <p class="auth-message" id="fillFormMessage"></p>
+
+            <div class="popup-buttons">
+                <button type="submit" class="auth-button auth-button--secondary" id="submitFillFormBtn">Submit</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- Name This File Modal — shown right after Submit is clicked on the
+     fill-out form (before the PDF is actually generated/uploaded), so the
+     person can give this submission's file a name of their own instead of
+     a hidden auto-generated one. That name becomes the display name in the
+     Responses list and the actual filename when the PDF is downloaded. -->
+<div class="popup-overlay hidden" id="nameSubmissionFileModalOverlay">
+    <div class="popup">
+        <div class="workbook-preview-header">
+            <h2>Name this file</h2>
+            <button type="button" class="menu-btn" id="closeNameSubmissionFileBtn" aria-label="Close">✕</button>
+        </div>
+        <p class="auth-inline-copy">What should we call this submission?</p>
+
+        <form class="auth-form" id="nameSubmissionFileForm">
+            <label class="auth-field">
+                File name
+                <input type="text" id="submissionFileNameInput" name="fileName" required placeholder="e.g. Smith Jobsite Inspection">
+            </label>
+
+            <!-- Only shown for a project-mapped form (default_category set)
+                 when we didn't already get here via ?project=<id> from a
+                 project's All Files page. -->
+            <label class="auth-field" id="submissionProjectRow" style="display:none;">
+                Project
+                <select id="submissionProjectSelect"></select>
+            </label>
+
+            <p class="auth-message" id="nameSubmissionFileMessage"></p>
+
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--red" id="cancelNameSubmissionFileBtn">Cancel</button>
+                <button type="submit" class="auth-button auth-button--secondary" id="confirmNameSubmissionFileBtn">Submit</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- Responses Modal -->
+<div class="popup-overlay hidden" id="formResponsesModalOverlay">
+    <div class="popup workbook-preview-popup">
+        <div class="workbook-preview-header">
+            <h2 id="formResponsesTitle">Responses</h2>
+            <button type="button" class="menu-btn" id="closeFormResponsesBtn" aria-label="Close responses">✕</button>
+        </div>
+        <div id="formResponsesList"></div>
+    </div>
+</div>
+
+
+<!-- Delete Submission Confirm -->
+<div class="popup-overlay hidden" id="deleteSubmissionConfirmOverlay">
+    <div class="popup">
+        <h2>Delete this response?</h2>
+        <p class="auth-inline-copy" id="deleteSubmissionConfirmCopy">
+            This will permanently delete this submission and its PDF. This can't be undone.
+        </p>
+
+        <p class="auth-message" id="deleteSubmissionConfirmMessage"></p>
+
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteSubmissionBtn">Cancel</button>
+            <button type="button" class="auth-button auth-button--red" id="confirmDeleteSubmissionBtn">Delete</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- Submission PDF Preview Modal -->
+<div class="popup-overlay hidden" id="submissionPreviewModalOverlay">
+    <div class="popup workbook-preview-popup">
+        <div class="workbook-preview-header">
+            <h2 id="submissionPreviewTitle">Form submission</h2>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <button type="button" class="workbook-btn workbook-btn--download" id="downloadSubmissionBtn">Download</button>
+                <button type="button" class="menu-btn" id="closeSubmissionPreviewBtn" aria-label="Close preview">✕</button>
+            </div>
+        </div>
+        <p class="auth-inline-copy" id="submissionPreviewMessage"></p>
+        <div class="workbook-preview-body" id="submissionPreviewContainer"></div>
+    </div>
+</div>
+
+
+<script src="/js/script.js"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-auth.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script src="/js/manager-nav.js"></script>
+<script src="/js/timeout.js"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/nav-access.js"></script>
+<script src="/js/project-fields.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfmake@0.3.10/build/pdfmake.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfmake@0.3.10/build/vfs_fonts.js"></script>
+<!-- pdf.js: renders the uploaded/source PDF to canvas so fields can be
+     placed on it (builder) or filled in on top of it (fill-out). -->
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<!-- pdf-lib: draws submitted answers directly onto the source PDF's pages
+     to produce the final filled-in submission PDF. -->
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="/js/form-builder.js"></script>
+
+
+<script>
+
+
+/* ===========================
+   SIGN OUT
+=========================== */
+
+
+const signOutButton =
+    document.getElementById("signOutButton");
+
+
+if (signOutButton) {
+
+    signOutButton.addEventListener("click", function(event) {
+
+        event.stopPropagation();
+
+
+        if (typeof window.signOutUser === "function") {
+
+            window.signOutUser();
+
+        } else {
+
+            console.error("signOutUser() is not available");
+
+        }
+
+    });
+
+}
+
+
+
+
+
+/* ===========================
+   ELEMENTS
+=========================== */
+
+
+const userNameElement =
+    document.getElementById("headerUserName");
+
+
+const adminNavGroup =
+    document.getElementById("adminNavGroup");
+
+
+const brandInitials =
+    document.getElementById("brandInitials");
+
+
+
+
+/* ===========================
+   UPDATE STAFF NAME
+=========================== */
+
+
+function updateStaffName(profile) {
+
+
+    if (!profile) return;
+
+
+
+    const name =
+        profile.full_name ||
+        profile.username ||
+        "Staff";
+
+
+
+
+    if (userNameElement) {
+
+        userNameElement.textContent = name;
+
+    }
+
+
+
+
+
+    if (brandInitials) {
+
+
+        const words =
+            String(name)
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+
+
+
+        const initials =
+            words.length >= 2
+
+            ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
+
+            : words[0]
+                ?.substring(0,2)
+                .toUpperCase() || "ST";
+
+
+
+        brandInitials.textContent =
+            initials;
+
+
+    }
+
+
+
+
+
+
+    const sidebarGroupPill =
+        document.getElementById("sidebarGroupPill");
+
+
+
+    if (sidebarGroupPill) {
+
+
+        const groups =
+            window.getSupabaseUserGroups
+
+            ? window.getSupabaseUserGroups(profile)
+
+            : [];
+
+
+
+        sidebarGroupPill.textContent =
+            groups.length
+
+            ? groups
+                .map(
+                    g =>
+                    g.charAt(0).toUpperCase() +
+                    g.slice(1)
+                )
+                .join(", ")
+
+            : "No Group";
+
+
+    }
+
+
+}
+
+
+
+
+
+
+
+
+/* ===========================
+   NAV ACCESS
+=========================== */
+
+
+function updateNavAccess(profile) {
+
+
+    const shouldShowAdminNav =
+        window.isSupabaseUserInGroup
+
+        ? (
+            window.isSupabaseUserInGroup(profile, "IT") ||
+            window.isSupabaseUserInGroup(profile, "Super Admin")
+          )
+
+        : false;
+
+
+
+    if (adminNavGroup) {
+
+        adminNavGroup.style.display =
+            shouldShowAdminNav
+            ? "block"
+            : "none";
+
+    }
+
+
+
+    const payrollToolsNavItem =
+        document.getElementById("payrollToolsNavItem");
+
+
+    // Payroll Tools is visible to the Office and Accounting
+    // workgroups only (see permissions matrix).
+    const shouldShowPayrollTools =
+        window.isSupabaseUserInGroup
+
+        ? (
+            window.isSupabaseUserInGroup(profile, "Office") ||
+            window.isSupabaseUserInGroup(profile, "Accounting") ||
+            window.isSupabaseUserInGroup(profile, "Super Admin")
+          )
+
+        : false;
+
+
+
+    if (payrollToolsNavItem) {
+
+        payrollToolsNavItem.style.display =
+            shouldShowPayrollTools
+            ? "flex"
+            : "none";
+
+    }
+
+
+}
+
+
+
+
+
+
+/* ===========================
+   LOAD PROFILE
+=========================== */
+
+
+const storedProfile =
+    localStorage.getItem("staffProfile");
+
+
+
+if (storedProfile) {
+
+
+    try {
+
+
+        const parsedProfile =
+            JSON.parse(storedProfile);
+
+
+
+        updateStaffName(parsedProfile);
+
+        updateNavAccess(parsedProfile);
+
+
+
+    } catch(error) {
+
+
+        console.warn(
+            "Unable to parse stored profile:",
+            error
+        );
+
+
+    }
+
+
+}
+
+
+
+
+
+
+window.addEventListener("DOMContentLoaded", function() {
+
+
+    const profile =
+        window.currentSupabaseProfile || null;
+
+
+
+    if (profile) {
+
+
+        updateStaffName(profile);
+
+        updateNavAccess(profile);
+
+
+    }
+
+
+    // Notifications are handled by the shared notifications.js
+    // (loaded via <script src> above), which self-initializes.
+    // Form loading/search/builder logic is handled by form-builder.js.
+
+
+});
+
+
+</script>
+
+
+</body>
+
+</html>

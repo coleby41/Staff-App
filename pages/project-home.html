@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Leeward Staff Portal | Dashboard</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+</head>
+
+<body>
+
+<header class="header">
+
+    <div class="header-left">
+
+        <div class="brand-mark">
+
+            <div class="brand-mark__icon" id="brandInitials">
+                ST
+            </div>
+
+            <div>
+                <div class="brand-title">
+                    The Leeward Group
+                </div>
+
+                <div class="brand-subtitle">
+                    Staff Portal
+                </div>
+            </div>
+
+        </div>
+
+
+        <button class="menu-btn" id="menuBtn" aria-label="Toggle navigation">
+            ☰
+        </button>
+
+    </div>
+
+
+
+    <div class="header-right">
+
+        <div class="header-user-area">
+
+            <div class="header-user-pill" id="headerUserPill">
+
+
+                <span id="headerUserName">
+                    Staff
+                </span>
+
+
+
+                <div class="notification-wrapper">
+
+
+                    <button
+                        class="notification-bell"
+                        id="notificationBell"
+                        aria-label="Notifications">
+
+                        <span class="notification-bell-icon"></span>
+
+                        <span class="notification-count">
+                            3
+                        </span>
+
+                    </button>
+
+
+
+
+                    <div class="notification-dropdown" id="notificationDropdown">
+
+
+                        <div class="notification-header">
+                        <span>Notifications</span>
+                        <button class="mark-read-btn">Mark as read</button>
+                        </div>
+
+
+                        <div id="notificationList"></div>
+
+                        <div id="notificationEmpty" class="notification-item" style="display:none;">
+                            <p>No notifications yet.</p>
+                        </div>
+
+
+                        <div class="notification-footer">
+
+                            <a
+                                class="report-bug-btn"
+                                href="https://tally.so/r/QKyGj8"
+                                target="_blank"
+                                rel="noopener">
+
+                                Report bug
+
+                            </a>
+
+                            <button
+                                class="auth-button auth-button--secondary header-signout"
+                                id="signOutButton"
+                                type="button">
+
+                                Sign out
+
+                            </button>
+
+                        </div>
+<p style="margin: 10px 0; padding: 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; text-align: center; font-size: 14px; color: #495057;">
+                            Change Password
+                        </p>
+                    </div>
+
+
+                </div>
+
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+
+</header>
+
+
+
+
+
+<aside class="sidebar" id="sidebar">
+
+
+    <div class="sidebar-header">
+        COMPANY WIDE
+    </div>
+
+
+
+    <nav class="sidebar-nav">
+
+
+
+        <a href="/pages/dashboard.html" class="nav-item">
+
+            <span class="home-nav-icon"></span>
+
+            <span class="nav-text">
+                Dashboard
+            </span>
+
+        </a>
+
+        <div class="nav-item-group" id="companyDocsNavGroup">
+
+
+            <a href="#"
+               class="nav-item nav-parent"
+               onclick="toggleSubnav(event, this)">
+
+
+                <span class="docs-nav-icon"></span>
+
+
+                <span class="nav-text">
+                    Company docs
+                </span>
+
+
+                <span class="nav-arrow"></span>
+
+
+            </a>
+
+
+
+
+            <div class="subnav">
+
+
+
+
+
+
+                <a href="/pages/excel-workbook.html" class="subnav-item">
+
+                    <span class="nav-text">
+                        Excel Workbook Templates
+                    </span>
+
+                </a>
+
+
+
+                <a href="/pages/form-template.html" class="subnav-item">
+
+                    <span class="nav-text">
+                        Form Templates
+                    </span>
+
+                </a>
+
+
+
+            </div>
+
+
+
+        </div>
+
+
+
+
+
+       <a href="/pages/timesheet.html" class="nav-item">
+
+            <span class="finance-nav-icon"></span>
+
+            <span class="nav-text">
+                Staff Finance
+            </span>
+
+        </a>
+
+        <a href="/pages/project-home.html" class="nav-item active">
+
+            <span class="projects-nav-icon"></span>
+
+            <span class="nav-text">
+                Project Overview
+            </span>
+
+        </a>
+
+
+
+        <a href="https://www.theleewardgroup.us/"
+           class="nav-item"
+           target="_blank">
+
+
+            <span class="website-nav-icon"></span>
+
+
+            <span class="nav-text">
+                Company site
+            </span>
+
+
+        </a>
+
+
+
+
+
+        <hr style="border:.5px solid rgba(255,255,255,0.14); margin:10px 0;">
+
+
+
+
+        <div class="sidebar-header">
+            Department Wide
+        </div>
+
+
+        <a href="/pages/vendors.html" class="nav-item">
+
+            <span class="companies-nav-icon"></span>
+
+            <span class="nav-text">
+                Vendor Contacts
+            </span>
+
+        </a>
+
+
+        <a href="/pages/payroll-tools.html"
+           class="nav-item"
+           id="payrollToolsNavItem"
+           style="display:none;">
+
+
+            <span class="docs-nav-icon"></span>
+
+
+            <span class="nav-text">
+                Payroll Tools
+            </span>
+
+
+        </a>
+
+
+
+
+
+        <a href="/pages/manage-employees.html"
+           class="nav-item"
+           id="manageEmployeesNavItem"
+           style="display:none;">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">
+                Manage Employees
+            </span>
+        </a>
+
+        <div class="nav-item-group"
+             id="adminNavGroup"
+             style="display:none;">
+
+
+
+            <a href="/pages/admin-users.html"
+               class="nav-item nav-parent"
+               onclick="toggleSubnav(event, this)">
+
+
+
+                <span class="it-tools-nav-icon"></span>
+
+
+                <span class="nav-text">
+                    IT Tools
+                </span>
+
+
+                <span class="nav-arrow"></span>
+
+
+
+            </a>
+
+
+
+
+
+            <div class="subnav">
+
+
+                <a href="/pages/admin-users.html"
+                   class="subnav-item">
+
+
+                    <span class="nav-text">
+                        Create account
+                    </span>
+
+
+                </a>
+
+
+
+
+                <a href="/pages/staff-users.html"
+                   class="subnav-item">
+
+
+                    <span class="nav-text">
+                        Staff users
+                    </span>
+
+
+                </a>
+
+
+                <a href="/pages/workgroups.html"
+                   class="subnav-item">
+
+
+                    <span class="nav-text">
+                        Workgroups
+                    </span>
+
+
+                </a>
+
+
+
+            </div>
+
+
+
+        </div>
+
+
+
+
+    </nav>
+
+
+
+
+
+    <div class="sidebar-footer">
+
+
+        <div class="footer-pill" id="sidebarGroupPill"></div>
+
+
+        <div class="sidebar-brand">
+            LeeWard Group
+        </div>
+
+
+        <div class="version">
+            Version XF-729-BETA
+        </div>
+
+
+    </div>
+
+
+</aside>
+
+<main class="main-content">
+
+<section class="hero-section">
+        <div>
+            <p class="eyebrow">Company Wide</p>
+            <h1>Project Overview</h1>
+            <p>See the latest project updates and information.</p>
+        </div>
+    </section>
+
+    <div class="project-stats-bar" id="projectStatsBar">
+
+        <div class="project-stat-tile project-stat-tile--accent">
+            <span class="project-stat-icon project-stat-icon--accent project-stat-icon--briefcase"></span>
+            <div>
+                <p class="project-stat-value" id="projectStatTotal">0</p>
+                <p class="project-stat-label">Total Projects</p>
+            </div>
+        </div>
+
+        <div class="project-stat-tile project-stat-tile--success">
+            <span class="project-stat-icon project-stat-icon--success project-stat-icon--check"></span>
+            <div>
+                <p class="project-stat-value" id="projectStatActive">0</p>
+                <p class="project-stat-label">Active</p>
+            </div>
+        </div>
+
+        <div class="project-stat-tile project-stat-tile--info">
+            <span class="project-stat-icon project-stat-icon--info project-stat-icon--people"></span>
+            <div>
+                <p class="project-stat-value" id="projectStatOnboarding">0</p>
+                <p class="project-stat-label">Onboarding</p>
+            </div>
+        </div>
+
+
+        <div class="project-stat-tile project-stat-tile--completed">
+            <span class="project-stat-icon project-stat-icon--completed project-stat-icon--flag"></span>
+            <div>
+                <p class="project-stat-value" id="projectStatCompleted">0</p>
+                <p class="project-stat-label">Completed</p>
+            </div>
+        </div>
+
+        <div class="project-stat-tile project-stat-tile--success">
+            <span class="project-stat-icon project-stat-icon--success project-stat-icon--dollar"></span>
+            <div>
+                <p class="project-stat-value" id="projectStatValue">$0</p>
+                <p class="project-stat-label">Total Project Value</p>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="workbook-toolbar">
+
+        <input
+            type="text"
+            id="projectSearchInput"
+            class="workbook-search-input"
+            placeholder="Search Projects…"
+            autocomplete="off">
+
+        <button class="auth-button auth-button--secondary" id="addProjectBtn" type="button">
+            + New Project Onboard
+        </button>
+
+        <div class="view-toggle" id="projectViewToggle" role="group" aria-label="Toggle view">
+            <span class="view-toggle-indicator" id="projectViewToggleIndicator"></span>
+            <button type="button" class="view-toggle-btn active" id="projectCardViewBtn" data-view="card" aria-label="Card view" aria-pressed="true">
+                <span class="view-toggle-icon view-toggle-icon--grid"></span>
+            </button>
+            <button type="button" class="view-toggle-btn" id="projectListViewBtn" data-view="list" aria-label="List view" aria-pressed="false">
+                <span class="view-toggle-icon view-toggle-icon--list"></span>
+            </button>
+        </div>
+
+    </div>
+
+    <div class="dash-tabs project-tabs" id="projectTabs">
+        <button type="button" class="dash-tab active" data-status="all">All Projects <span class="project-tab-count" id="projectTabCountAll">0</span></button>
+        <button type="button" class="dash-tab" data-status="active">Active <span class="project-tab-count" id="projectTabCountActive">0</span></button>
+        <button type="button" class="dash-tab" data-status="onboarding">Onboarding <span class="project-tab-count" id="projectTabCountOnboarding">0</span></button>
+        <button type="button" class="dash-tab" data-status="on_hold">On Hold <span class="project-tab-count" id="projectTabCountOnHold">0</span></button>
+        <button type="button" class="dash-tab" data-status="completed">Completed <span class="project-tab-count" id="projectTabCountCompleted">0</span></button>
+        <button type="button" class="dash-tab" data-status="archived">Archived <span class="project-tab-count" id="projectTabCountArchived">0</span></button>
+    </div>
+
+    <div id="projectMessage" class="workbook-page-message" style="display:none;"></div>
+
+    <div class="workbook-loading" id="projectLoadingState">
+        <p>Loading projects…</p>
+    </div>
+
+    <div class="workbook-empty" id="projectEmptyState" style="display:none;">
+        <p>No projects yet. Click "+ New Project Onboard" to start the first one.</p>
+    </div>
+
+    <div class="workbook-empty" id="projectNoResultsState" style="display:none;">
+        <p>No projects match your search.</p>
+    </div>
+
+    <div class="workbook-grid" id="projectsGrid"></div>
+
+    <div class="project-pagination" id="projectPagination" style="display:none;">
+        <p class="project-pagination-summary" id="projectPaginationSummary"></p>
+        <div class="project-pagination-controls">
+            <button type="button" class="project-page-btn" id="projectPrevPageBtn" aria-label="Previous page">&lsaquo;</button>
+            <div class="project-page-numbers" id="projectPageNumbers"></div>
+            <button type="button" class="project-page-btn" id="projectNextPageBtn" aria-label="Next page">&rsaquo;</button>
+        </div>
+        <select class="project-page-size-select" id="projectPageSizeSelect">
+            <option value="6">6 per page</option>
+            <option value="12">12 per page</option>
+            <option value="24">24 per page</option>
+        </select>
+    </div>
+
+</main>
+
+<!-- Quick status/tracking edit — separate from the 10-step onboarding
+     wizard on purpose: status, PM, value, progress, and due date are things
+     a PM updates often and shouldn't have to click through the whole
+     wizard for. Opened from the status badge on a card/row. -->
+<div class="popup-overlay hidden" id="projectQuickEditOverlay">
+    <div class="popup">
+        <h2>Update project tracking</h2>
+        <p class="auth-inline-copy" id="projectQuickEditName"></p>
+
+        <form class="auth-form" id="projectQuickEditForm" autocomplete="off">
+
+            <label class="auth-field">
+                Status
+                <select name="status" id="projectQuickEditStatus">
+                    <option value="active">Active</option>
+                    <option value="onboarding">Onboarding</option>
+                    <option value="on_hold">On Hold</option>
+                    <option value="completed">Completed</option>
+                    <option value="archived">Archived</option>
+                </select>
+            </label>
+
+            <label class="auth-field">
+                Project manager
+                <input type="text" name="project_manager_name" id="projectQuickEditPm" placeholder="e.g. John Smith" autocomplete="off">
+            </label>
+
+            <label class="auth-field">
+                Contract value ($)
+                <input type="number" name="contract_value" id="projectQuickEditValue" min="0" step="1000" placeholder="e.g. 4200000">
+            </label>
+
+            <label class="auth-field">
+                Progress (%)
+                <input type="number" name="progress_percent" id="projectQuickEditProgress" min="0" max="100" step="1" placeholder="0–100">
+            </label>
+
+            <label class="auth-field">
+                Due date
+                <input type="date" name="due_date" id="projectQuickEditDueDate">
+            </label>
+
+            <p class="auth-message" id="projectQuickEditMessage"></p>
+
+        </form>
+
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="projectQuickEditCancelBtn">Cancel</button>
+            <button type="button" class="auth-button" id="projectQuickEditSaveBtn">Save</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- New / Edit Project Wizard — 10 skippable sections, back/next, and a
+     Save & Finish Later option so nothing typed is lost if it's closed
+     early. projects-page.js drives all the step content and state. -->
+<div class="popup-overlay hidden" id="projectWizardModalOverlay">
+    <div class="popup workbook-popup project-wizard-popup">
+
+        <div class="wizard-topbar">
+            <button type="button" class="wizard-topbar-link" id="projectWizardCancelBtn">&lsaquo; Cancel</button>
+            <button type="button" class="wizard-topbar-link" id="projectWizardBackBtn" style="display:none;">&lsaquo; Go back</button>
+            <button type="button" class="wizard-topbar-link" id="projectWizardSkipBtn">Skip &rsaquo;</button>
+        </div>
+
+        <div class="wizard-progress" id="projectWizardProgress"></div>
+
+        <h2 id="projectWizardTitle">New Project Onboarding</h2>
+        <p class="auth-inline-copy" id="projectWizardStepLabel">Step 1 of 10</p>
+
+        <form class="auth-form" id="projectWizardForm" autocomplete="off">
+
+            <input type="hidden" id="projectIdInput">
+
+            <div id="projectWizardStepBody"></div>
+
+            <p class="auth-message" id="projectWizardMessage"></p>
+
+        </form>
+
+        <div class="wizard-actions-primary">
+            <button type="button" class="auth-button auth-button--secondary" id="projectWizardSaveLaterBtn">Save &amp; Finish Later</button>
+            <button type="button" class="auth-button" id="projectWizardNextBtn">Next</button>
+        </div>
+
+        <button type="button" class="wizard-delete-link" id="deleteProjectBtn" style="display:none;">
+            Delete Project
+        </button>
+
+    </div>
+</div>
+
+
+<!-- Delete Project Confirmation -->
+<div class="popup-overlay hidden" id="deleteProjectConfirmOverlay">
+    <div class="popup popup--danger">
+        <div class="delete-confirm-header">
+            <span class="delete-confirm-icon" aria-hidden="true"></span>
+            <h2>Delete this project?</h2>
+        </div>
+
+        <div class="delete-confirm-warning-box">
+            <p>This will <strong>permanently</strong> remove the project record and any uploaded plan files for this project. This action cannot be undone.</p>
+        </div>
+
+        <label class="auth-field delete-confirm-name-field">
+            <span>Type <strong id="deleteProjectConfirmName"></strong> below to confirm</span>
+            <input type="text" id="deleteProjectConfirmNameInput" autocomplete="off" autocapitalize="off" spellcheck="false">
+        </label>
+
+        <label class="delete-confirm-checkbox-row">
+            <input type="checkbox" id="deleteProjectConfirmUnderstandCheckbox">
+            <span>I understand this action is permanent and cannot be undone.</span>
+        </label>
+
+        <p class="auth-message" id="deleteProjectConfirmMessage"></p>
+
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteProjectBtn">Cancel</button>
+            <button type="button" class="auth-button auth-button--red" id="confirmDeleteProjectBtn" disabled>Delete Project</button>
+        </div>
+    </div>
+</div>
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="/js/supabase-auth.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script src="/js/manager-nav.js"></script>
+<script src="/js/script.js"></script>
+<script src="/js/timeout.js"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/nav-access.js"></script>
+
+<!-- New dashboard card scripts — none of the files above were modified.
+     dashboard-shared.js must load first; the rest can be in any order. -->
+<script src="/js/dashboard/dashboard.js"></script>
+<script src="/js/dashboard/task.js"></script>
+<script src="/js/dashboard/quicklinks.js"></script>
+<script src="/js/dashboard/weather.js"></script>
+<script src="/js/dashboard/update.js"></script>
+<script src="/js/dashboard/projects.js"></script>
+<script src="/js/dashboard/calendar-card.js"></script>
+<script src="/js/dashboard/contact-card.js"></script>
+
+<!-- Project Overview grid + New Project Onboard wizard -->
+<script src="/js/project-fields.js"></script>
+<script src="/js/projects-page.js"></script>
+
+
+
+<script>
+
+
+/* ===========================
+   SIGN OUT -- MOVED TO ITS OWN FILE
+=========================== */
+
+
+const signOutButton =
+    document.getElementById("signOutButton");
+
+
+if (signOutButton) {
+
+    signOutButton.addEventListener("click", function(event) {
+
+        event.stopPropagation();
+
+
+        if (typeof window.signOutUser === "function") {
+
+            window.signOutUser();
+
+        } else {
+
+            console.error("signOutUser() is not available");
+
+        }
+
+    });
+
+}
+
+
+
+
+
+/* ===========================
+   ELEMENTS -
+=========================== */
+
+
+const userNameElement =
+    document.getElementById("headerUserName");
+
+
+const welcomeHeading =
+    document.getElementById("welcomeHeading");
+
+
+const adminNavGroup =
+    document.getElementById("adminNavGroup");
+
+
+const brandInitials =
+    document.getElementById("brandInitials");
+
+
+
+
+
+
+
+/* ===========================
+   UPDATE STAFF NAME
+=========================== */
+
+
+function updateStaffName(profile) {
+
+
+    if (!profile) return;
+
+
+
+    const name =
+        profile.full_name ||
+        profile.username ||
+        "Staff";
+
+
+
+
+    // Update only the text
+    // so the bell does not disappear
+
+    if (userNameElement) {
+
+        userNameElement.textContent = name;
+
+    }
+
+
+
+
+
+    if (welcomeHeading) {
+
+        welcomeHeading.textContent =
+            `Welcome, ${name}`;
+
+    }
+
+
+
+
+
+
+    if (brandInitials) {
+
+
+        const words =
+            String(name)
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+
+
+
+        const initials =
+            words.length >= 2
+
+            ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
+
+            : words[0]
+                ?.substring(0,2)
+                .toUpperCase() || "ST";
+
+
+
+        brandInitials.textContent =
+            initials;
+
+
+    }
+
+
+
+
+
+
+    const sidebarGroupPill =
+        document.getElementById("sidebarGroupPill");
+
+
+
+    if (sidebarGroupPill) {
+
+
+        const groups =
+            window.getSupabaseUserGroups
+
+            ? window.getSupabaseUserGroups(profile)
+
+            : [];
+
+
+
+        sidebarGroupPill.textContent =
+            groups.length
+
+            ? groups
+                .map(
+                    g =>
+                    g.charAt(0).toUpperCase() +
+                    g.slice(1)
+                )
+                .join(", ")
+
+            : "No Group";
+
+
+    }
+
+
+}
+
+
+
+
+
+
+
+
+
+/* ===========================
+   NAV ACCESS
+=========================== */
+
+
+function updateNavAccess(profile) {
+
+
+    const shouldShowAdminNav =
+        window.isSupabaseUserInGroup
+
+        ? (
+            window.isSupabaseUserInGroup(profile, "IT") ||
+            window.isSupabaseUserInGroup(profile, "Super Admin")
+          )
+
+        : false;
+
+
+
+    if (adminNavGroup) {
+
+        adminNavGroup.style.display =
+            shouldShowAdminNav
+            ? "block"
+            : "none";
+
+    }
+
+
+
+    const payrollToolsNavItem =
+        document.getElementById("payrollToolsNavItem");
+
+
+    // Payroll Tools is visible to the Office and Accounting
+    // workgroups only (see permissions matrix).
+    const shouldShowPayrollTools =
+        window.isSupabaseUserInGroup
+
+        ? (
+            window.isSupabaseUserInGroup(profile, "Office") ||
+            window.isSupabaseUserInGroup(profile, "Accounting") ||
+            window.isSupabaseUserInGroup(profile, "Super Admin")
+          )
+
+        : false;
+
+
+
+    if (payrollToolsNavItem) {
+
+        payrollToolsNavItem.style.display =
+            shouldShowPayrollTools
+            ? "flex"
+            : "none";
+
+    }
+
+
+}
+
+
+
+
+
+
+
+/* ===========================
+   LOAD PROFILE
+=========================== */
+
+
+const storedProfile =
+    localStorage.getItem("staffProfile");
+
+
+
+if (storedProfile) {
+
+
+    try {
+
+
+        const parsedProfile =
+            JSON.parse(storedProfile);
+
+
+
+        updateStaffName(parsedProfile);
+
+        updateNavAccess(parsedProfile);
+
+
+
+    } catch(error) {
+
+
+        console.warn(
+            "Unable to parse stored profile:",
+            error
+        );
+
+
+    }
+
+
+}
+
+
+
+
+
+
+window.addEventListener("DOMContentLoaded", function() {
+
+
+    const profile =
+        window.currentSupabaseProfile || null;
+
+
+
+    if (profile) {
+
+
+        updateStaffName(profile);
+
+        updateNavAccess(profile);
+
+
+    }
+
+
+    // Notifications are now handled by the shared notifications.js
+    // (loaded via <script src> below), which self-initializes.
+
+
+});
+
+
+
+</script>
+
+
+</body>
+
+</html>

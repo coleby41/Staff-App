@@ -6,7 +6,7 @@ everyone gets signed out and has to log back in, and every table stops being
 readable/writable by the anon key.
 
 ## 1. Run the additive schema migration
-Supabase → SQL Editor → run `SQL FILES/supabase-auth-rearchitecture-schema.sql`
+Supabase → SQL Editor → run `sql/supabase-auth-rearchitecture-schema.sql`
 in full. Confirm no errors. The app keeps working exactly as before — nothing
 is removed yet.
 
@@ -25,7 +25,7 @@ person individually (Slack DM, in person — not a shared doc), and let them
 know they'll be forced to set their own password the first time they log in.
 
 ## 3. Backfill project access
-Supabase → SQL Editor → run `SQL FILES/supabase-project-members-backfill.sql`.
+Supabase → SQL Editor → run `sql/supabase-project-members-backfill.sql`.
 This gives everyone access to every *existing* project (role derived from
 their workgroup) so nobody loses access once RLS locks down. Confirm it ran
 by spot-checking `select count(*) from project_members;` — should be
@@ -74,16 +74,16 @@ redeploy both if you deployed earlier copies.
 Replace these files in the repo with the versions in this delivery, then
 deploy/push as you normally would:
 
-- `supabase-auth.js`
-- `auth-guard.js`
-- `login.html`
-- `login.js`
-- `project-fields.js`
-- `project-shell.js`
-- `projects-page.js`
-- `staff-users.js`
-- `admin-users.html`
-- `admin-users.js`
+- `js/supabase-auth.js`
+- `js/auth-guard.js`
+- `pages/login.html`
+- `js/login.js`
+- `js/project-fields.js`
+- `js/project-shell.js`
+- `js/projects-page.js`
+- `js/staff-users.js`
+- `pages/admin-users.html`
+- `js/admin-users.js`
 
 **2026-08-19 change**: `admin-users.html` / `admin-users.js` are no longer
 unchanged — the Password field was removed from "Create a staff account."
@@ -104,7 +104,7 @@ and behaves exactly as before (including being forced through the "set a new
 password" step from step 2).
 
 ## 6. Flip RLS — the step that actually closes the hole
-Supabase → SQL Editor → run `SQL FILES/supabase-rls-lockdown.sql` in full.
+Supabase → SQL Editor → run `sql/supabase-rls-lockdown.sql` in full.
 Everyone (including you) gets signed out. Log back in with your new password.
 
 ## 7. Verify
@@ -158,7 +158,7 @@ Only run this **after** steps 1–7 are fully done and verified — it calls
 directly, which don't exist until the security re-architecture above is
 live.
 
-Supabase → SQL Editor → run `SQL FILES/supabase-project-dashboard-schema.sql`
+Supabase → SQL Editor → run `sql/supabase-project-dashboard-schema.sql`
 in full. This is additive/safe to run while the app is live:
 - Adds `rfis`, `change_orders` (+ `change_orders_overview` masking view),
   `submittals`, `project_events`, and an append-only `project_activity`
@@ -226,7 +226,7 @@ confirmed you don't need anything from it). Per your call, the underlying
 `rfis`/`change_orders`/`submittals` tables and data were **left in place**,
 just no longer reachable from the UI — nothing to migrate or lose.
 
-Supabase → SQL Editor → run `SQL FILES/supabase-project-files-schema.sql` in
+Supabase → SQL Editor → run `sql/supabase-project-files-schema.sql` in
 full. Additive/safe to run while the app is live:
 - Adds `form_templates.default_category`/`default_subfolder` (nullable) —
   set once per template (by whoever can already manage that form) to file
@@ -296,7 +296,7 @@ and Accounting. Only run this after step 9 is live — it calls
 `is_project_member()`, `project_role()`, and `current_staff_id()` directly.
 Additive/safe to run while the app is live.
 
-Supabase → SQL Editor → run `SQL FILES/supabase-project-accounts-contacts-schema.sql`
+Supabase → SQL Editor → run `sql/supabase-project-accounts-contacts-schema.sql`
 in full:
 - **`project_contacts`** — people (Property Owner, General Contractor,
   Project Point of Contact, Utilities, Trash/Porta Potties, County/City

@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Project Timeline | The Leeward Group</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+
+    <!-- Gantt chart rendering — the only charting library in this app,
+         loaded only on this page. Pinned to an exact version so the
+         integration in project-timeline.js (written against this specific
+         version's task/option shape) doesn't silently break on an update. -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@1.2.2/dist/frappe-gantt.css">
+</head>
+
+<body class="timeline-page">
+
+<!-- Header/sidebar shell shared by every project-dashboard page
+     (project-shell.js). Keep this block in sync across projects.html,
+     project-files.html, project-timeline.html, project-to-do.html,
+     project-accounting.html, project-site-plans.html, project-contract.html
+     if you change it here. -->
+
+<header class="header">
+
+    <div class="header-left">
+
+        <div class="project-switcher" id="projectSwitcher">
+            <button type="button" class="project-switcher-toggle" id="projectSwitcherToggle">
+                <div>
+                    <div class="brand-title" id="headerProjectName">Loading…</div>
+                    <div class="project-breadcrumb" id="headerProjectBreadcrumb">
+                        <a href="/pages/project-home.html">Home</a> → …
+                    </div>
+                </div>
+                <span class="project-switcher-caret">⌄</span>
+            </button>
+            <div class="project-switcher-dropdown hidden" id="projectSwitcherDropdown"></div>
+        </div>
+
+    </div>
+
+    <div class="header-center">
+        <h1 class="header-page-name" id="headerPageName">Timeline</h1>
+    </div>
+
+    <div class="header-right">
+        <div class="header-user-area">
+            <div class="header-user-pill" id="headerUserPill">
+                <span id="headerUserName">Staff</span>
+                <div class="notification-wrapper">
+                    <button class="notification-bell" id="notificationBell" aria-label="Notifications">
+                        <span class="notification-bell-icon"></span>
+                        <span class="notification-count">0</span>
+                    </button>
+                    <div class="notification-dropdown" id="notificationDropdown">
+                        <div class="notification-header">
+                            <span>Notifications</span>
+                            <button class="mark-read-btn">Mark as read</button>
+                        </div>
+                        <div id="notificationList"></div>
+                        <div id="notificationEmpty" class="notification-item" style="display:none;">
+                            <p>No notifications yet.</p>
+                        </div>
+                        <div class="notification-footer">
+                            <a class="report-bug-btn" href="https://tally.so/r/QKyGj8" target="_blank" rel="noopener">Report bug</a>
+                            <button class="auth-button auth-button--secondary header-signout" id="signOutButton" type="button">Sign out</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</header>
+
+<aside class="sidebar" id="sidebar">
+
+    <div class="sidebar-search-wrap">
+        <input type="text" id="sidebarSearchInput" class="sidebar-search-input" placeholder="Search this project…" autocomplete="off">
+        <kbd class="sidebar-search-shortcut-hint" id="sidebarSearchShortcutHint">⌘F</kbd>
+        <div class="sidebar-search-results hidden" id="sidebarSearchResults"></div>
+    </div>
+
+    <nav class="sidebar-nav">
+
+        <a href="#" class="nav-item" data-nav-page="/pages/projects.html">
+            <span class="projects-nav-icon"></span>
+            <span class="nav-text">Overview</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-files.html">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">Project Files</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-timeline.html">
+            <span class="timeline-nav-icon"></span>
+            <span class="nav-text">Project Timeline</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-todo.html">
+            <span class="todo-nav-icon"></span>
+            <span class="nav-text">To-do</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-accounts.html">
+            <span class="accounts-nav-icon"></span>
+            <span class="nav-text">Accounts / Contacts</span>
+        </a>
+
+        <hr style="border:.5px solid rgba(255,255,255,0.14); margin:10px 0;">
+
+        <a href="#" class="nav-item" data-nav-page="project-accounting.html">
+            <span class="finance-nav-icon"></span>
+            <span class="nav-text">Accounting</span>
+        </a>
+
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="footer-pill" id="sidebarGroupPill"></div>
+        <div class="sidebar-brand">Leeward Group</div>
+        <div class="version">Version XF-729-BETA</div>
+    </div>
+</aside>
+
+<main class="main-content">
+
+    <div id="timelinePageMessage" class="workbook-page-message" style="display:none;"></div>
+
+    <div class="workbook-loading" id="timelineLoadingState">
+        <p>Loading schedule…</p>
+    </div>
+
+    <!-- ====================================================================
+         SCHEDULE SYSTEM — ground-up rebuild (see project-timeline.js header
+         comment for the full architecture writeup). Layout: a toolbar (phase
+         category tabs + schedule health, then search/filters/add/today/
+         zoom), a completion-projection banner, then the two-pane workspace
+         (task list, grouped by phase, beside the Gantt chart itself). No
+         cards, no extra dashboard widgets — the Gantt is the workspace.
+         ==================================================================== -->
+
+    <div class="sched-toolbar" id="schedToolbar" style="display:none;">
+
+        <div class="sched-toolbar-row sched-toolbar-row--phases">
+            <div class="sched-phase-tabs" id="schedPhaseTabs" role="tablist" aria-label="Schedule phase view">
+                <button type="button" class="sched-phase-tab is-active" data-phase-type="all" role="tab" aria-selected="true">Show All</button>
+                <button type="button" class="sched-phase-tab" data-phase-type="pre_construction" role="tab" aria-selected="false">Pre-Construction</button>
+                <button type="button" class="sched-phase-tab" data-phase-type="buy_out" role="tab" aria-selected="false">Buy Out</button>
+                <button type="button" class="sched-phase-tab" data-phase-type="construction" role="tab" aria-selected="false">Construction</button>
+                <button type="button" class="sched-phase-tab" data-phase-type="close_out" role="tab" aria-selected="false">Close-Out</button>
+            </div>
+
+            <button type="button" class="sched-health" id="schedHealthBadge" title="Click for details">
+                <span class="sched-health-dot" id="schedHealthDot"></span>
+                <span id="schedHealthText">Loading…</span>
+            </button>
+        </div>
+
+        <div class="sched-toolbar-row sched-toolbar-row--controls">
+            <div class="sched-search-wrap">
+                <input type="search" id="schedSearchInput" class="sched-search-input" placeholder="Search tasks, milestones, phases…" autocomplete="off">
+            </div>
+
+            <button type="button" class="sched-toolbar-btn" id="schedFiltersBtn" aria-expanded="false" aria-controls="schedFiltersPanel">
+                <span aria-hidden="true">▽</span> Filters <span class="sched-filter-count hidden" id="schedFilterCount">0</span>
+            </button>
+
+            <button type="button" class="sched-toolbar-btn" id="schedTodayBtn">Today</button>
+
+            <div class="sched-zoom-toggle" id="schedZoomToggle" role="group" aria-label="Zoom level">
+                <button type="button" class="sched-zoom-btn" data-view-mode="Day">Day</button>
+                <button type="button" class="sched-zoom-btn is-active" data-view-mode="Week">Week</button>
+                <button type="button" class="sched-zoom-btn" data-view-mode="Month">Month</button>
+                <button type="button" class="sched-zoom-btn" data-view-mode="Quarter">Quarter</button>
+                <button type="button" class="sched-zoom-btn" data-view-mode="Year">Year</button>
+            </div>
+
+            <div class="sched-add-actions">
+                <button type="button" class="workbook-btn sched-add-btn sched-add-btn--task" id="schedAddTaskBtn">+ Task</button>
+                <button type="button" class="workbook-btn sched-add-btn sched-add-btn--milestone" id="schedAddMilestoneBtn">+ Milestone</button>
+                <button type="button" class="workbook-btn sched-add-btn sched-add-btn--phase" id="schedAddPhaseBtn">+ Phase</button>
+            </div>
+        </div>
+
+        <div class="sched-filters-panel hidden" id="schedFiltersPanel">
+            <div class="sched-filter-group">
+                <span class="sched-filter-group-label">Status</span>
+                <div class="sched-filter-chips" id="schedFilterStatus" data-filter="status"></div>
+            </div>
+            <div class="sched-filter-group">
+                <span class="sched-filter-group-label">Priority</span>
+                <div class="sched-filter-chips" id="schedFilterPriority" data-filter="priority"></div>
+            </div>
+            <div class="sched-filter-group">
+                <label class="sched-filter-checkbox"><input type="checkbox" id="schedFilterCritical"> Critical tasks only</label>
+            </div>
+            <div class="sched-filter-group">
+                <span class="sched-filter-group-label">Assigned to</span>
+                <select id="schedFilterAssignee" multiple size="4"></select>
+            </div>
+            <div class="sched-filter-group">
+                <span class="sched-filter-group-label">Contractor</span>
+                <select id="schedFilterContractor" multiple size="4"></select>
+            </div>
+            <div class="sched-filter-group">
+                <span class="sched-filter-group-label">Date range</span>
+                <div class="sched-filter-daterange">
+                    <input type="date" id="schedFilterDateFrom">
+                    <span>to</span>
+                    <input type="date" id="schedFilterDateTo">
+                </div>
+            </div>
+            <div class="sched-filter-actions">
+                <button type="button" class="auth-button auth-button--secondary" id="schedFiltersClearBtn">Clear filters</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="sched-completion-banner" id="schedCompletionBanner" style="display:none;">
+        <div class="sched-completion-item">
+            <span class="sched-completion-label">Current Scheduled Completion</span>
+            <span class="sched-completion-value" id="schedCurrentCompletion">—</span>
+        </div>
+        <div class="sched-completion-item">
+            <span class="sched-completion-label">Projected Completion</span>
+            <span class="sched-completion-value" id="schedProjectedCompletion">—</span>
+        </div>
+        <div class="sched-late-warning hidden" id="schedLateWarning"></div>
+    </div>
+
+    <div class="workbook-empty" id="timelineEmptyState" style="display:none;">
+        <p>Nothing on this project's schedule yet — add a phase, then a task or milestone, to get started.</p>
+    </div>
+
+    <div id="schedWorkspace" style="display:none;">
+        <div class="sched-main-area" id="schedMainArea">
+
+            <div class="sched-tasklist-pane" id="schedTaskListPane">
+                <div class="sched-tasklist-header-row">
+                    <span class="stl-col stl-col--drag" aria-hidden="true"></span>
+                    <button type="button" class="stl-sort-btn stl-col--name" data-sort="name">Task / Phase <span class="stl-sort-caret" data-sort-caret="name"></span></button>
+                    <button type="button" class="stl-sort-btn stl-col--start" data-sort="start_date">Start <span class="stl-sort-caret" data-sort-caret="start_date"></span></button>
+                    <button type="button" class="stl-sort-btn stl-col--finish" data-sort="end_date">Finish <span class="stl-sort-caret" data-sort-caret="end_date"></span></button>
+                    <button type="button" class="stl-sort-btn stl-col--status" data-sort="status">Status <span class="stl-sort-caret" data-sort-caret="status"></span></button>
+                    <span class="stl-col stl-col--critical" aria-hidden="true">!</span>
+                </div>
+                <div class="sched-tasklist-body" id="schedTaskListBody"></div>
+            </div>
+
+            <div class="sched-chart-wrap" id="schedChartWrap">
+                <div id="schedGanttChart"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="gantt-hover-card hidden" id="ganttHoverCard">
+        <div class="gantt-hover-card-title" id="ganttHoverCardTitle"></div>
+        <div class="gantt-hover-card-dates" id="ganttHoverCardDates"></div>
+        <div class="gantt-hover-card-assignee" id="ganttHoverCardAssignee"></div>
+    </div>
+
+</main>
+
+
+<!-- Task/Milestone/Phase details + create panel — one aside, dual-purpose
+     (new item vs. editing an existing one), same slide-in-from-the-right
+     mechanism the rest of this app's side panels use. -->
+<aside class="sched-drawer hidden" id="schedDrawer">
+    <div class="sched-drawer-header">
+        <div class="sched-drawer-header-title">
+            <span class="sched-drawer-critical-icon hidden" id="schedDrawerCriticalIcon" title="Critical task">⛔</span>
+            <span class="sched-drawer-milestone-icon hidden" id="schedDrawerMilestoneIcon" title="Milestone">◆</span>
+            <h2 id="schedDrawerTitle">New item</h2>
+        </div>
+        <div class="sched-drawer-header-actions">
+            <button type="button" class="workbook-btn workbook-btn--danger" id="schedDeleteItemBtn" style="display:none;">Delete</button>
+            <button type="button" class="menu-btn" id="schedCloseDrawerBtn" aria-label="Close panel">✕</button>
+        </div>
+    </div>
+
+    <p class="auth-message" id="schedDrawerMessage"></p>
+
+    <form class="auth-form sched-drawer-form" id="schedItemForm">
+
+        <input type="hidden" id="schedItemIdInput" value="">
+
+        <div class="timeline-type-toggle" id="schedTypeToggle" role="group" aria-label="Item type">
+            <button type="button" class="timeline-type-toggle-btn is-active" data-type="task">Task</button>
+            <button type="button" class="timeline-type-toggle-btn" data-type="milestone">Milestone</button>
+            <button type="button" class="timeline-type-toggle-btn" data-type="phase">Phase</button>
+        </div>
+
+        <label class="auth-field">
+            Name
+            <input type="text" id="schedNameInput" required maxlength="160" placeholder="e.g. Foundation pour">
+        </label>
+
+        <!-- Phase-only fields -->
+        <label class="auth-field sched-field--phase-only">
+            Category
+            <select id="schedPhaseTypeInput">
+                <option value="pre_construction">Pre-Construction</option>
+                <option value="buy_out">Buy Out</option>
+                <option value="construction" selected>Construction</option>
+                <option value="close_out">Close-Out</option>
+            </select>
+        </label>
+
+        <!-- Task/milestone-only fields -->
+        <label class="auth-field sched-field--item-only">
+            Phase
+            <select id="schedPhaseInput" required></select>
+        </label>
+
+        <div class="timeline-form-row sched-field--item-only">
+            <label class="auth-field" id="schedStartDateLabel">
+                Start date
+                <input type="date" id="schedStartDateInput">
+            </label>
+            <label class="auth-field">
+                <span id="schedEndDateLabelText">End date</span>
+                <input type="date" id="schedEndDateInput" required>
+            </label>
+        </div>
+
+        <div class="sched-duration-readout sched-field--task-only hidden" id="schedDurationReadout"></div>
+
+        <div class="timeline-form-row sched-field--item-only">
+            <label class="auth-field">
+                Status
+                <select id="schedStatusInput">
+                    <option value="not_started">Not started</option>
+                    <option value="in_progress">In progress</option>
+                    <option value="at_risk">At risk</option>
+                    <option value="delayed">Delayed</option>
+                    <option value="complete">Complete</option>
+                    <option value="on_hold">On hold</option>
+                </select>
+            </label>
+            <label class="auth-field sched-field--task-only">
+                Priority
+                <select id="schedPriorityInput">
+                    <option value="low">Low</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                </select>
+            </label>
+        </div>
+
+        <label class="auth-field sched-field--task-only" id="schedProgressField">
+            Progress
+            <div class="timeline-progress-input-wrap">
+                <input type="range" id="schedProgressInput" min="0" max="100" step="5" value="0">
+                <span class="timeline-progress-value" id="schedProgressValue">0%</span>
+            </div>
+        </label>
+
+        <div class="timeline-form-row sched-field--item-only">
+            <label class="auth-field">
+                Assigned to
+                <select id="schedAssigneeInput"><option value="">Unassigned</option></select>
+            </label>
+            <label class="auth-field">
+                Contractor / company
+                <select id="schedContractorInput"><option value="">None</option></select>
+            </label>
+        </div>
+
+        <div class="timeline-form-row sched-field--item-only">
+            <label class="auth-field-checkbox"><input type="checkbox" id="schedCriticalInput"> Critical task</label>
+            <label class="auth-field-checkbox sched-field--task-only"><input type="checkbox" id="schedWeatherDelayInput"> Weather delay</label>
+        </div>
+
+        <label class="auth-field sched-field--phase-only">
+            Description <span class="sched-field-optional">(optional)</span>
+            <textarea id="schedPhaseDescriptionInput" rows="2"></textarea>
+        </label>
+
+        <label class="auth-field sched-field--item-only">
+            Description <span class="sched-field-optional">(optional)</span>
+            <textarea id="schedDescriptionInput" rows="2" placeholder="What this item covers."></textarea>
+        </label>
+
+        <label class="auth-field sched-field--item-only">
+            Notes <span class="sched-field-optional">(optional)</span>
+            <textarea id="schedNotesInput" rows="2" placeholder="Anything worth flagging."></textarea>
+        </label>
+
+        <div class="sched-dependencies-section sched-field--item-only" id="schedDependenciesSection">
+            <div class="sched-drawer-section-label">Dependencies</div>
+            <p class="sched-dependencies-hint hidden" id="schedDependenciesHint">Save this item once before adding dependencies.</p>
+            <div class="sched-dependencies-list" id="schedDependenciesList"></div>
+            <div class="sched-dependencies-add hidden" id="schedDependenciesAdd">
+                <select id="schedDependencyTaskSelect"><option value="">Depends on…</option></select>
+                <select id="schedDependencyTypeSelect">
+                    <option value="finish_to_start">Finish-to-Start</option>
+                    <option value="start_to_start">Start-to-Start</option>
+                    <option value="finish_to_finish">Finish-to-Finish</option>
+                    <option value="start_to_finish">Start-to-Finish</option>
+                </select>
+                <input type="number" id="schedDependencyLagInput" value="0" min="-365" max="365" title="Lag (days)" placeholder="Lag (days)">
+                <button type="button" class="workbook-btn" id="schedDependencyAddBtn">Add</button>
+            </div>
+        </div>
+
+        <div class="sched-drawer-meta sched-field--item-only" id="schedDrawerMeta"></div>
+
+        <div class="popup-buttons">
+            <button type="submit" class="auth-button auth-button--secondary" id="schedSaveItemBtn">Save</button>
+            <button type="button" class="auth-button auth-button--red" id="schedCancelItemBtn">Cancel</button>
+        </div>
+
+    </form>
+</aside>
+
+
+<!-- Delete Confirmation -->
+<div class="popup-overlay hidden" id="schedDeleteConfirmOverlay">
+    <div class="popup">
+        <h2>Delete this item?</h2>
+        <p class="auth-inline-copy" id="schedDeleteConfirmText">This can't be undone.</p>
+        <p class="auth-message" id="schedDeleteConfirmMessage"></p>
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="schedCancelDeleteBtn">Cancel</button>
+            <button type="button" class="auth-button auth-button--red" id="schedConfirmDeleteBtn">Delete</button>
+        </div>
+    </div>
+</div>
+
+<!-- Schedule health details popover -->
+<div class="popup-overlay hidden" id="schedHealthDetailOverlay">
+    <div class="popup">
+        <h2>Schedule health</h2>
+        <div id="schedHealthDetailBody"></div>
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="schedHealthDetailCloseBtn">Close</button>
+        </div>
+    </div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="/js/supabase-auth.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script src="/js/manager-nav.js"></script>
+<script src="/js/script.js"></script>
+<script src="/js/timeout.js"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/nav-access.js"></script>
+<script src="/js/project-fields.js"></script>
+<script src="/js/project-shell.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/frappe-gantt@1.2.2/dist/frappe-gantt.umd.js"></script>
+<script src="/js/project-timeline.js"></script>
+
+<script>
+
+/* ===========================
+   SIGN OUT
+=========================== */
+
+const signOutButton = document.getElementById("signOutButton");
+if (signOutButton) {
+    signOutButton.addEventListener("click", function (event) {
+        event.stopPropagation();
+        if (typeof window.signOutUser === "function") {
+            window.signOutUser();
+        } else {
+            console.error("signOutUser() is not available");
+        }
+    });
+}
+
+/* ===========================
+   HEADER NAME / NAV ACCESS
+   (same pattern as every other page — project-shell.js owns the project
+   name/breadcrumb, this owns the signed-in staff member's own name)
+=========================== */
+
+const userNameElement = document.getElementById("headerUserName");
+
+function updateStaffName(profile) {
+    if (!profile) return;
+    const name = profile.full_name || profile.username || "Staff";
+    if (userNameElement) userNameElement.textContent = name;
+
+    const sidebarGroupPill = document.getElementById("sidebarGroupPill");
+    if (sidebarGroupPill) {
+        const groups = window.getSupabaseUserGroups ? window.getSupabaseUserGroups(profile) : [];
+        sidebarGroupPill.textContent = groups.length
+            ? groups.map(g => g.charAt(0).toUpperCase() + g.slice(1)).join(", ")
+            : "No Group";
+    }
+}
+
+const storedProfile = localStorage.getItem("staffProfile");
+if (storedProfile) {
+    try {
+        updateStaffName(JSON.parse(storedProfile));
+    } catch (error) {
+        console.warn("Unable to parse stored profile:", error);
+    }
+}
+
+window.addEventListener("DOMContentLoaded", function () {
+    const profile = window.currentSupabaseProfile || null;
+    if (profile) updateStaffName(profile);
+});
+
+</script>
+
+</body>
+</html>

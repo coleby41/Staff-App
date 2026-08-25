@@ -1,0 +1,25 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/admin-users.html", "destination": "/pages/admin-users" },
+    { "source": "/dashboard.html", "destination": "/pages/dashboard" },
+    { "source": "/excel-workbook.html", "destination": "/pages/excel-workbook" },
+    { "source": "/form-template.html", "destination": "/pages/form-template" },
+    { "source": "/login.html", "destination": "/pages/login" },
+    { "source": "/manage-employees.html", "destination": "/pages/manage-employees" },
+    { "source": "/my-tasks.html", "destination": "/pages/my-tasks" },
+    { "source": "/payroll-tools.html", "destination": "/pages/payroll-tools" },
+    { "source": "/project-accounts.html", "destination": "/pages/project-accounts" },
+    { "source": "/project-files.html", "destination": "/pages/project-files" },
+    { "source": "/project-home.html", "destination": "/pages/project-home" },
+    { "source": "/project-timeline.html", "destination": "/pages/project-timeline" },
+    { "source": "/project-to-do.html", "destination": "/pages/project-todo" },
+    { "source": "/projects.html", "destination": "/pages/projects" },
+    { "source": "/staff-to-do.html", "destination": "/pages/staff-todo" },
+    { "source": "/staff-users.html", "destination": "/pages/staff-users" },
+    { "source": "/time sheet.html", "destination": "/pages/timesheet" },
+    { "source": "/time%20sheet.html", "destination": "/pages/timesheet" },
+    { "source": "/venders.html", "destination": "/pages/vendors" },
+    { "source": "/workgroups.html", "destination": "/pages/workgroups" }
+  ]
+}

@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Leeward Staff Portal | Dashboard</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+</head>
+
+<body>
+
+<header class="header">
+
+    <div class="header-left">
+
+        <div class="brand-mark">
+
+            <div class="brand-mark__icon" id="brandInitials">
+                ST
+            </div>
+
+            <div>
+                <div class="brand-title">
+                    The Leeward Group
+                </div>
+
+                <div class="brand-subtitle">
+                    Staff Portal
+                </div>
+            </div>
+
+        </div>
+
+
+        <button class="menu-btn" id="menuBtn" aria-label="Toggle navigation">
+            ☰
+        </button>
+
+    </div>
+
+
+
+    <div class="header-right">
+
+        <div class="header-user-area">
+
+            <div class="header-user-pill" id="headerUserPill">
+
+
+                <span id="headerUserName">
+                    Staff
+                </span>
+
+
+
+                <div class="notification-wrapper">
+
+
+                    <button
+                        class="notification-bell"
+                        id="notificationBell"
+                        aria-label="Notifications">
+
+                        <span class="notification-bell-icon"></span>
+
+                        <span class="notification-count">
+                            3
+                        </span>
+
+                    </button>
+
+
+
+
+                    <div class="notification-dropdown" id="notificationDropdown">
+
+
+                        <div class="notification-header">
+                        <span>Notifications</span>
+                        <button class="mark-read-btn">Mark as read</button>
+                        </div>
+
+
+                        <div id="notificationList"></div>
+
+                        <div id="notificationEmpty" class="notification-item" style="display:none;">
+                            <p>No notifications yet.</p>
+                        </div>
+
+
+                        <div class="notification-footer">
+
+                            <a
+                                class="report-bug-btn"
+                                href="https://tally.so/r/QKyGj8"
+                                target="_blank"
+                                rel="noopener">
+
+                                Report bug
+
+                            </a>
+
+                            <button
+                                class="auth-button auth-button--secondary header-signout"
+                                id="signOutButton"
+                                type="button">
+
+                                Sign out
+
+                            </button>
+
+                        </div>
+<p style="margin: 10px 0; padding: 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; text-align: center; font-size: 14px; color: #495057;">
+                            Change Password
+                        </p>
+                    </div>
+
+
+                </div>
+
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+
+</header>
+
+
+
+
+
+<aside class="sidebar" id="sidebar">
+
+
+    <div class="sidebar-header">
+        COMPANY WIDE
+    </div>
+
+
+
+    <nav class="sidebar-nav">
+
+
+
+        <a href="/pages/dashboard.html" class="nav-item active">
+
+            <span class="home-nav-icon"></span>
+
+            <span class="nav-text">
+                Dashboard
+            </span>
+
+        </a>
+
+
+
+
+        <div class="nav-item-group" id="companyDocsNavGroup">
+
+
+            <a href="#"
+               class="nav-item nav-parent"
+               onclick="toggleSubnav(event, this)">
+
+
+                <span class="docs-nav-icon"></span>
+
+
+                <span class="nav-text">
+                    Company docs
+                </span>
+
+
+                <span class="nav-arrow"></span>
+
+
+            </a>
+
+
+
+
+            <div class="subnav">
+
+
+
+
+
+
+                <a href="/pages/excel-workbook.html" class="subnav-item">
+
+                    <span class="nav-text">
+                        Excel Workbook Templates
+                    </span>
+
+                </a>
+
+
+
+                <a href="/pages/form-template.html" class="subnav-item">
+
+                    <span class="nav-text">
+                        Form Templates
+                    </span>
+
+                </a>
+
+
+
+            </div>
+
+
+
+        </div>
+
+
+
+
+
+       <a href="/pages/timesheet.html" class="nav-item">
+
+            <span class="finance-nav-icon"></span>
+
+            <span class="nav-text">
+                Staff Finance
+            </span>
+
+        </a>
+
+        <a href="/pages/project-home.html" class="nav-item">
+
+            <span class="projects-nav-icon"></span>
+
+            <span class="nav-text">
+                Project Overview
+            </span>
+
+        </a>
+
+
+
+        <a href="https://www.theleewardgroup.us/"
+           class="nav-item"
+           target="_blank">
+
+
+            <span class="website-nav-icon"></span>
+
+
+            <span class="nav-text">
+                Company site
+            </span>
+
+
+        </a>
+
+
+
+
+
+        <hr style="border:.5px solid rgba(255,255,255,0.14); margin:10px 0;">
+
+
+
+
+        <div class="sidebar-header">
+            Department Wide
+        </div>
+
+
+        <a href="/pages/vendors.html" class="nav-item">
+
+            <span class="companies-nav-icon"></span>
+
+            <span class="nav-text">
+                Vendor Contacts
+            </span>
+
+        </a>
+
+
+        <a href="/pages/payroll-tools.html"
+           class="nav-item"
+           id="payrollToolsNavItem"
+           style="display:none;">
+
+
+            <span class="docs-nav-icon"></span>
+
+
+            <span class="nav-text">
+                Payroll Tools
+            </span>
+
+
+        </a>
+
+
+
+
+
+        <a href="/pages/manage-employees.html"
+           class="nav-item"
+           id="manageEmployeesNavItem"
+           style="display:none;">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">
+                Manage Employees
+            </span>
+        </a>
+
+        <div class="nav-item-group"
+             id="adminNavGroup"
+             style="display:none;">
+
+
+
+            <a href="/pages/admin-users.html"
+               class="nav-item nav-parent"
+               onclick="toggleSubnav(event, this)">
+
+
+
+                <span class="it-tools-nav-icon"></span>
+
+
+                <span class="nav-text">
+                    IT Tools
+                </span>
+
+
+                <span class="nav-arrow"></span>
+
+
+
+            </a>
+
+
+
+
+
+            <div class="subnav">
+
+
+                <a href="/pages/admin-users.html"
+                   class="subnav-item">
+
+
+                    <span class="nav-text">
+                        Create account
+                    </span>
+
+
+                </a>
+
+
+
+
+                <a href="/pages/staff-users.html"
+                   class="subnav-item">
+
+
+                    <span class="nav-text">
+                        Staff users
+                    </span>
+
+
+                </a>
+
+
+                <a href="/pages/workgroups.html"
+                   class="subnav-item">
+
+
+                    <span class="nav-text">
+                        Workgroups
+                    </span>
+
+
+                </a>
+
+
+
+            </div>
+
+
+
+        </div>
+
+
+
+
+    </nav>
+
+
+
+
+
+    <div class="sidebar-footer">
+
+
+        <div class="footer-pill" id="sidebarGroupPill"></div>
+
+
+        <div class="sidebar-brand">
+            LeeWard Group
+        </div>
+
+
+        <div class="version">
+            Version XF-729-BETA
+        </div>
+
+
+    </div>
+
+
+</aside>
+
+<main class="main-content">
+
+    <h1 id="welcomeHeading">
+        Welcome, Staff
+    </h1>
+
+
+    <section class="hero-section hero-section--construction">
+
+        <div>
+
+            <p class="eyebrow">
+                The LeeWard Group Staff Portal
+            </p>
+
+
+            <h1>
+                Supporting our team with the tools, resources, and information needed every day.
+            </h1>
+
+        </div>
+
+    </section>
+
+
+    <!-- ===========================================================
+         DASHBOARD CARDS
+         Top row: My Tasks, Quick Links, Weather, Company Updates
+         Bottom row: Project Snapshot, Calendar, Important Contacts
+         Each card's data/behavior is driven by its own *-card.js file
+         (see script tags near the bottom of this file).
+    ============================================================ -->
+
+    <div class="dashboard-top-grid">
+
+        <!-- My Tasks -->
+        <div class="card dashboard-card--wide">
+            <div class="card-header">
+                <h2 class="card-title"><svg class="card-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>My Tasks</h2>
+                <a href="/pages/staff-todo.html" class="chip">View all</a>
+            </div>
+            <div id="myTasksList" class="mytask-list"></div>
+            <div class="todo-item-row todo-item-add-row">
+                <span class="todo-item-add-icon">+</span>
+                <input type="text" id="newTaskInlineInput" class="todo-item-add-input" placeholder="New task" maxlength="120">
+                <input type="date" id="newTaskDueDateInput" class="todo-item-add-date" aria-label="Due date">
+            </div>
+        </div>
+
+        <!-- Quick Links -->
+        <div class="card dashboard-card--wide">
+            <div class="card-header">
+                <h2 class="card-title"><svg class="card-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>Quick Links</h2>
+            </div>
+            <div id="quickLinksGrid" class="quick-links-grid"></div>
+            <a href="#" id="editShortcutsLink" class="auth-link" style="display:block; margin-top:12px;">Edit shortcuts</a>
+        </div>
+
+        <!-- Weather -->
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2 class="card-title"><svg class="card-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>Weather</h2>
+                    <p class="card-subtitle" id="weatherLocation">Wilmington, NC</p>
+                </div>
+            </div>
+            <div id="weatherBody"></div>
+            <a href="#" id="viewFullForecastLink" class="auth-link" target="_blank" rel="noopener" style="display:block; margin-top:12px;">View full forecast</a>
+        </div>
+
+    </div>
+
+    <div class="dashboard-bottom-grid">
+
+        <!-- Project Snapshot -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title"><svg class="card-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>Project Snapshot</h2>
+                <a href="/pages/projects.html" class="chip">View all projects</a>
+            </div>
+            <div class="stats-grid" style="grid-template-columns: 1fr;">
+                <div class="stat-item">
+                    <div class="stat-number-status-projector" id="activeProjectsCount">—</div>
+                    <div class="stat-label">Active Projects</div>
+                </div>
+            </div>
+            <h3 style="margin:16px 0 8px; font-size:0.95rem;">Upcoming Deadlines</h3>
+            <div id="upcomingDeadlinesList" class="info-list"></div>
+        </div>
+
+        <!-- Calendar -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title"><svg class="card-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>Todays Calendar</h2>
+                <a href="#" id="linkCalendarLink" class="chip">Link Calendar</a>
+                <a href="#" id="manageCalendarLink" class="chip" style="display:none;">Manage Calendar</a>
+            </div>
+            <div id="calendarEventsList" class="info-list"></div>
+        </div>
+
+        <!-- Important Contacts -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title"><svg class="card-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>Important Contacts</h2>
+            </div>
+            <div id="importantContactsList" class="info-list"></div>
+        </div>
+
+    </div>
+
+
+</main>
+
+
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="/js/supabase-auth.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script src="/js/manager-nav.js"></script>
+<script src="/js/script.js"></script>
+<script src="/js/timeout.js"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/nav-access.js"></script>
+
+<!-- New dashboard card scripts — none of the files above were modified.
+     dashboard-shared.js must load first; the rest can be in any order. -->
+<script src="/js/dashboard/dashboard.js"></script>
+<script src="/js/dashboard/task.js"></script>
+<script src="/js/dashboard/quicklinks.js"></script>
+<script src="/js/dashboard/weather.js"></script>
+<script src="/js/dashboard/projects.js"></script>
+<script src="/js/dashboard/calendar-card.js"></script>
+<script src="/js/dashboard/contact-card.js"></script>
+
+
+
+
+<script>
+
+
+/* ===========================
+   SIGN OUT -- MOVED TO ITS OWN FILE
+=========================== */
+
+
+const signOutButton =
+    document.getElementById("signOutButton");
+
+
+if (signOutButton) {
+
+    signOutButton.addEventListener("click", function(event) {
+
+        event.stopPropagation();
+
+
+        if (typeof window.signOutUser === "function") {
+
+            window.signOutUser();
+
+        } else {
+
+            console.error("signOutUser() is not available");
+
+        }
+
+    });
+
+}
+
+
+
+
+
+/* ===========================
+   ELEMENTS -
+=========================== */
+
+
+const userNameElement =
+    document.getElementById("headerUserName");
+
+
+const welcomeHeading =
+    document.getElementById("welcomeHeading");
+
+
+const adminNavGroup =
+    document.getElementById("adminNavGroup");
+
+
+const brandInitials =
+    document.getElementById("brandInitials");
+
+
+
+
+
+
+
+/* ===========================
+   UPDATE STAFF NAME
+=========================== */
+
+
+function updateStaffName(profile) {
+
+
+    if (!profile) return;
+
+
+
+    const name =
+        profile.full_name ||
+        profile.username ||
+        "Staff";
+
+
+
+
+    // Update only the text
+    // so the bell does not disappear
+
+    if (userNameElement) {
+
+        userNameElement.textContent = name;
+
+    }
+
+
+
+
+
+    if (welcomeHeading) {
+
+        welcomeHeading.textContent =
+            `Welcome, ${name}`;
+
+    }
+
+
+
+
+
+
+    if (brandInitials) {
+
+
+        const words =
+            String(name)
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+
+
+
+        const initials =
+            words.length >= 2
+
+            ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
+
+            : words[0]
+                ?.substring(0,2)
+                .toUpperCase() || "ST";
+
+
+
+        brandInitials.textContent =
+            initials;
+
+
+    }
+
+
+
+
+
+
+    const sidebarGroupPill =
+        document.getElementById("sidebarGroupPill");
+
+
+
+    if (sidebarGroupPill) {
+
+
+        const groups =
+            window.getSupabaseUserGroups
+
+            ? window.getSupabaseUserGroups(profile)
+
+            : [];
+
+
+
+        sidebarGroupPill.textContent =
+            groups.length
+
+            ? groups
+                .map(
+                    g =>
+                    g.charAt(0).toUpperCase() +
+                    g.slice(1)
+                )
+                .join(", ")
+
+            : "No Group";
+
+
+    }
+
+
+}
+
+
+
+
+
+
+
+
+
+/* ===========================
+   NAV ACCESS
+=========================== */
+
+
+function updateNavAccess(profile) {
+
+
+    const shouldShowAdminNav =
+        window.isSupabaseUserInGroup
+
+        ? (
+            window.isSupabaseUserInGroup(profile, "IT") ||
+            window.isSupabaseUserInGroup(profile, "Super Admin")
+          )
+
+        : false;
+
+
+
+    if (adminNavGroup) {
+
+        adminNavGroup.style.display =
+            shouldShowAdminNav
+            ? "block"
+            : "none";
+
+    }
+
+
+
+    const payrollToolsNavItem =
+        document.getElementById("payrollToolsNavItem");
+
+
+    // Payroll Tools is visible to the Office and Accounting
+    // workgroups only (see permissions matrix).
+    const shouldShowPayrollTools =
+        window.isSupabaseUserInGroup
+
+        ? (
+            window.isSupabaseUserInGroup(profile, "Office") ||
+            window.isSupabaseUserInGroup(profile, "Accounting") ||
+            window.isSupabaseUserInGroup(profile, "Super Admin")
+          )
+
+        : false;
+
+
+
+    if (payrollToolsNavItem) {
+
+        payrollToolsNavItem.style.display =
+            shouldShowPayrollTools
+            ? "flex"
+            : "none";
+
+    }
+
+
+}
+
+
+
+
+
+
+
+/* ===========================
+   LOAD PROFILE
+=========================== */
+
+
+const storedProfile =
+    localStorage.getItem("staffProfile");
+
+
+
+if (storedProfile) {
+
+
+    try {
+
+
+        const parsedProfile =
+            JSON.parse(storedProfile);
+
+
+
+        updateStaffName(parsedProfile);
+
+        updateNavAccess(parsedProfile);
+
+
+
+    } catch(error) {
+
+
+        console.warn(
+            "Unable to parse stored profile:",
+            error
+        );
+
+
+    }
+
+
+}
+
+
+
+
+
+
+window.addEventListener("DOMContentLoaded", function() {
+
+
+    const profile =
+        window.currentSupabaseProfile || null;
+
+
+
+    if (profile) {
+
+
+        updateStaffName(profile);
+
+        updateNavAccess(profile);
+
+
+    }
+
+
+    // Notifications are now handled by the shared notifications.js
+    // (loaded via <script src> below), which self-initializes.
+
+
+});
+
+
+
+</script>
+
+
+</body>
+
+</html>

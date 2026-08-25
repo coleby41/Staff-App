@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>The Leeward Group | Excel Workbook Library</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+</head>
+
+<body>
+
+<header class="header">
+
+    <div class="header-left">
+
+        <div class="brand-mark">
+
+            <div class="brand-mark__icon" id="brandInitials">
+                ST
+            </div>
+
+            <div>
+                <div class="brand-title">
+                    The Leeward Group
+                </div>
+
+                <div class="brand-subtitle">
+                    Staff Portal
+                </div>
+            </div>
+
+        </div>
+
+
+        <button class="menu-btn" id="menuBtn" aria-label="Toggle navigation">
+            ☰
+        </button>
+
+    </div>
+
+
+
+    <div class="header-right">
+
+        <div class="header-user-area">
+
+            <div class="header-user-pill" id="headerUserPill">
+
+
+                <span id="headerUserName">
+                    Staff
+                </span>
+
+
+
+                <div class="notification-wrapper">
+
+
+                    <button 
+                        class="notification-bell"
+                        id="notificationBell"
+                        aria-label="Notifications">
+
+                        <span class="notification-bell-icon"></span>
+
+                        <span class="notification-count">
+                            3
+                        </span>
+
+                    </button>
+
+
+
+
+                    <div class="notification-dropdown" id="notificationDropdown">
+
+
+                        <div class="notification-header">
+                        <span>Notifications</span>
+                        <button class="mark-read-btn">Mark as read</button>
+                        </div>
+
+
+                        <div id="notificationList"></div>
+
+                        <div id="notificationEmpty" class="notification-item" style="display:none;">
+                            <p>No notifications yet.</p>
+                        </div>
+
+
+                        <div class="notification-footer">
+
+                            <a 
+                                class="report-bug-btn"
+                                href="https://tally.so/r/QKyGj8"
+                                target="_blank"
+                                rel="noopener">
+
+                                Report bug
+
+                            </a>
+
+                            <button 
+                                class="auth-button auth-button--secondary header-signout"
+                                id="signOutButton"
+                                type="button">
+
+                                Sign out
+
+                            </button>
+
+                        </div>
+
+
+                    </div>
+
+
+                </div>
+
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+
+</header>
+
+<aside class="sidebar" id="sidebar">
+
+    <div class="sidebar-header">
+        COMPANY WIDE
+    </div>
+
+    <nav class="sidebar-nav">
+
+        <a href="/pages/dashboard.html" class="nav-item">
+            <span class="home-nav-icon"></span>
+            <span class="nav-text">
+                Dashboard
+            </span>
+        </a>
+
+        <div class="nav-item-group" id="companyDocsNavGroup">
+
+            <a href="#"
+               class="nav-item nav-parent"
+               onclick="toggleSubnav(event, this)">
+                <span class="docs-nav-icon"></span>
+                <span class="nav-text">
+                    Company docs
+                </span>
+                <span class="nav-arrow"></span>
+            </a>
+
+            <div class="subnav expanded">
+
+                <a href="/pages/excel-workbook.html" class="subnav-item active">
+                    <span class="nav-text">
+                        Excel Workbook Templates
+                    </span>
+                </a>
+
+                <a href="/pages/form-template.html" class="subnav-item">
+                    <span class="nav-text">
+                        Form Templates
+                    </span>
+                </a>
+            </div>
+        </div>
+
+       <a href="/pages/timesheet.html" class="nav-item">
+            <span class="finance-nav-icon"></span>
+            <span class="nav-text">
+                Staff Finance
+            </span>
+        </a>
+
+        <a href="/pages/project-home.html" class="nav-item">
+            <span class="projects-nav-icon"></span>
+            <span class="nav-text">
+                Project Overview
+            </span>
+        </a>
+
+        <a href="https://www.theleewardgroup.us/"
+           class="nav-item"
+           target="_blank">
+            <span class="website-nav-icon"></span>
+            <span class="nav-text">
+                Company site
+            </span>
+        </a>
+
+        <hr style="border:.5px solid rgba(255,255,255,0.14); margin:10px 0;">
+
+        <div class="sidebar-header">
+            Department Wide
+        </div>
+
+        <a href="/pages/vendors.html" class="nav-item">
+            <span class="companies-nav-icon"></span>
+            <span class="nav-text">
+                Vendor Contacts
+            </span>
+        </a>
+
+        <a href="/pages/payroll-tools.html"
+           class="nav-item"
+           id="payrollToolsNavItem"
+           style="display:none;">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">
+                Payroll Tools
+            </span>
+        </a>
+
+        <a href="/pages/manage-employees.html"
+           class="nav-item"
+           id="manageEmployeesNavItem"
+           style="display:none;">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">
+                Manage Employees
+            </span>
+        </a>
+
+        <div class="nav-item-group"
+             id="adminNavGroup"
+             style="display:none;">
+
+            <a href="/pages/admin-users.html"
+               class="nav-item nav-parent"
+               onclick="toggleSubnav(event, this)">
+                <span class="it-tools-nav-icon"></span>
+                <span class="nav-text">
+                    IT Tools
+                </span>
+                <span class="nav-arrow"></span>
+            </a>
+
+            <div class="subnav">
+
+                <a href="/pages/admin-users.html"
+                   class="subnav-item">
+                    <span class="nav-text">
+                        Create account
+                    </span>
+                </a>
+
+                <a href="/pages/staff-users.html"
+                   class="subnav-item">
+                    <span class="nav-text">
+                        Staff users
+                    </span>
+                </a>
+
+                <a href="/pages/workgroups.html"
+                   class="subnav-item">
+                    <span class="nav-text">
+                        Workgroups
+                    </span>
+                </a>
+
+            </div>
+
+        </div>
+
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="footer-pill" id="sidebarGroupPill"></div>
+        <div class="sidebar-brand">
+            LeeWard Group
+        </div>
+        <div class="version">
+            Version XF-729-BETA
+        </div>
+    </div>
+</aside>
+
+<main class="main-content">
+
+    <section class="hero-section">
+        <div>
+            <p class="eyebrow">Company Docs</p>
+            <h1>Excel Workbook Library</h1>
+            <p>Browse, preview, upload, and download the latest Excel workbook templates for your projects.</p>
+        </div>
+    </section>
+
+    <div class="workbook-toolbar">
+
+        <input
+            type="text"
+            id="workbookSearchInput"
+            class="workbook-search-input"
+            placeholder="Search workbooks…"
+            autocomplete="off">
+
+        <button class="auth-button auth-button--secondary" id="addWorkbookBtn" type="button">
+            + Add Workbook
+        </button>
+
+    </div>
+
+    <div id="workbookMessage" class="workbook-page-message" style="display:none;"></div>
+
+    <div class="workbook-loading" id="workbookLoadingState">
+        <p>Loading workbooks…</p>
+    </div>
+
+    <div class="workbook-empty" id="workbookEmptyState" style="display:none;">
+        <p>No workbooks yet. Click "Add Workbook" to upload the first one.</p>
+    </div>
+
+    <div class="workbook-empty" id="workbookNoResultsState" style="display:none;">
+        <p>No workbooks match your search.</p>
+    </div>
+
+    <div class="workbook-grid" id="workbookGrid"></div>
+
+</main>
+
+
+<!-- Add / Edit Workbook Modal -->
+<div class="popup-overlay hidden" id="uploadModalOverlay">
+    <div class="popup workbook-popup">
+
+        <div class="wizard-topbar">
+            <button type="button" class="wizard-topbar-link" id="cancelUploadBtn">&lsaquo; Cancel</button>
+        </div>
+
+        <h2 id="workbookModalTitle">Add Workbook</h2>
+        <p class="auth-inline-copy" id="workbookModalSubtitle">Upload a cover image and the Excel file. Everything else is filled in automatically.</p>
+
+        <form class="auth-form" id="uploadWorkbookForm">
+
+            <input type="hidden" id="workbookIdInput" value="">
+
+            <label class="auth-field">
+                Workbook title
+                <input type="text" id="workbookTitleInput" name="title" required placeholder="e.g. 2026 Project Budget Template">
+            </label>
+
+            <label class="auth-field">
+                Uploaded by
+                <input type="text" id="workbookUploaderInput" name="uploadedBy" required readonly>
+            </label>
+
+            <label class="auth-field" id="workbookCoverFieldLabel">
+                Cover image
+                <input type="file" id="workbookCoverInput" name="cover" accept="image/*">
+            </label>
+            <p class="auth-inline-copy" id="workbookCoverExistingNote" style="display:none;">Leave blank to keep the current cover image.</p>
+
+            <div class="workbook-cover-preview-wrap" id="coverPreviewWrap" style="display:none;">
+                <img id="coverPreviewImg" alt="Cover preview">
+            </div>
+
+            <label class="auth-field" id="workbookFileFieldLabel">
+                Excel file (.xlsx, .xls, .xlsm)
+                <input type="file" id="workbookFileInput" name="file" accept=".xlsx,.xls,.xlsm">
+            </label>
+            <p class="auth-inline-copy" id="workbookFileExistingNote" style="display:none;">Leave blank to keep the current file.</p>
+
+            <p class="auth-message" id="uploadFormMessage"></p>
+
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--red" id="deleteWorkbookBtn" style="display:none;">Delete Workbook</button>
+                <button type="submit" class="auth-button auth-button--secondary" id="submitUploadBtn">Upload workbook</button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+
+<!-- Delete Workbook Confirmation Modal -->
+<div class="popup-overlay hidden" id="deleteWorkbookConfirmOverlay">
+    <div class="popup">
+        <h2>Delete this workbook?</h2>
+        <p class="auth-inline-copy" id="deleteWorkbookConfirmText">
+            This will permanently remove the workbook and its files. This can't be undone.
+        </p>
+
+        <p class="auth-message" id="deleteWorkbookConfirmMessage"></p>
+
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteWorkbookBtn">Cancel</button>
+            <button type="button" class="auth-button auth-button--red" id="confirmDeleteWorkbookBtn">Delete</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- Workbook Preview Modal -->
+<div class="popup-overlay hidden" id="previewModalOverlay">
+    <div class="popup workbook-preview-popup">
+        <div class="workbook-preview-header">
+            <h2 id="previewModalTitle">Workbook preview</h2>
+            <button type="button" class="menu-btn" id="closePreviewBtn" aria-label="Close preview">✕</button>
+        </div>
+        <p class="auth-inline-copy" id="previewModalSubtitle"></p>
+        <div class="workbook-preview-body" id="previewModalBody">
+            <p class="workbook-preview-loading">Loading preview…</p>
+        </div>
+    </div>
+</div>
+
+
+<script src="/js/script.js"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-auth.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script src="/js/manager-nav.js"></script>
+<script src="/js/timeout.js"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/nav-access.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="/js/workbook-library.js"></script>
+
+<script>
+
+
+/* ===========================
+   SIGN OUT
+=========================== */
+
+
+const signOutButton =
+    document.getElementById("signOutButton");
+
+
+if (signOutButton) {
+
+    signOutButton.addEventListener("click", function(event) {
+
+        event.stopPropagation();
+
+
+        if (typeof window.signOutUser === "function") {
+
+            window.signOutUser();
+
+        } else {
+
+            console.error("signOutUser() is not available");
+
+        }
+
+    });
+
+}
+
+
+
+
+
+/* ===========================
+   ELEMENTS
+=========================== */
+
+
+const userNameElement =
+    document.getElementById("headerUserName");
+
+
+const adminNavGroup =
+    document.getElementById("adminNavGroup");
+
+
+const brandInitials =
+    document.getElementById("brandInitials");
+
+
+
+
+
+
+
+/* ===========================
+   UPDATE STAFF NAME
+=========================== */
+
+
+function updateStaffName(profile) {
+
+
+    if (!profile) return;
+
+
+
+    const name =
+        profile.full_name ||
+        profile.username ||
+        "Staff";
+
+
+
+
+    if (userNameElement) {
+
+        userNameElement.textContent = name;
+
+    }
+
+
+
+
+
+
+    if (brandInitials) {
+
+
+        const words =
+            String(name)
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+
+
+
+        const initials =
+            words.length >= 2
+
+            ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
+
+            : words[0]
+                ?.substring(0,2)
+                .toUpperCase() || "ST";
+
+
+
+        brandInitials.textContent =
+            initials;
+
+
+    }
+
+
+
+
+
+
+    const sidebarGroupPill =
+        document.getElementById("sidebarGroupPill");
+
+
+
+    if (sidebarGroupPill) {
+
+
+        const groups =
+            window.getSupabaseUserGroups
+
+            ? window.getSupabaseUserGroups(profile)
+
+            : [];
+
+
+
+        sidebarGroupPill.textContent =
+            groups.length
+
+            ? groups
+                .map(
+                    g =>
+                    g.charAt(0).toUpperCase() +
+                    g.slice(1)
+                )
+                .join(", ")
+
+            : "No Group";
+
+
+    }
+
+
+}
+
+
+
+
+
+
+
+
+
+/* ===========================
+   NAV ACCESS
+=========================== */
+
+
+function updateNavAccess(profile) {
+
+
+    const shouldShowAdminNav =
+        window.isSupabaseUserInGroup
+
+        ? (
+            window.isSupabaseUserInGroup(profile, "IT") ||
+            window.isSupabaseUserInGroup(profile, "Super Admin")
+          )
+
+        : false;
+
+
+
+    if (adminNavGroup) {
+
+        adminNavGroup.style.display =
+            shouldShowAdminNav
+            ? "block"
+            : "none";
+
+    }
+
+
+
+    const payrollToolsNavItem =
+        document.getElementById("payrollToolsNavItem");
+
+
+    const shouldShowPayrollTools =
+        window.isSupabaseUserInGroup
+
+        ? (
+            window.isSupabaseUserInGroup(profile, "Office") ||
+            window.isSupabaseUserInGroup(profile, "Accounting") ||
+            window.isSupabaseUserInGroup(profile, "Super Admin")
+          )
+
+        : false;
+
+
+
+    if (payrollToolsNavItem) {
+
+        payrollToolsNavItem.style.display =
+            shouldShowPayrollTools
+            ? "flex"
+            : "none";
+
+    }
+
+
+}
+
+
+
+
+
+
+
+/* ===========================
+   LOAD PROFILE
+=========================== */
+
+
+const storedProfile =
+    localStorage.getItem("staffProfile");
+
+
+
+if (storedProfile) {
+
+
+    try {
+
+
+        const parsedProfile =
+            JSON.parse(storedProfile);
+
+
+
+        updateStaffName(parsedProfile);
+
+        updateNavAccess(parsedProfile);
+
+
+
+    } catch(error) {
+
+
+        console.warn(
+            "Unable to parse stored profile:",
+            error
+        );
+
+
+    }
+
+
+}
+
+
+
+
+
+
+window.addEventListener("DOMContentLoaded", function() {
+
+
+    const profile =
+        window.currentSupabaseProfile || null;
+
+
+
+    if (profile) {
+
+
+        updateStaffName(profile);
+
+        updateNavAccess(profile);
+
+
+    }
+
+
+    // Notifications are handled by the shared notifications.js
+    // (loaded via <script src> below), which self-initializes.
+
+    initWorkbookSearch();
+
+
+});
+
+
+/* ===========================
+   WORKBOOK SEARCH
+   Filters whatever cards workbook-library.js
+   renders into #workbookGrid, matching against
+   each card's visible text content. Works
+   regardless of the card's internal markup.
+=========================== */
+
+function initWorkbookSearch() {
+
+    const searchInput =
+        document.getElementById("workbookSearchInput");
+
+    const grid =
+        document.getElementById("workbookGrid");
+
+    const noResultsState =
+        document.getElementById("workbookNoResultsState");
+
+    const emptyState =
+        document.getElementById("workbookEmptyState");
+
+    if (!searchInput || !grid) return;
+
+
+    function getCards() {
+
+        // Each direct child of the grid is treated as one workbook card.
+        return Array.from(grid.children);
+
+    }
+
+
+    function applyFilter() {
+
+        const query =
+            searchInput.value.trim().toLowerCase();
+
+        const cards =
+            getCards();
+
+        let visibleCount = 0;
+
+        cards.forEach(card => {
+
+            const text =
+                card.textContent.toLowerCase();
+
+            const matches =
+                !query || text.includes(query);
+
+            card.style.display =
+                matches ? "" : "none";
+
+            if (matches) visibleCount++;
+
+        });
+
+
+        // Only show "no results" if there ARE cards but none match.
+        // If the grid itself is empty (no workbooks uploaded yet),
+        // let workbookEmptyState handle that instead.
+        const hasCards =
+            cards.length > 0;
+
+        if (noResultsState) {
+
+            noResultsState.style.display =
+                (hasCards && query && visibleCount === 0)
+                ? "block"
+                : "none";
+
+        }
+
+    }
+
+
+    searchInput.addEventListener("input", applyFilter);
+
+
+    // Re-apply the current filter whenever the grid's contents
+    // change (e.g. after workbook-library.js finishes loading
+    // workbooks asynchronously).
+    const observer = new MutationObserver(applyFilter);
+
+    observer.observe(grid, { childList: true });
+
+}
+
+
+</script>
+
+
+</body>
+
+</html>

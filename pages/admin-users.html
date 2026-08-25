@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IT User Management | The Leeward Group</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body class="auth-page">
+  <div class="auth-shell">
+    <div class="auth-card">
+      <div class="auth-card__brand">
+        <div class="brand-mark">
+          <div class="brand-mark__icon">IT</div>
+          <div>
+            <div class="brand-title">IT user management</div>
+            <div class="brand-subtitle">Restricted admin access</div>
+          </div>
+        </div>
+      </div>
+
+      <h1>Create a staff account</h1>
+      <p>Only IT administrators can add new users to the portal.</p>
+      <p id="adminAccessNote" class="auth-message">Your access is being verified against the Supabase staff_users table.</p>
+
+      <form id="adminUserForm" class="auth-form">
+        <label class="auth-field">
+          <span>Full name</span>
+          <input id="adminFullName" type="text" required>
+        </label>
+
+        <label class="auth-field">
+          <span>Username</span>
+          <input id="adminUsername" type="text" required>
+        </label>
+
+        <label class="auth-field">
+          <span>Group</span>
+          <select id="adminGroup">
+            <option value="Owner">Owner</option>
+            <option value="Field">Field</option>
+            <option value="IT">IT</option>
+            <option value="Office">Office</option>
+            <option value="Accounting">Accounting</option>
+          </select>
+        </label>
+        <p class="auth-inline-copy" id="adminGroupHint" style="display:none;">Options above are pulled live from the Workgroups tab.</p>
+        <p class="auth-inline-copy">A temporary password is generated automatically — you'll get one chance to copy it after the account is created. The person is forced to set their own password the first time they log in.</p>
+
+        <button class="auth-button auth-button--secondary" type="submit">Create user</button>
+        <p id="adminMessage" class="auth-message" role="status"></p>
+
+        <div id="tempPasswordReveal" style="display:none; margin-top:14px; padding:14px; border:1px solid var(--border); border-radius:10px; background:rgba(0,0,0,0.02);">
+          <p class="auth-inline-copy" style="margin-top:0;">
+            <strong>Temporary password for <span id="tempPasswordForName"></span></strong> — copy it now and hand it to them directly (Slack DM, in person — not a shared doc or email). This is the only time it will be shown.
+          </p>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <code id="tempPasswordValue" style="flex:1; padding:8px 10px; border-radius:8px; background:#fff; border:1px solid var(--border); font-size:14px; word-break:break-all;"></code>
+            <button type="button" class="auth-button auth-button--secondary" id="copyTempPasswordBtn" style="width:auto; margin-top:0; padding:8px 14px;">Copy</button>
+          </div>
+        </div>
+      </form>
+
+      <div class="auth-footer">
+        <a href="/pages/dashboard.html" class="auth-link">Back to dashboard</a>
+      </div>
+    </div>
+
+    <div class="auth-panel">
+    <div class="auth-panel__badge">Access Matrix</div>
+
+    <h2>Work Group Access</h2>
+    <p>This used to be a fixed table here — it's now the live, editable <a href="/pages/workgroups.html" class="auth-link">Workgroups</a> tab under IT Tools, so it never goes stale. Add workgroups and edit exactly which tabs each one can see from there.</p>
+</div>
+  </div>
+
+  <script src="/js/supabase-config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/supabase-auth.js"></script>
+  <script src="/js/auth-guard.js"></script>
+  <script src="/js/admin-users.js"></script>
+  <script src="/js/timeout.js"></script>
+</body>
+</html>

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Project To-Do | The Leeward Group</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+</head>
+
+<body>
+
+<!-- Header/sidebar shell shared by every project-dashboard page
+     (project-shell.js). Keep this block in sync across projects.html,
+     project-files.html, project-timeline.html, project-to-do.html,
+     project-accounting.html, project-site-plans.html, project-contract.html
+     if you change it here. -->
+
+<header class="header">
+
+    <div class="header-left">
+
+        <div class="project-switcher" id="projectSwitcher">
+            <button type="button" class="project-switcher-toggle" id="projectSwitcherToggle">
+                <div>
+                    <div class="brand-title" id="headerProjectName">Loading…</div>
+                    <div class="project-breadcrumb" id="headerProjectBreadcrumb">
+                        <a href="/pages/project-home.html">Home</a> → …
+                    </div>
+                </div>
+                <span class="project-switcher-caret">⌄</span>
+            </button>
+            <div class="project-switcher-dropdown hidden" id="projectSwitcherDropdown"></div>
+        </div>
+
+    </div>
+
+    <div class="header-center">
+        <h1 class="header-page-name" id="headerPageName">To-do</h1>
+    </div>
+
+    <div class="header-right">
+        <div class="header-user-area">
+            <div class="header-user-pill" id="headerUserPill">
+                <span id="headerUserName">Staff</span>
+                <div class="notification-wrapper">
+                    <button class="notification-bell" id="notificationBell" aria-label="Notifications">
+                        <span class="notification-bell-icon"></span>
+                        <span class="notification-count">0</span>
+                    </button>
+                    <div class="notification-dropdown" id="notificationDropdown">
+                        <div class="notification-header">
+                            <span>Notifications</span>
+                            <button class="mark-read-btn">Mark as read</button>
+                        </div>
+                        <div id="notificationList"></div>
+                        <div id="notificationEmpty" class="notification-item" style="display:none;">
+                            <p>No notifications yet.</p>
+                        </div>
+                        <div class="notification-footer">
+                            <a class="report-bug-btn" href="https://tally.so/r/QKyGj8" target="_blank" rel="noopener">Report bug</a>
+                            <button class="auth-button auth-button--secondary header-signout" id="signOutButton" type="button">Sign out</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</header>
+
+<aside class="sidebar" id="sidebar">
+
+    <div class="sidebar-search-wrap">
+        <input type="text" id="sidebarSearchInput" class="sidebar-search-input" placeholder="Search this project…" autocomplete="off">
+        <kbd class="sidebar-search-shortcut-hint" id="sidebarSearchShortcutHint">⌘F</kbd>
+        <div class="sidebar-search-results hidden" id="sidebarSearchResults"></div>
+    </div>
+
+    <nav class="sidebar-nav">
+
+        <a href="#" class="nav-item" data-nav-page="/pages/projects.html">
+            <span class="projects-nav-icon"></span>
+            <span class="nav-text">Overview</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-files.html">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">Project Files</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-timeline.html">
+            <span class="timeline-nav-icon"></span>
+            <span class="nav-text">Project Timeline</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-todo.html">
+            <span class="todo-nav-icon"></span>
+            <span class="nav-text">To-do</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-accounts.html">
+            <span class="accounts-nav-icon"></span>
+            <span class="nav-text">Accounts / Contacts</span>
+        </a>
+
+        <hr style="border:.5px solid rgba(255,255,255,0.14); margin:10px 0;">
+
+        <a href="#" class="nav-item" data-nav-page="project-accounting.html">
+            <span class="finance-nav-icon"></span>
+            <span class="nav-text">Accounting</span>
+        </a>
+
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="footer-pill" id="sidebarGroupPill"></div>
+        <div class="sidebar-brand">Leeward Group</div>
+        <div class="version">Version XF-729-BETA</div>
+    </div>
+</aside>
+
+<main class="main-content">
+
+    <section class="hero-section">
+        <div>
+            <p class="eyebrow">Project Dashboard</p>
+            <h1 id="todoHeroName">Project To-Do</h1>
+            <p>Big items for this project. Click one to see its checklist and who's on the hook for what.</p>
+        </div>
+    </section>
+
+    <div id="todoPageMessage" class="workbook-page-message" style="display:none;"></div>
+
+    <div class="workbook-loading" id="todoLoadingState">
+        <p>Loading…</p>
+    </div>
+
+    <div class="workbook-empty" id="todoEmptyState" style="display:none;">
+        <p>Nothing yet — type below to add your first item.</p>
+    </div>
+
+    <div class="todo-item-list" id="todoItemList"></div>
+
+    <div class="todo-item-row todo-item-add-row">
+        <span class="todo-item-add-icon">+</span>
+        <input type="text" id="newTodoItemInlineInput" class="todo-item-add-input" placeholder="New task" maxlength="120">
+    </div>
+
+    <p class="auth-message" id="todoAddItemMessage"></p>
+
+</main>
+
+
+<!-- Delete Item Confirmation -->
+<div class="popup-overlay hidden" id="deleteTodoItemConfirmOverlay">
+    <div class="popup">
+        <h2>Delete this item?</h2>
+        <p class="auth-inline-copy">This removes the item and its whole checklist. This can't be undone.</p>
+
+        <p class="auth-message" id="deleteTodoItemConfirmMessage"></p>
+
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteTodoItemBtn">Cancel</button>
+            <button type="button" class="auth-button auth-button--red" id="confirmDeleteTodoItemBtn">Delete</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- Side panel — the big item's own checklist. Slides in from the right and
+     pushes/resizes .main-content over to make room (body.todo-panel-open in
+     styles.css) rather than floating on top of it. No dimmed backdrop, and
+     the list stays fully interactive while it's open — clicking another row
+     just swaps what's shown here. Closes via the ✕ or Esc.
+
+     Drag #todoPanelResizeHandle (the strip along its left edge) to resize —
+     the width is saved to localStorage (see project-todo.js) so it's
+     remembered next time this panel is opened, on any project. -->
+<aside class="todo-panel hidden" id="todoPanel">
+    <div class="todo-panel-resize-handle" id="todoPanelResizeHandle" aria-hidden="true"></div>
+
+    <div class="todo-panel-header">
+        <h2 id="todoPanelTitle">Item</h2>
+        <div class="todo-panel-header-actions">
+            <button type="button" class="workbook-btn workbook-btn--danger" id="deleteTodoItemFromPanelBtn">Delete item</button>
+            <button type="button" class="menu-btn" id="closeTodoPanelBtn" aria-label="Close panel">✕</button>
+        </div>
+    </div>
+
+    <p class="auth-message" id="todoPanelMessage"></p>
+
+    <div class="todo-panel-checklist" id="todoPanelChecklist"></div>
+
+    <div class="todo-add-subitem-row">
+        <input type="text" id="newSubitemLabelInput" placeholder="Add a checklist item…" maxlength="200">
+        <input type="date" id="newSubitemDueDateInput" class="todo-item-add-date" aria-label="Due date">
+        <select id="newSubitemAssigneeSelect"></select>
+        <button type="button" class="auth-button auth-button--secondary" id="addSubitemBtn" style="width:auto; padding:10px 18px;">
+            + Add
+        </button>
+    </div>
+</aside>
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="/js/supabase-auth.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script src="/js/manager-nav.js"></script>
+<script src="/js/script.js"></script>
+<script src="/js/timeout.js"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/nav-access.js"></script>
+<script src="/js/project-fields.js"></script>
+<script src="/js/project-shell.js"></script>
+<script src="/js/project-todo.js"></script>
+
+<script>
+
+/* ===========================
+   SIGN OUT
+=========================== */
+
+const signOutButton = document.getElementById("signOutButton");
+if (signOutButton) {
+    signOutButton.addEventListener("click", function (event) {
+        event.stopPropagation();
+        if (typeof window.signOutUser === "function") {
+            window.signOutUser();
+        } else {
+            console.error("signOutUser() is not available");
+        }
+    });
+}
+
+/* ===========================
+   HEADER NAME / NAV ACCESS
+   (same pattern as every other page — project-shell.js owns the project
+   name/breadcrumb, this owns the signed-in staff member's own name)
+=========================== */
+
+const userNameElement = document.getElementById("headerUserName");
+
+function updateStaffName(profile) {
+    if (!profile) return;
+    const name = profile.full_name || profile.username || "Staff";
+    if (userNameElement) userNameElement.textContent = name;
+
+    const sidebarGroupPill = document.getElementById("sidebarGroupPill");
+    if (sidebarGroupPill) {
+        const groups = window.getSupabaseUserGroups ? window.getSupabaseUserGroups(profile) : [];
+        sidebarGroupPill.textContent = groups.length
+            ? groups.map(g => g.charAt(0).toUpperCase() + g.slice(1)).join(", ")
+            : "No Group";
+    }
+}
+
+const storedProfile = localStorage.getItem("staffProfile");
+if (storedProfile) {
+    try {
+        updateStaffName(JSON.parse(storedProfile));
+    } catch (error) {
+        console.warn("Unable to parse stored profile:", error);
+    }
+}
+
+window.addEventListener("DOMContentLoaded", function () {
+    const profile = window.currentSupabaseProfile || null;
+    if (profile) updateStaffName(profile);
+});
+
+</script>
+
+</body>
+</html>

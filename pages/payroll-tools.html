@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Leeward Group | Payroll Tools</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+    <style>
+        .restricted-wrap { max-width: 520px; margin: 60px auto; text-align: center; }
+        .announcement-item { padding: 12px; border: 1px solid var(--border-color, #e2e2e2); border-radius: 8px; margin-bottom: 10px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: flex-start; }
+        /* The text block and the Delete button are flex siblings in a row.
+           Without min-width: 0 a flex item won't shrink below its content's
+           natural width, so a long title/message just pushed the Delete
+           button off the edge on a phone-width screen instead of wrapping.
+           flex-wrap above plus this lets the button drop to its own line
+           once the text block can't shrink any further. */
+        .announcement-item > div { min-width: 0; flex: 1 1 220px; }
+        .announcement-item > button { flex: 0 0 auto; }
+        .announcement-item h3 { margin: 0 0 4px; font-size: 1em; overflow-wrap: break-word; }
+        .announcement-item p { margin: 0 0 6px; white-space: pre-wrap; overflow-wrap: break-word; }
+        .announcement-item .announcement-date { font-size: 0.8em; opacity: 0.65; }
+        .announcement-badges { margin-bottom: 6px; }
+        .announcement-type-row { display: flex; flex-direction: column; gap: 8px; }
+        .announcement-type-option { display: flex; align-items: center; gap: 8px; font-weight: 500; font-size: 0.92rem; cursor: pointer; }
+        .announcement-type-option input { margin: 0; }
+        .announcement-type-hint { color: var(--text-soft); font-weight: 400; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+    <header class="header">
+
+    <div class="header-left">
+
+        <div class="brand-mark">
+
+            <div class="brand-mark__icon" id="brandInitials">
+                ST
+            </div>
+
+            <div>
+                <div class="brand-title">
+                    The Leeward Group
+                </div>
+
+                <div class="brand-subtitle">
+                    Staff Portal
+                </div>
+            </div>
+
+        </div>
+
+
+        <button class="menu-btn" id="menuBtn" aria-label="Toggle navigation">
+            ☰
+        </button>
+
+    </div>
+
+
+
+    <div class="header-right">
+
+        <div class="header-user-area">
+
+            <div class="header-user-pill" id="headerUserPill">
+
+
+                <span id="headerUserName">
+                    Staff
+                </span>
+
+
+
+                <div class="notification-wrapper">
+
+
+                    <button 
+                        class="notification-bell"
+                        id="notificationBell"
+                        aria-label="Notifications">
+
+                        <span class="notification-bell-icon"></span>
+
+                        <span class="notification-count">
+                            3
+                        </span>
+
+                    </button>
+
+
+
+
+                    <div class="notification-dropdown" id="notificationDropdown">
+
+
+                        <div class="notification-header">
+                        <span>Notifications</span>
+                        <button class="mark-read-btn">Mark as read</button>
+                        </div>
+
+
+                        <div id="notificationList"></div>
+
+                        <div id="notificationEmpty" class="notification-item" style="display:none;">
+                            <p>No notifications yet.</p>
+                        </div>
+
+
+                        <div class="notification-footer">
+
+                            <a 
+                                class="report-bug-btn"
+                                href="https://tally.so/r/QKyGj8"
+                                target="_blank"
+                                rel="noopener">
+
+                                Report bug
+
+                            </a>
+
+                            <button 
+                                class="auth-button auth-button--secondary header-signout"
+                                id="signOutButton"
+                                type="button">
+
+                                Sign out
+
+                            </button>
+
+                        </div>
+<p style="margin: 10px 0; padding: 10px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; text-align: center; font-size: 14px; color: #495057;">
+                            Change Password
+                        </p>
+                    </div>
+
+
+                </div>
+
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+
+</header>
+
+<aside class="sidebar" id="sidebar">
+
+    <div class="sidebar-header">
+        COMPANY WIDE
+    </div>
+
+    <nav class="sidebar-nav">
+
+        <a href="/pages/dashboard.html" class="nav-item">
+            <span class="home-nav-icon"></span>
+            <span class="nav-text">
+                Dashboard
+            </span>
+        </a>
+
+        <div class="nav-item-group" id="companyDocsNavGroup">
+
+            <a href="#"
+               class="nav-item nav-parent"
+               onclick="toggleSubnav(event, this)">
+                <span class="docs-nav-icon"></span>
+                <span class="nav-text">
+                    Company docs
+                </span>
+                <span class="nav-arrow"></span>
+            </a>
+
+            <div class="subnav">
+
+                
+
+                <a href="/pages/excel-workbook.html" class="subnav-item">
+                    <span class="nav-text">
+                        Excel Workbook Templates
+                    </span>
+                </a>
+
+                <a href="/pages/form-template.html" class="subnav-item">
+                    <span class="nav-text">
+                        Form Templates
+                    </span>
+                </a>
+            </div>
+        </div>
+
+       <a href="/pages/timesheet.html" class="nav-item">
+            <span class="finance-nav-icon"></span>
+            <span class="nav-text">
+                Staff Finance
+            </span>
+        </a>
+
+        <a href="/pages/project-home.html" class="nav-item">
+            <span class="projects-nav-icon"></span>
+            <span class="nav-text">
+                Project Overview
+            </span>
+        </a>
+
+        <a href="https://www.theleewardgroup.us/"
+           class="nav-item"
+           target="_blank">
+            <span class="website-nav-icon"></span>
+            <span class="nav-text">
+                Company site
+            </span>
+        </a>
+
+        <hr style="border:.5px solid rgba(255,255,255,0.14); margin:10px 0;">
+
+        <div class="sidebar-header">
+            Department Wide
+        </div>
+
+        <a href="/pages/vendors.html" class="nav-item">
+            <span class="companies-nav-icon"></span>
+            <span class="nav-text">
+                Vendor Contacts
+            </span>
+        </a>
+
+        <a href="/pages/payroll-tools.html"
+           class="nav-item active"
+           id="payrollToolsNavItem"
+           style="display:none;">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">
+                Payroll Tools
+            </span>
+        </a>
+
+        <a href="/pages/manage-employees.html"
+           class="nav-item"
+           id="manageEmployeesNavItem"
+           style="display:none;">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">
+                Manage Employees
+            </span>
+        </a>
+
+        <div class="nav-item-group"
+             id="adminNavGroup"
+             style="display:none;">
+
+            <a href="#"
+               class="nav-item nav-parent"
+               onclick="toggleSubnav(event, this)">
+                <span class="it-tools-nav-icon"></span>
+                <span class="nav-text">
+                    IT Tools
+                </span>
+                <span class="nav-arrow"></span>
+            </a>
+
+            <div class="subnav">
+
+                <a href="/pages/admin-users.html"
+                   class="subnav-item">
+                    <span class="nav-text">
+                        Create account
+                    </span>
+                </a>
+
+                <a href="/pages/staff-users.html"
+                   class="subnav-item">
+                    <span class="nav-text">
+                        Staff users
+                    </span>
+                </a>
+
+                <a href="/pages/workgroups.html"
+                   class="subnav-item">
+                    <span class="nav-text">
+                        Workgroups
+                    </span>
+                </a>
+
+            </div>
+
+        </div>
+
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="footer-pill" id="sidebarGroupPill"></div>
+        <div class="sidebar-brand">
+            LeeWard Group
+        </div>
+        <div class="version">
+            Version XF-729-BETA
+        </div>
+    </div>
+</aside>
+
+  <main class="main-content">
+<h1 id="todayHeading">Today is, ...</h1>
+    <div id="restrictedView" class="restricted-wrap" style="display:none;">
+      <h1>Payroll Tools</h1>
+      <p>This page is only available to the Accounting group. If you believe this is a mistake, contact IT.</p>
+    </div>
+
+    <div id="payrollToolsContent" style="display:none;">
+      <section class="hero-section">
+        <div>
+          <p class="eyebrow">Accounting</p>
+          <h1>Payroll Tools</h1>
+          <p>Set the timesheet pay period schedule and send announcements to staff.</p>
+        </div>
+      </section>
+
+      <div class="content-grid">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Set Timesheet Period</h2>
+              <p class="card-subtitle">Create pay periods and see when the next payday lands</p>
+            </div>
+            <span class="chip">Schedule</span>
+          </div>
+
+          <div class="payday-block">
+            <p class="payday-label">The next day to run payday is:</p>
+            <p class="payday-value" id="nextPaydayValue">Loading…</p>
+          </div>
+
+          <div class="payday-actions">
+            <button type="button" class="auth-button auth-button--secondary" onclick="openPayPeriodCalendar()">View Calendar</button>
+            <button type="button" class="auth-button" onclick="openNewPayPeriodModal()">Make a New Pay Period</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Send Announcement</h2>
+              <p class="card-subtitle">Posts to every staff member's Staff Finance page</p>
+            </div>
+            <span class="chip">Announcements</span>
+          </div>
+
+          <div class="auth-form">
+            <label class="auth-field">
+              Title
+              <input type="text" id="announcementTitle" placeholder="Title">
+            </label>
+            <label class="auth-field">
+              Message
+              <textarea id="announcementMessage" placeholder="Message"></textarea>
+            </label>
+            <div class="auth-field">
+              Announcement type
+              <div class="announcement-type-row">
+                <label class="announcement-type-option">
+                  <input type="radio" name="announcementType" value="temporary" checked>
+                  Temporary <span class="announcement-type-hint">auto-deletes in 24 hours</span>
+                </label>
+                <label class="announcement-type-option">
+                  <input type="radio" name="announcementType" value="longterm">
+                  Long-term <span class="announcement-type-hint">stays until deleted</span>
+                </label>
+              </div>
+            </div>
+            <button type="button" class="auth-button auth-button--secondary" onclick="sendAnnouncement()">Send announcement</button>
+          </div>
+          <p id="announcementMsg" class="auth-message"></p>
+
+          <div id="sentAnnouncementsList" style="margin-top:14px;"></div>
+          <div id="sentAnnouncementsEmpty" class="empty-state" style="display:none;">No announcements sent yet.</div>
+        </div>
+      </div>
+
+      <div class="card wide-card" id="accountingDashboardCard">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title">Accounting Employee Dashboard</h2>
+            <p class="card-subtitle">Payroll roster, timesheet status, and the manager-approved queue</p>
+          </div>
+          <button type="button" class="auth-button auth-button--secondary" onclick="openAddEmployeeModal()">Add Employee</button>
+        </div>
+
+        <div class="dash-tabs">
+          <button type="button" class="dash-tab active" id="dashTabEmployees" onclick="switchDashboardTab('employees')">Employees</button>
+          <button type="button" class="dash-tab" id="dashTabQueue" onclick="switchDashboardTab('queue')">Approved Queue</button>
+        </div>
+
+        <div id="dashPanelEmployees" class="dash-panel">
+          <div class="employee-card-grid" id="employeeCardGrid"></div>
+          <div id="employeeCardEmpty" class="empty-state" style="display:none;">No employees on payroll yet. Use "Add Employee" above to pull someone in from the staff directory.</div>
+        </div>
+
+        <div id="dashPanelQueue" class="dash-panel" style="display:none;">
+          <div class="table-wrap">
+            <table class="dash-queue-table">
+              <thead>
+                <tr><th>Employee</th><th>Pay Period</th><th>Total Hours</th><th>Approval Date</th><th>Status</th><th></th></tr>
+              </thead>
+              <tbody id="approvedQueueBody"></tbody>
+            </table>
+          </div>
+          <div id="approvedQueueEmpty" class="empty-state" style="display:none;">Nothing waiting on Accounting right now.</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Add Employee popup -->
+  <div class="popup-overlay hidden" id="addEmployeeOverlay">
+    <div class="popup">
+      <h2>Add Employee to Payroll</h2>
+      <p class="card-subtitle">Pick an existing staff account and set their payroll details.</p>
+      <form class="auth-form" onsubmit="submitAddEmployee(event)">
+        <label class="auth-field">
+          Staff member
+          <select id="addEmployeeStaffSelect" required></select>
+        </label>
+        <label class="auth-field">
+          Department
+          <input type="text" id="addEmployeeDepartment" placeholder="e.g. Field Operations">
+        </label>
+        <label class="auth-field">
+          Hourly rate
+          <input type="number" id="addEmployeeRate" min="0" step="0.01" placeholder="e.g. 24.50">
+        </label>
+        <label class="auth-field">
+          Employment type
+          <select id="addEmployeeType">
+            <option value="Full-time">Full-time</option>
+            <option value="Part-time">Part-time</option>
+            <option value="Contractor">Contractor</option>
+          </select>
+        </label>
+        <label class="announcement-type-option">
+          <input type="checkbox" id="addEmployeeOvertimeExempt">
+          Overtime-exempt (salaried / not eligible for OT pay)
+        </label>
+        <p id="addEmployeeMsg" class="auth-message"></p>
+        <div class="popup-buttons">
+          <button type="button" class="auth-button auth-button--red" onclick="ppCloseOverlay('addEmployeeOverlay')">Cancel</button>
+          <button type="submit" class="auth-button auth-button--secondary">Add Employee</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Employee detail / timesheet review popup -->
+  <div class="popup-overlay hidden" id="employeeDetailOverlay">
+    <div class="popup employee-detail-popup">
+      <div class="workbook-preview-header">
+        <h2 id="employeeDetailName">Employee</h2>
+        <button type="button" class="menu-btn" onclick="ppCloseOverlay('employeeDetailOverlay')" aria-label="Close">✕</button>
+      </div>
+      <p class="card-subtitle" id="employeeDetailSubtitle"></p>
+
+      <div class="employee-detail-body">
+        <section>
+          <h3 class="pp-list-heading">Payroll details</h3>
+          <form class="auth-form" id="employeeDetailForm" onsubmit="saveEmployeeDetails(event)">
+            <div class="directory-form__row-inline">
+              <label class="auth-field">
+                Department
+                <input type="text" id="editEmployeeDepartment">
+              </label>
+              <label class="auth-field">
+                Hourly rate
+                <input type="number" id="editEmployeeRate" min="0" step="0.01">
+              </label>
+            </div>
+            <div class="directory-form__row-inline">
+              <label class="auth-field">
+                Employment type
+                <select id="editEmployeeType">
+                  <option value="Full-time">Full-time</option>
+                  <option value="Part-time">Part-time</option>
+                  <option value="Contractor">Contractor</option>
+                </select>
+              </label>
+              <label class="announcement-type-option" style="align-self:center;">
+                <input type="checkbox" id="editEmployeeOvertimeExempt">
+                Overtime-exempt
+              </label>
+            </div>
+            <p id="employeeDetailMsg" class="auth-message"></p>
+            <div class="popup-buttons" style="justify-content:flex-start;">
+              <button type="submit" class="auth-button auth-button--secondary auth-button--sm">Save details</button>
+              <button type="button" class="auth-button auth-button--sm" id="employeeDetailToggleActiveBtn" onclick="toggleEmployeeActive()">Deactivate</button>
+              <button type="button" class="auth-button auth-button--red auth-button--sm" onclick="removeEmployeeFromPayroll()">Remove from payroll</button>
+            </div>
+          </form>
+        </section>
+
+        <div class="auth-divider"></div>
+
+        <section>
+          <h3 class="pp-list-heading">Current pay period timesheet</h3>
+          <p class="card-subtitle" id="employeeDetailPeriodLabel"></p>
+          <div class="table-wrap">
+            <table class="dash-queue-table" id="employeeDetailEntriesTable">
+              <thead>
+                <tr><th>Date</th><th>Clock In</th><th>Clock Out</th><th>Regular</th><th>Overtime</th><th>Notes</th></tr>
+              </thead>
+              <tbody id="employeeDetailEntriesBody"></tbody>
+            </table>
+          </div>
+          <div id="employeeDetailEntriesEmpty" class="empty-state" style="display:none;">No hours entered for this period yet.</div>
+          <p class="employee-detail-total" id="employeeDetailTotal"></p>
+
+          <label class="auth-field">
+            Comment
+            <textarea id="employeeDetailComment" rows="2" placeholder="Required if you're unapproving this timesheet"></textarea>
+          </label>
+
+          <div class="popup-buttons" id="employeeDetailActions" style="justify-content:flex-start;"></div>
+        </section>
+
+        <div class="auth-divider"></div>
+
+        <section>
+          <h3 class="pp-list-heading">Activity</h3>
+          <div class="info-list" id="employeeDetailEvents"></div>
+          <div id="employeeDetailEventsEmpty" class="empty-state" style="display:none;">No activity yet.</div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- View Calendar popup -->
+  <div class="popup-overlay hidden" id="payPeriodCalendarOverlay">
+    <div class="popup pay-period-calendar-popup">
+      <div class="workbook-preview-header">
+        <h2>Pay Period Calendar</h2>
+        <button type="button" class="menu-btn" onclick="ppCloseOverlay('payPeriodCalendarOverlay')" aria-label="Close calendar">✕</button>
+      </div>
+      <p class="card-subtitle">Every pay period's start date and payday, at a glance.</p>
+
+      <div class="pp-calendar-nav">
+        <button type="button" class="auth-button auth-button--secondary" onclick="shiftCalendarMonth(-1)" aria-label="Previous month">‹</button>
+        <span id="calendarMonthLabel" class="pp-calendar-month"></span>
+        <button type="button" class="auth-button auth-button--secondary" onclick="shiftCalendarMonth(1)" aria-label="Next month">›</button>
+      </div>
+
+      <div class="pp-calendar-grid" id="calendarGrid"></div>
+
+      <div class="pp-legend">
+        <span class="pp-legend-item"><span class="pp-legend-dot pp-legend-dot--start"></span>Period start</span>
+        <span class="pp-legend-item"><span class="pp-legend-dot pp-legend-dot--end"></span>Payday</span>
+      </div>
+
+      <div class="auth-divider"></div>
+
+      <h3 class="pp-list-heading">All pay periods</h3>
+      <div class="info-list" id="payPeriodList"></div>
+      <div id="payPeriodListEmpty" class="empty-state" style="display:none;">No pay periods created yet.</div>
+
+      <div class="popup-buttons">
+        <button type="button" class="auth-button auth-button--secondary" onclick="ppCloseOverlay('payPeriodCalendarOverlay')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Make a New Pay Period popup -->
+  <div class="popup-overlay hidden" id="newPayPeriodOverlay">
+    <div class="popup">
+      <h2>New Pay Period</h2>
+      <p class="card-subtitle">Set the start and end date for this pay period. Payday is the end date.</p>
+      <form class="auth-form" onsubmit="submitNewPayPeriod(event)">
+        <label class="auth-field">
+          Start date
+          <input type="date" id="newPayPeriodStart" required>
+        </label>
+        <label class="auth-field">
+          End date (payday)
+          <input type="date" id="newPayPeriodEnd" required>
+        </label>
+        <p id="newPayPeriodMsg" class="auth-message"></p>
+        <div class="popup-buttons">
+          <button type="button" class="auth-button auth-button--red" onclick="ppCloseOverlay('newPayPeriodOverlay')">Cancel</button>
+          <button type="submit" class="auth-button auth-button--secondary">Save Pay Period</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script src="/js/script.js"></script>
+    <script src="/js/supabase-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/js/supabase-auth.js"></script>
+    <script src="/js/auth-guard.js"></script>
+    <script src="/js/manager-nav.js"></script>
+    <script src="/js/timeout.js"></script>
+    <script src="/js/notifications.js"></script>
+    <script src="/js/nav-access.js"></script>
+    <script src="/js/pay-periods-shared.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="/js/payroll-pdf-stub.js"></script>
+    <script src="/js/payroll-tools.js"></script>
+
+<script>
+// Announcements below are wired to Supabase. Pay period logic (View Calendar /
+// Make a New Pay Period / next payday) lives in payroll-tools.js.
+
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str ?? '';
+  return d.innerHTML;
+}
+
+// ---- "Today is, ___!" heading ----
+function updateTodayHeading() {
+  const heading = document.getElementById('todayHeading');
+  if (!heading) return;
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const today = new Date();
+  heading.textContent = `Today is, ${dayNames[today.getDay()]}!`;
+}
+updateTodayHeading();
+
+// ---- Announcements to staff (Supabase) ----
+// Uses window.supabaseClient, exposed globally by supabase-auth.js.
+
+// Announcements are either Temporary (auto-deletes 24h after being sent, unless
+// the sender marks it Long-term) or Long-term (expires_at stays null — kept
+// until someone deletes it manually). There's no server-side cron for this —
+// every read here opportunistically deletes anything past its expires_at
+// first, so an expired temporary announcement disappears the next time
+// anyone loads a page that shows announcements.
+async function purgeExpiredAnnouncements() {
+  const { error } = await supabaseClient
+    .from('announcements')
+    .delete()
+    .lt('expires_at', new Date().toISOString());
+  if (error) console.error('Failed to purge expired announcements:', error);
+}
+
+async function getAnnouncements() {
+  await purgeExpiredAnnouncements();
+  const { data, error } = await supabaseClient
+    .from('announcements')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) { console.error('Failed to load announcements:', error); return []; }
+  return data;
+}
+
+async function sendAnnouncement() {
+  const titleInput = document.getElementById('announcementTitle');
+  const messageInput = document.getElementById('announcementMessage');
+  const typeInput = document.querySelector('input[name="announcementType"]:checked');
+  const msg = document.getElementById('announcementMsg');
+  const title = titleInput.value.trim();
+  const message = messageInput.value.trim();
+  const isTemporary = !typeInput || typeInput.value === 'temporary';
+
+  if (!title || !message) { msg.textContent = 'Title and message are required.'; msg.className = 'auth-message error'; return; }
+
+  const { error } = await supabaseClient.from('announcements').insert({
+    title,
+    message,
+    created_by: window.currentSupabaseProfile?.id || null,
+    expires_at: isTemporary ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null
+  });
+
+  if (error) {
+    console.error('Failed to send announcement:', error);
+    msg.textContent = 'Something went wrong sending that.';
+    msg.className = 'auth-message error';
+    return;
+  }
+
+  // Broadcast a notification too, so it shows up in the bell for everyone, not just
+  // on the Staff Finance page's Announcements card.
+  const { error: notifyError } = await supabaseClient.from('notifications').insert({
+    user_id: null, // null = everyone
+    title,
+    message,
+    type: 'announcement'
+  });
+  if (notifyError) console.error('Announcement sent, but failed to create notification:', notifyError);
+
+  titleInput.value = '';
+  messageInput.value = '';
+  const defaultTypeInput = document.querySelector('input[name="announcementType"][value="temporary"]');
+  if (defaultTypeInput) defaultTypeInput.checked = true;
+  msg.textContent = isTemporary
+    ? 'Sent — this will auto-delete in 24 hours.'
+    : 'Sent — this is long-term and will stay until deleted.';
+  msg.className = 'auth-message success';
+  renderSentAnnouncements();
+}
+
+async function deleteAnnouncement(id) {
+  const { error } = await supabaseClient.from('announcements').delete().eq('id', id);
+  if (error) { console.error('Failed to delete announcement:', error); return; }
+  renderSentAnnouncements();
+}
+
+async function renderSentAnnouncements() {
+  const list = await getAnnouncements();
+  const container = document.getElementById('sentAnnouncementsList');
+  const empty = document.getElementById('sentAnnouncementsEmpty');
+  container.innerHTML = '';
+  if (!list || list.length === 0) { empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  list.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'announcement-item';
+    div.innerHTML = `
+      <div>
+        <div class="announcement-badges">
+          ${announcementTypeBadge(item.expires_at)}
+        </div>
+        <h3>${escapeHtml(item.title)}</h3>
+        <p>${escapeHtml(item.message)}</p>
+        <div class="announcement-date">Sent ${new Date(item.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</div>
+      </div>
+      <button class="auth-button auth-button--red auth-button--sm" onclick="deleteAnnouncement('${item.id}')">Delete</button>
+    `;
+    container.appendChild(div);
+  });
+}
+
+// Small badge so Accounting can tell at a glance whether a sent announcement
+// is temporary (and how long it has left) or long-term.
+function announcementTypeBadge(expiresAt) {
+  if (!expiresAt) return `<span class="chip chip--muted">Long-term</span>`;
+  const msLeft = new Date(expiresAt).getTime() - Date.now();
+  if (msLeft <= 0) return `<span class="chip chip--warning">Expiring…</span>`;
+  const hoursLeft = Math.max(1, Math.round(msLeft / (60 * 60 * 1000)));
+  return `<span class="chip chip--warning">Temporary · ${hoursLeft}h left</span>`;
+}
+
+document.getElementById('signOutButton').addEventListener('click', function () {
+    window.signOutUser();
+});
+
+const userNameElement = document.getElementById("headerUserName");
+const adminNavGroup = document.getElementById('adminNavGroup');
+const brandInitials = document.getElementById('brandInitials');
+
+function updateStaffName(profile) {
+    if (!profile) return;
+    const name = profile.full_name || profile.username || 'Staff';
+if (userNameElement) { userNameElement.textContent = name; }
+    if (brandInitials) {
+        const words = String(name).trim().split(/\s+/).filter(Boolean);
+        const initials = words.length >= 2
+            ? `${words[0][0] || ''}${words[words.length - 1][0] || ''}`.toUpperCase()
+            : `${words[0]?.slice(0, 2).toUpperCase() || 'ST'}`;
+        brandInitials.textContent = initials;
+    }
+}
+
+// Populates the pill at the bottom of the sidebar with the staff member's work group(s).
+// Reuses isSupabaseUserInGroup() so it stays in sync with whatever field/shape
+// supabase-auth.js actually stores groups in. Add more group names to KNOWN_GROUPS
+// below if staff_users supports groups beyond these three.
+const KNOWN_GROUPS = ['Super Admin', 'IT', 'Accounting', 'Office'];
+function updateGroupPill(profile) {
+    const pill = document.getElementById('sidebarGroupPill');
+    if (!pill) return;
+    if (!profile || !window.isSupabaseUserInGroup) { pill.textContent = ''; return; }
+    const matched = KNOWN_GROUPS.filter(group => window.isSupabaseUserInGroup(profile, group));
+    pill.textContent = matched.length ? matched.join(' · ') : 'Staff';
+}
+
+// This page's content is Accounting-only. The sidebar link is also hidden for everyone else
+// (see dashboard.html), but this check is what actually gates the page if someone opens the URL directly.
+function updateNavAccess(profile) {
+    const isIT = window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, 'IT') : false;
+    const isAccounting = window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, 'Accounting') : false;
+    const isSuperAdmin = window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, 'Super Admin') : false;
+    const isOffice = window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, 'Office') : false;
+
+
+    // Super Admin gets access to everything gated below, not just Payroll Tools.
+    const shouldShowAdminNav = isIT || isSuperAdmin;
+    if (adminNavGroup) adminNavGroup.style.display = shouldShowAdminNav ? 'block' : 'none';
+
+    const hasPayrollAccess = isAccounting || isSuperAdmin;
+
+    const payrollToolsNavItem = document.getElementById('payrollToolsNavItem');
+    if (payrollToolsNavItem) payrollToolsNavItem.style.display = hasPayrollAccess ? 'flex' : 'none';
+
+    document.getElementById('payrollToolsContent').style.display = hasPayrollAccess ? 'block' : 'none';
+    document.getElementById('restrictedView').style.display = hasPayrollAccess ? 'none' : 'block';
+
+    if (hasPayrollAccess) {
+        initPayrollToolsCard();
+        renderSentAnnouncements();
+    }
+}
+
+const storedProfile = localStorage.getItem('staffProfile');
+if (storedProfile) {
+    try {
+        const parsedProfile = JSON.parse(storedProfile);
+        updateStaffName(parsedProfile);
+        updateNavAccess(parsedProfile);
+        updateGroupPill(parsedProfile);
+    } catch (error) {
+        console.warn('Unable to parse stored profile:', error);
+    }
+}
+
+window.addEventListener('DOMContentLoaded', function () {
+    const profile = window.currentSupabaseProfile || null;
+    if (profile) {
+        updateStaffName(profile);
+        updateNavAccess(profile);
+        updateGroupPill(profile);
+    }
+    // Notifications are handled by the shared notifications.js
+    // (loaded via <script src> below), which self-initializes.
+});
+</script>
+</body>
+</html>
