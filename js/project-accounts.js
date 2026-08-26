@@ -829,21 +829,50 @@
         return "this record";
     }
 
+    let pendingDeleteName = "";
+
+    // Typing the record's own name to confirm (same pattern used for
+    // project deletion) -- cheap insurance against a one-click delete
+    // landing on the wrong contact/organization/account/office, which is
+    // otherwise unrecoverable.
+    function deleteRecordConfirmNameMatches() {
+        const typed = document.getElementById("deleteRecordConfirmNameInput").value;
+        return pendingDeleteName.length > 0 && typed.trim() === pendingDeleteName;
+    }
+
+    function deleteRecordConfirmReady() {
+        return deleteRecordConfirmNameMatches()
+            && document.getElementById("deleteRecordConfirmUnderstandCheckbox").checked;
+    }
+
+    function updateDeleteRecordConfirmBtnState() {
+        document.getElementById("confirmDeleteRecordBtn").disabled = !deleteRecordConfirmReady();
+    }
+
     function openDeleteRecordConfirm(table, id) {
         const record = findRecord(table, id);
         if (!record) return;
         pendingDelete = { table, id };
-        document.getElementById("deleteRecordConfirmMessage").textContent = `"${recordLabel(table, record)}" will be permanently removed.`;
+        pendingDeleteName = recordLabel(table, record) || "";
+        document.getElementById("deleteRecordConfirmName").textContent = pendingDeleteName || "this record";
+        document.getElementById("deleteRecordConfirmMessage").textContent = "";
+        const input = document.getElementById("deleteRecordConfirmNameInput");
+        input.value = "";
+        document.getElementById("deleteRecordConfirmUnderstandCheckbox").checked = false;
         document.getElementById("deleteRecordConfirmOverlay").classList.remove("hidden");
+        updateDeleteRecordConfirmBtnState();
+        input.focus();
     }
 
     function closeDeleteRecordConfirm() {
         document.getElementById("deleteRecordConfirmOverlay").classList.add("hidden");
         pendingDelete = null;
+        pendingDeleteName = "";
     }
 
     async function confirmDeleteRecord() {
         if (!pendingDelete) return;
+        if (!deleteRecordConfirmReady()) return;
         const { table, id } = pendingDelete;
         const { error } = await window.supabaseClient.from(table).delete().eq("id", id);
         if (error) {
@@ -963,6 +992,8 @@
         document.getElementById("cancelDeleteRecordBtn")?.addEventListener("click", closeDeleteRecordConfirm);
         document.getElementById("confirmDeleteRecordBtn")?.addEventListener("click", confirmDeleteRecord);
         document.getElementById("deleteRecordConfirmOverlay")?.addEventListener("click", (e) => { if (e.target === e.currentTarget) closeDeleteRecordConfirm(); });
+        document.getElementById("deleteRecordConfirmNameInput")?.addEventListener("input", updateDeleteRecordConfirmBtnState);
+        document.getElementById("deleteRecordConfirmUnderstandCheckbox")?.addEventListener("change", updateDeleteRecordConfirmBtnState);
 
         ["contactCardSearchInput", "contactCardTypeFilter", "contactCardSort"].forEach(id => {
             document.getElementById(id)?.addEventListener("input", renderContactQuickCards);

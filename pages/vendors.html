@@ -701,17 +701,31 @@
 
 <!-- Delete Confirmation Modal -->
 <div class="popup-overlay hidden" id="deleteConfirmOverlay">
-    <div class="popup">
-        <h2>Delete this Vendor?</h2>
-        <p class="auth-inline-copy" id="deleteConfirmText">
-            This will permanently remove the Vendor record and its W9 file. This can't be undone.
-        </p>
+    <div class="popup popup--danger">
+        <div class="delete-confirm-header">
+            <span class="delete-confirm-icon" aria-hidden="true"></span>
+            <h2 id="deleteConfirmTitle">Delete this vendor?</h2>
+        </div>
+
+        <div class="delete-confirm-warning-box">
+            <p id="deleteConfirmText">This will permanently remove the vendor record and its W9 file. This can't be undone.</p>
+        </div>
+
+        <label class="auth-field delete-confirm-name-field">
+            <span>Type <strong id="deleteConfirmName"></strong> below to confirm</span>
+            <input type="text" id="deleteConfirmNameInput" autocomplete="off" autocapitalize="off" spellcheck="false">
+        </label>
+
+        <label class="delete-confirm-checkbox-row">
+            <input type="checkbox" id="deleteConfirmUnderstandCheckbox">
+            <span>I understand this action is permanent and cannot be undone.</span>
+        </label>
 
         <p class="auth-message" id="deleteConfirmMessage"></p>
 
         <div class="popup-buttons">
             <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteBtn">Cancel</button>
-            <button type="button" class="auth-button auth-button--red" id="confirmDeleteBtn">Delete</button>
+            <button type="button" class="auth-button auth-button--red" id="confirmDeleteBtn" disabled>Delete</button>
         </div>
     </div>
 

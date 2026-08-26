@@ -130,6 +130,27 @@
         return "none";
     }
 
+    // A source='form_submission' row is always a real PDF (the form-filling
+    // pipeline only ever produces a merged PDF, per mergeSubmissionAttachments()
+    // in form-builder.js) — but its file_name comes from whatever the
+    // submitter typed in "Name this file", and older submissions (saved
+    // before form-builder.js started enforcing a .pdf suffix there) can be
+    // missing the extension entirely. Rather than rely on that name being
+    // right, treat it as known-PDF from the source field and only fall back
+    // to guessing by extension for plain uploads. Same idea for the name
+    // actually offered to the browser on download, so a legacy row still
+    // saves with a real .pdf extension instead of none at all.
+    function previewKindFor(file) {
+        return file.source === "form_submission" ? "pdf" : getPreviewKind(file.file_name);
+    }
+
+    function downloadNameFor(file) {
+        if (file.source === "form_submission" && !/\.pdf$/i.test(file.file_name || "")) {
+            return `${file.file_name}.pdf`;
+        }
+        return file.file_name;
+    }
+
     /* ---------- load ---------- */
 
     async function loadMyProjectRole(projectId) {
@@ -655,7 +676,7 @@
         const { data, error } = await window.supabaseClient
             .storage
             .from(bucket)
-            .createSignedUrl(file.storage_path, 60 * 5, { download: file.file_name });
+            .createSignedUrl(file.storage_path, 60 * 5, { download: downloadNameFor(file) });
 
         if (error || !data?.signedUrl) {
             console.error("Failed to create signed URL for file:", error);
@@ -698,7 +719,7 @@
             return;
         }
 
-        const kind = getPreviewKind(file.file_name);
+        const kind = previewKindFor(file);
         if (kind === "image") {
             // No src in the initial markup — set it after wiring the
             // error listener below, so a decode failure (e.g. HEIC in a
@@ -910,11 +931,35 @@
         return !!(event.dataTransfer && Array.from(event.dataTransfer.types || []).includes("Files"));
     }
 
+    // Typing the file's own name to confirm (same pattern used for project
+    // deletion) -- cheap insurance against a one-click delete landing on the
+    // wrong file, which is otherwise unrecoverable.
+    function deleteFileConfirmNameMatches() {
+        const expected = (pendingDeleteFile && pendingDeleteFile.file_name) || "";
+        const typed = document.getElementById("deleteFileConfirmNameInput").value;
+        return expected.length > 0 && typed.trim() === expected;
+    }
+
+    function deleteFileConfirmReady() {
+        return deleteFileConfirmNameMatches()
+            && document.getElementById("deleteFileConfirmUnderstandCheckbox").checked;
+    }
+
+    function updateDeleteFileConfirmBtnState() {
+        document.getElementById("confirmDeleteFileBtn").disabled = !deleteFileConfirmReady();
+    }
+
     function openDeleteFileConfirm(file) {
         pendingDeleteFile = file;
+        document.getElementById("deleteFileConfirmName").textContent = file.file_name || "this file";
+        const input = document.getElementById("deleteFileConfirmNameInput");
+        input.value = "";
+        document.getElementById("deleteFileConfirmUnderstandCheckbox").checked = false;
         const messageEl = document.getElementById("deleteFileConfirmMessage");
         if (messageEl) messageEl.textContent = "";
         document.getElementById("deleteFileConfirmOverlay")?.classList.remove("hidden");
+        updateDeleteFileConfirmBtnState();
+        input.focus();
     }
 
     function closeDeleteFileConfirm() {
@@ -924,6 +969,7 @@
 
     async function confirmDeleteFile() {
         if (!pendingDeleteFile) return;
+        if (!deleteFileConfirmReady()) return;
         const file = pendingDeleteFile;
         const messageEl = document.getElementById("deleteFileConfirmMessage");
         const confirmBtn = document.getElementById("confirmDeleteFileBtn");
@@ -1141,6 +1187,8 @@
     document.getElementById("deleteFileConfirmOverlay")?.addEventListener("click", function (e) {
         if (e.target === this) closeDeleteFileConfirm();
     });
+    document.getElementById("deleteFileConfirmNameInput")?.addEventListener("input", updateDeleteFileConfirmBtnState);
+    document.getElementById("deleteFileConfirmUnderstandCheckbox")?.addEventListener("change", updateDeleteFileConfirmBtnState);
 
     document.getElementById("renameFileForm")?.addEventListener("submit", confirmRenameFile);
     document.getElementById("cancelRenameFileBtn")?.addEventListener("click", closeRenameFileModal);

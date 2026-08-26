@@ -247,13 +247,39 @@ function closeUploadModal() {
 
 /* ---------- delete ---------- */
 
+// Typing the workbook's own title to confirm (same pattern used for project
+// deletion) -- cheap insurance against a one-click delete landing on the
+// wrong workbook, which is otherwise unrecoverable.
+function deleteWorkbookConfirmNameMatches() {
+    const expected = (editingWorkbookRecord && editingWorkbookRecord.title) || "";
+    const typed = document.getElementById("deleteWorkbookConfirmNameInput").value;
+    return expected.length > 0 && typed.trim() === expected;
+}
+
+function deleteWorkbookConfirmReady() {
+    return deleteWorkbookConfirmNameMatches()
+        && document.getElementById("deleteWorkbookConfirmUnderstandCheckbox").checked;
+}
+
+function updateDeleteWorkbookConfirmBtnState() {
+    document.getElementById("confirmDeleteWorkbookBtn").disabled = !deleteWorkbookConfirmReady();
+}
+
 function openDeleteWorkbookConfirm() {
     if (!editingWorkbookRecord) return;
+
+    const name = editingWorkbookRecord.title || "this workbook";
+    document.getElementById("deleteWorkbookConfirmName").textContent = name;
+    const input = document.getElementById("deleteWorkbookConfirmNameInput");
+    input.value = "";
+    document.getElementById("deleteWorkbookConfirmUnderstandCheckbox").checked = false;
 
     const messageEl = document.getElementById("deleteWorkbookConfirmMessage");
     if (messageEl) messageEl.textContent = "";
 
     document.getElementById("deleteWorkbookConfirmOverlay")?.classList.remove("hidden");
+    updateDeleteWorkbookConfirmBtnState();
+    input.focus();
 }
 
 function closeDeleteWorkbookConfirm() {
@@ -274,6 +300,7 @@ function removeWorkbookCardFromDom(id) {
 
 async function confirmDeleteWorkbook() {
     if (!editingWorkbookRecord) return;
+    if (!deleteWorkbookConfirmReady()) return;
 
     const record = editingWorkbookRecord;
     const confirmBtn = document.getElementById("confirmDeleteWorkbookBtn");
@@ -572,6 +599,8 @@ window.addEventListener("DOMContentLoaded", function () {
     document.getElementById("previewModalOverlay")?.addEventListener("click", function (e) {
         if (e.target === this) closePreviewModal();
     });
+    document.getElementById("deleteWorkbookConfirmNameInput")?.addEventListener("input", updateDeleteWorkbookConfirmBtnState);
+    document.getElementById("deleteWorkbookConfirmUnderstandCheckbox")?.addEventListener("change", updateDeleteWorkbookConfirmBtnState);
     document.getElementById("deleteWorkbookConfirmOverlay")?.addEventListener("click", function (e) {
         if (e.target === this) closeDeleteWorkbookConfirm();
     });

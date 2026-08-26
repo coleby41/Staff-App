@@ -385,17 +385,31 @@
 
 <!-- Delete Workbook Confirmation Modal -->
 <div class="popup-overlay hidden" id="deleteWorkbookConfirmOverlay">
-    <div class="popup">
-        <h2>Delete this workbook?</h2>
-        <p class="auth-inline-copy" id="deleteWorkbookConfirmText">
-            This will permanently remove the workbook and its files. This can't be undone.
-        </p>
+    <div class="popup popup--danger">
+        <div class="delete-confirm-header">
+            <span class="delete-confirm-icon" aria-hidden="true"></span>
+            <h2>Delete this workbook?</h2>
+        </div>
+
+        <div class="delete-confirm-warning-box">
+            <p>This will <strong>permanently</strong> remove the workbook and its files. This action cannot be undone.</p>
+        </div>
+
+        <label class="auth-field delete-confirm-name-field">
+            <span>Type <strong id="deleteWorkbookConfirmName"></strong> below to confirm</span>
+            <input type="text" id="deleteWorkbookConfirmNameInput" autocomplete="off" autocapitalize="off" spellcheck="false">
+        </label>
+
+        <label class="delete-confirm-checkbox-row">
+            <input type="checkbox" id="deleteWorkbookConfirmUnderstandCheckbox">
+            <span>I understand this action is permanent and cannot be undone.</span>
+        </label>
 
         <p class="auth-message" id="deleteWorkbookConfirmMessage"></p>
 
         <div class="popup-buttons">
             <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteWorkbookBtn">Cancel</button>
-            <button type="button" class="auth-button auth-button--red" id="confirmDeleteWorkbookBtn">Delete</button>
+            <button type="button" class="auth-button auth-button--red" id="confirmDeleteWorkbookBtn" disabled>Delete</button>
         </div>
     </div>
 </div>

@@ -338,8 +338,13 @@
             <button type="button" class="wizard-topbar-link" id="cancelFormBtn">&lsaquo; Cancel</button>
         </div>
 
-        <h2 id="formBuilderModalTitle">New Form</h2>
-        <p class="auth-inline-copy" id="formBuilderModalSubtitle">Build the form by adding questions below.</p>
+        <div class="modal-icon-header">
+            <span class="modal-icon modal-icon--form" aria-hidden="true"></span>
+            <div>
+                <h2 id="formBuilderModalTitle">New Form</h2>
+                <p class="auth-inline-copy" id="formBuilderModalSubtitle">Build the form by adding questions below.</p>
+            </div>
+        </div>
 
         <form class="auth-form" id="formBuilderForm">
 
@@ -356,12 +361,19 @@
             </label>
 
             <!-- Optional: file every submission of this form straight into a
-                 project's All Files folder (project-files.html). Leave both
-                 as "No filing" for org-wide forms like HR requests — nothing
-                 about how those work changes. -->
-            <div class="form-fields-section" id="formFileFolderSection">
-                <span class="company-card-label">File submissions into a project folder?</span>
-                <p class="auth-inline-copy">Optional. When set, filling out this form asks which project and automatically files the resulting PDF into this folder in All Files.</p>
+                 project's All Files folder (project-files.html). Leave
+                 Category as "No filing" for org-wide forms like HR requests —
+                 nothing about how those work changes. When Category/Subfolder
+                 are set, Project additionally locks the form to one specific
+                 project (skips the project picker at fill-out time) — leave
+                 it on "Ask which project" to keep asking each time, e.g. for
+                 a reusable template used across many projects. -->
+            <div class="form-fields-section form-file-folder-box" id="formFileFolderSection">
+                <div class="form-file-folder-box-header">
+                    <span class="modal-icon modal-icon--form" aria-hidden="true"></span>
+                    <span class="company-card-label">File submissions into a project folder?</span>
+                </div>
+                <p class="auth-inline-copy">Optional. When set, filling out this form automatically files the resulting PDF into this folder in All Files.</p>
                 <div class="wizard-contact-block" style="display:flex; gap:12px;">
                     <label class="auth-field" style="flex:1;">
                         Category
@@ -372,7 +384,24 @@
                         <select id="formFileSubfolderSelect" disabled><option value="">—</option></select>
                     </label>
                 </div>
+                <label class="auth-field">
+                    Project
+                    <select id="formFileProjectSelect" disabled><option value="">Ask which project when filling out</option></select>
+                </label>
             </div>
+
+            <!-- Optional: shows an "Attach files" section on the fill-out
+                 form itself, letting the submitter add supporting PDFs
+                 (reordered by drag) that get merged onto the end of this
+                 submission's own generated PDF. Off by default — most forms
+                 don't need it. -->
+            <label class="form-toggle-row" id="formAllowAttachmentsRow">
+                <input type="checkbox" id="formAllowAttachmentsCheckbox">
+                <span>
+                    Allow PDF attachments
+                    <p class="auth-inline-copy">Let the person filling this out attach supporting PDFs — merged onto the end of their submission.</p>
+                </span>
+            </label>
 
             <!-- Legacy field editor — only shown when editing an older form that
                  was built the manual way (record has no pdf_path). New forms are
@@ -471,17 +500,31 @@
 
 <!-- Delete Form Confirmation Modal -->
 <div class="popup-overlay hidden" id="deleteFormConfirmOverlay">
-    <div class="popup">
-        <h2>Delete this form?</h2>
-        <p class="auth-inline-copy">
-            This will permanently remove the form. Existing responses are kept, but no one will be able to fill it out anymore. This can't be undone.
-        </p>
+    <div class="popup popup--danger">
+        <div class="delete-confirm-header">
+            <span class="delete-confirm-icon" aria-hidden="true"></span>
+            <h2>Delete this form?</h2>
+        </div>
+
+        <div class="delete-confirm-warning-box">
+            <p>This will <strong>permanently</strong> remove the form. Existing responses are kept, but no one will be able to fill it out anymore. This action cannot be undone.</p>
+        </div>
+
+        <label class="auth-field delete-confirm-name-field">
+            <span>Type <strong id="deleteFormConfirmName"></strong> below to confirm</span>
+            <input type="text" id="deleteFormConfirmNameInput" autocomplete="off" autocapitalize="off" spellcheck="false">
+        </label>
+
+        <label class="delete-confirm-checkbox-row">
+            <input type="checkbox" id="deleteFormConfirmUnderstandCheckbox">
+            <span>I understand this action is permanent and cannot be undone.</span>
+        </label>
 
         <p class="auth-message" id="deleteFormConfirmMessage"></p>
 
         <div class="popup-buttons">
             <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteFormBtn">Cancel</button>
-            <button type="button" class="auth-button auth-button--red" id="confirmDeleteFormBtn">Delete</button>
+            <button type="button" class="auth-button auth-button--red" id="confirmDeleteFormBtn" disabled>Delete</button>
         </div>
     </div>
 </div>
@@ -506,6 +549,25 @@
             <!-- PDF-based forms: the real document rendered page by page, with
                  real inputs overlaid exactly where the admin placed them. -->
             <div id="fillFormPdfContainer" class="pdf-pages-container" style="display:none;"></div>
+
+            <!-- Only shown when this form's template has allow_attachments
+                 on (toggled in the builder). Attached PDFs are reordered by
+                 drag (or the ↑/↓ buttons) and get merged onto the end of
+                 this submission's own generated PDF at submit time — see
+                 mergeSubmissionAttachments() in form-builder.js. -->
+            <div class="form-fields-section form-attachments-section hidden" id="fillFormAttachmentsSection">
+                <span class="company-card-label">Attach files (optional)</span>
+                <p class="auth-inline-copy">Add supporting PDFs — drag to reorder. They'll be added to the end of this submission, in this order.</p>
+                <div id="fillFormAttachmentsList" class="form-attachments-list"></div>
+                <p class="form-attachments-empty hidden" id="fillFormAttachmentsEmpty">No files attached yet.</p>
+                <div class="form-attachments-add-row">
+                    <label class="auth-button auth-button--secondary" for="fillFormAttachmentsInput" style="width:auto; padding:9px 16px; cursor:pointer;">
+                        + Add PDF
+                    </label>
+                    <input type="file" id="fillFormAttachmentsInput" accept="application/pdf" multiple hidden>
+                    <p class="auth-message" id="fillFormAttachmentsMessage"></p>
+                </div>
+            </div>
 
             <p class="auth-message" id="fillFormMessage"></p>
 
@@ -560,7 +622,13 @@
     <div class="popup workbook-preview-popup">
         <div class="workbook-preview-header">
             <h2 id="formResponsesTitle">Responses</h2>
-            <button type="button" class="menu-btn" id="closeFormResponsesBtn" aria-label="Close responses">✕</button>
+            <div class="form-responses-header-actions">
+                <button type="button" class="auth-button auth-button--secondary form-responses-download-all-btn" id="downloadAllResponsesBtn" disabled>
+                    <span class="form-responses-download-all-icon" aria-hidden="true"></span>
+                    <span class="form-responses-download-all-label">Download All</span>
+                </button>
+                <button type="button" class="menu-btn" id="closeFormResponsesBtn" aria-label="Close responses">✕</button>
+            </div>
         </div>
         <div id="formResponsesList"></div>
     </div>
@@ -569,17 +637,31 @@
 
 <!-- Delete Submission Confirm -->
 <div class="popup-overlay hidden" id="deleteSubmissionConfirmOverlay">
-    <div class="popup">
-        <h2>Delete this response?</h2>
-        <p class="auth-inline-copy" id="deleteSubmissionConfirmCopy">
-            This will permanently delete this submission and its PDF. This can't be undone.
-        </p>
+    <div class="popup popup--danger">
+        <div class="delete-confirm-header">
+            <span class="delete-confirm-icon" aria-hidden="true"></span>
+            <h2>Delete this response?</h2>
+        </div>
+
+        <div class="delete-confirm-warning-box">
+            <p id="deleteSubmissionConfirmCopy">This will permanently delete this submission and its PDF. This action cannot be undone.</p>
+        </div>
+
+        <label class="auth-field delete-confirm-name-field">
+            <span>Type <strong id="deleteSubmissionConfirmName"></strong> below to confirm</span>
+            <input type="text" id="deleteSubmissionConfirmNameInput" autocomplete="off" autocapitalize="off" spellcheck="false">
+        </label>
+
+        <label class="delete-confirm-checkbox-row">
+            <input type="checkbox" id="deleteSubmissionConfirmUnderstandCheckbox">
+            <span>I understand this action is permanent and cannot be undone.</span>
+        </label>
 
         <p class="auth-message" id="deleteSubmissionConfirmMessage"></p>
 
         <div class="popup-buttons">
             <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteSubmissionBtn">Cancel</button>
-            <button type="button" class="auth-button auth-button--red" id="confirmDeleteSubmissionBtn">Delete</button>
+            <button type="button" class="auth-button auth-button--red" id="confirmDeleteSubmissionBtn" disabled>Delete</button>
         </div>
     </div>
 </div>
@@ -619,6 +701,9 @@
 <!-- pdf-lib: draws submitted answers directly onto the source PDF's pages
      to produce the final filled-in submission PDF. -->
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<!-- JSZip: bundles every response's PDF into one .zip for the Responses
+     modal's "Download All" button. -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="/js/form-builder.js"></script>
 
 

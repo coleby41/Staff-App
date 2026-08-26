@@ -55,6 +55,7 @@ let editingFields = [];         // working copy of the fields array while the bu
 let fillFormRecord = null;      // the form currently open in the fill-out modal
 let editingSubmission = null;   // the form_submissions row being edited via the fill-out modal, or null when filling a brand-new response
 let responsesFormRecord = null; // the form currently open in the Responses modal
+let responsesCurrentSubmissions = []; // the Responses modal's currently-loaded rows, for "Download All"
 let submissionPendingDelete = null; // { record, submission } queued up in the delete-confirm popup, or null
 let pendingSubmission = null;   // validated answers/blob-inputs waiting on a file name from the "Name this file" popup, between handleSubmitFillForm() and handleConfirmSubmissionFileName()
 let previewingSubmission = null; // the form_submissions row currently shown in the PDF preview modal, so its Download button knows what to fetch
@@ -76,6 +77,14 @@ let pdfPopoverState = null;       // { pageIndex, overlay, x, y, width, height, 
 
 // PDF fill-out state (form-template.html fill-out modal)
 let fillPdfDoc = null; // pdf.js PDFDocumentProxy currently loaded in the fill-out modal
+
+// Per-submission PDF attachments (only shown when fillFormRecord.allow_attachments
+// is on). Each entry is { id, name, file, path }: a newly-added attachment
+// has `file` (a File, not yet uploaded) and `path: null`; an existing
+// attachment loaded from an in-progress edit has `path` (already in
+// storage) and `file: null`. Order in this array is the merge order.
+let fillFormAttachments = [];
+let fillFormAttachmentDragId = null; // id of the attachment row currently being dragged, between dragstart and drop
 
 if (window.pdfjsLib) {
     pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -124,12 +133,14 @@ function canManageThisForm(record) {
     return Boolean(myId && record && record.created_by && String(record.created_by) === String(myId));
 }
 
-/* ---------- All Files folder mapping (form_templates.default_category/subfolder) ---------- */
+/* ---------- All Files folder mapping (form_templates.default_category/subfolder/project_id) ---------- */
 
-// Populates the category select once, and the subfolder select for
-// whichever category is currently chosen. Called on modal open and again
-// whenever the category select changes.
-function renderFileFolderPicker(selectedCategory, selectedSubfolder) {
+// Populates the category select once, the subfolder select for whichever
+// category is currently chosen, and the project-lock select (disabled until
+// a category is picked, same as subfolder). Called on modal open and again
+// whenever the category select changes; async because the project list is
+// loaded lazily, same as the fill-out project picker.
+async function renderFileFolderPicker(selectedCategory, selectedSubfolder, selectedProjectId) {
     const categorySelect = document.getElementById("formFileCategorySelect");
     const subfolderSelect = document.getElementById("formFileSubfolderSelect");
     if (!categorySelect || !subfolderSelect) return;
@@ -141,6 +152,7 @@ function renderFileFolderPicker(selectedCategory, selectedSubfolder) {
     categorySelect.value = selectedCategory || "";
 
     renderFileSubfolderOptions(selectedCategory, selectedSubfolder);
+    await renderFileProjectLockOptions(selectedCategory, selectedProjectId);
 }
 
 function renderFileSubfolderOptions(categoryKey, selectedSubfolder) {
@@ -162,24 +174,53 @@ function renderFileSubfolderOptions(categoryKey, selectedSubfolder) {
     subfolderSelect.value = selectedSubfolder || "";
 }
 
-// Reads the category/subfolder selects back into a
-// {default_category, default_subfolder} payload — both null if "No filing"
-// is chosen. Returns `false` (and sets an error message) if a category was
-// chosen but no subfolder, since a partial mapping can't file anything.
+// Lets the form's creator optionally lock the form to one specific project
+// (skips the project picker at fill-out time — see the priority chain in
+// openNameSubmissionFileModal/handleConfirmSubmissionFileName). Only
+// meaningful once a category is chosen; disabled and reset otherwise, same
+// pattern as the subfolder select.
+async function renderFileProjectLockOptions(categoryKey, selectedProjectId) {
+    const projectSelect = document.getElementById("formFileProjectSelect");
+    if (!projectSelect) return;
+
+    if (!categoryKey) {
+        projectSelect.innerHTML = `<option value="">Ask which project when filling out</option>`;
+        projectSelect.disabled = true;
+        projectSelect.value = "";
+        return;
+    }
+
+    projectSelect.disabled = false;
+    projectSelect.innerHTML = `<option value="">Ask which project when filling out</option><option value="" disabled>Loading projects…</option>`;
+    const projects = await loadProjectsForPicker();
+    projectSelect.innerHTML = `<option value="">Ask which project when filling out</option>` +
+        projects.map(p => `<option value="${formEscapeHtml(p.id)}">${formEscapeHtml(p.name || "Untitled project")}</option>`).join("");
+    projectSelect.value = selectedProjectId || "";
+}
+
+// Reads the category/subfolder/project selects back into a
+// {default_category, default_subfolder, default_project_id} payload — all
+// null if "No filing" is chosen. Returns `false` (and sets an error
+// message) if a category was chosen but no subfolder, since a partial
+// mapping can't file anything. default_project_id is only ever non-null
+// alongside a real category/subfolder — the select is disabled (and its
+// value ignored) whenever category is blank.
 function readFileFolderPickerValue(messageEl) {
     const categorySelect = document.getElementById("formFileCategorySelect");
     const subfolderSelect = document.getElementById("formFileSubfolderSelect");
+    const projectSelect = document.getElementById("formFileProjectSelect");
     const category = categorySelect ? categorySelect.value : "";
     const subfolder = subfolderSelect ? subfolderSelect.value : "";
 
-    if (!category) return { default_category: null, default_subfolder: null };
+    if (!category) return { default_category: null, default_subfolder: null, default_project_id: null };
 
     if (!subfolder) {
         if (messageEl) { messageEl.textContent = "Choose a subfolder, or set the category back to \"No filing\"."; messageEl.className = "auth-message error"; }
         return false;
     }
 
-    return { default_category: category, default_subfolder: subfolder };
+    const projectId = projectSelect ? projectSelect.value : "";
+    return { default_category: category, default_subfolder: subfolder, default_project_id: projectId || null };
 }
 
 function fieldTypeLabel(type) {
@@ -832,7 +873,10 @@ async function openFormBuilderModal(record) {
 
     if (isLegacyEdit) renderFieldEditorList();
 
-    renderFileFolderPicker(record?.default_category || "", record?.default_subfolder || "");
+    const allowAttachmentsCheckbox = document.getElementById("formAllowAttachmentsCheckbox");
+    if (allowAttachmentsCheckbox) allowAttachmentsCheckbox.checked = Boolean(record?.allow_attachments);
+
+    await renderFileFolderPicker(record?.default_category || "", record?.default_subfolder || "", record?.default_project_id || "");
 
     document.getElementById("formBuilderModalOverlay")?.classList.remove("hidden");
     document.body.classList.add("popup-active");
@@ -904,13 +948,15 @@ async function saveLegacyForm(title, description, messageEl) {
     const folderMapping = readFileFolderPickerValue(messageEl);
     if (folderMapping === false) return;
 
+    const allowAttachments = document.getElementById("formAllowAttachmentsCheckbox")?.checked || false;
+
     setFormBuilderSaving(true);
     if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
 
     try {
         const { data: updated, error } = await window.supabaseClient
             .from(FORM_TEMPLATES_TABLE)
-            .update({ title, description, fields: cleanedFields, ...folderMapping, updated_at: new Date().toISOString() })
+            .update({ title, description, fields: cleanedFields, allow_attachments: allowAttachments, ...folderMapping, updated_at: new Date().toISOString() })
             .eq("id", editingFormRecord.id)
             .select()
             .single();
@@ -974,6 +1020,7 @@ async function savePdfForm(title, description, messageEl) {
             fields: cleanedFields,
             pdf_path: pdfPath,
             page_count: pdfBuilderPageCount,
+            allow_attachments: document.getElementById("formAllowAttachmentsCheckbox")?.checked || false,
             ...folderMapping
         };
 
@@ -1016,11 +1063,36 @@ async function savePdfForm(title, description, messageEl) {
     }
 }
 
+// Typing the form's own title to confirm (same pattern used for project
+// deletion) -- cheap insurance against a one-click delete landing on the
+// wrong form, which is otherwise unrecoverable.
+function deleteFormConfirmNameMatches() {
+    const expected = (editingFormRecord && editingFormRecord.title) || "";
+    const typed = document.getElementById("deleteFormConfirmNameInput").value;
+    return expected.length > 0 && typed.trim() === expected;
+}
+
+function deleteFormConfirmReady() {
+    return deleteFormConfirmNameMatches()
+        && document.getElementById("deleteFormConfirmUnderstandCheckbox").checked;
+}
+
+function updateDeleteFormConfirmBtnState() {
+    document.getElementById("confirmDeleteFormBtn").disabled = !deleteFormConfirmReady();
+}
+
 function openDeleteFormConfirm() {
     if (!editingFormRecord) return;
+    const name = editingFormRecord.title || "this form";
+    document.getElementById("deleteFormConfirmName").textContent = name;
+    const input = document.getElementById("deleteFormConfirmNameInput");
+    input.value = "";
+    document.getElementById("deleteFormConfirmUnderstandCheckbox").checked = false;
     const messageEl = document.getElementById("deleteFormConfirmMessage");
     if (messageEl) messageEl.textContent = "";
     document.getElementById("deleteFormConfirmOverlay")?.classList.remove("hidden");
+    updateDeleteFormConfirmBtnState();
+    input.focus();
 }
 
 function closeDeleteFormConfirm() {
@@ -1029,6 +1101,7 @@ function closeDeleteFormConfirm() {
 
 async function confirmDeleteForm() {
     if (!editingFormRecord) return;
+    if (!deleteFormConfirmReady()) return;
     const record = editingFormRecord;
     const confirmBtn = document.getElementById("confirmDeleteFormBtn");
     const messageEl = document.getElementById("deleteFormConfirmMessage");
@@ -1147,6 +1220,8 @@ async function openFillFormModal(record, existingSubmission) {
     if (descriptionEl) descriptionEl.textContent = record.description || "";
     if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
     if (submitBtn) submitBtn.textContent = editingSubmission ? "Save changes" : "Submit";
+
+    initFillFormAttachments(record, existingSubmission);
 
     document.getElementById("fillFormModalOverlay")?.classList.remove("hidden");
     document.body.classList.add("popup-active");
@@ -1339,6 +1414,7 @@ function closeFillFormModal() {
     fillFormRecord = null;
     fillPdfDoc = null;
     editingSubmission = null;
+    fillFormAttachments = [];
 
     // Editing a response opens on top of the Responses modal (see
     // openEditSubmissionModal), which is only *hidden* rather than fully
@@ -1349,6 +1425,219 @@ function closeFillFormModal() {
     if (wasEditingResponse && responsesFormRecord) {
         openResponsesModal(responsesFormRecord);
     }
+}
+
+/* ---------- per-submission PDF attachments (fill-out form) ---------- */
+
+// Shows/hides the "Attach files" section and (re)seeds fillFormAttachments
+// for the form now open in the fill-out modal — called from
+// openFillFormModal(). A brand-new submission starts with an empty list;
+// editing an existing one starts from its already-saved attachments
+// (path set, file null — the raw bytes aren't re-downloaded unless the
+// person removes and re-adds one).
+function initFillFormAttachments(record, existingSubmission) {
+    const section = document.getElementById("fillFormAttachmentsSection");
+    if (section) section.classList.toggle("hidden", !record.allow_attachments);
+
+    fillFormAttachments = (existingSubmission?.attachments || []).map(a => ({
+        id: crypto.randomUUID(),
+        name: a.name,
+        file: null,
+        path: a.path
+    }));
+
+    const messageEl = document.getElementById("fillFormAttachmentsMessage");
+    if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
+
+    renderFillFormAttachmentsList();
+}
+
+function renderFillFormAttachmentsList() {
+    const listEl = document.getElementById("fillFormAttachmentsList");
+    const emptyEl = document.getElementById("fillFormAttachmentsEmpty");
+    if (!listEl) return;
+
+    if (emptyEl) emptyEl.classList.toggle("hidden", fillFormAttachments.length > 0);
+    listEl.innerHTML = "";
+
+    fillFormAttachments.forEach((attachment, index) => {
+        const row = document.createElement("div");
+        row.className = "form-attachment-row";
+        row.draggable = true;
+        row.dataset.id = attachment.id;
+        row.innerHTML = `
+            <span class="form-attachment-drag-handle" aria-hidden="true" title="Drag to reorder"></span>
+            <span class="form-attachment-icon" aria-hidden="true"></span>
+            <span class="form-attachment-name">${formEscapeHtml(attachment.name)}</span>
+            <div class="form-attachment-row-actions">
+                <button type="button" class="form-field-move-btn" data-action="move-up" aria-label="Move up" ${index === 0 ? "disabled" : ""}>↑</button>
+                <button type="button" class="form-field-move-btn" data-action="move-down" aria-label="Move down" ${index === fillFormAttachments.length - 1 ? "disabled" : ""}>↓</button>
+                <button type="button" class="form-field-remove-btn" data-action="remove" aria-label="Remove ${formEscapeHtml(attachment.name)}">✕</button>
+            </div>
+        `;
+
+        row.querySelector('[data-action="move-up"]')?.addEventListener("click", () => moveFillFormAttachment(attachment.id, -1));
+        row.querySelector('[data-action="move-down"]')?.addEventListener("click", () => moveFillFormAttachment(attachment.id, 1));
+        row.querySelector('[data-action="remove"]')?.addEventListener("click", () => removeFillFormAttachment(attachment.id));
+
+        row.addEventListener("dragstart", (e) => {
+            fillFormAttachmentDragId = attachment.id;
+            e.dataTransfer.effectAllowed = "move";
+        });
+        row.addEventListener("dragover", (e) => {
+            if (!fillFormAttachmentDragId || fillFormAttachmentDragId === attachment.id) return;
+            e.preventDefault();
+            row.classList.add("form-attachment-drop-target");
+        });
+        row.addEventListener("dragleave", () => row.classList.remove("form-attachment-drop-target"));
+        row.addEventListener("drop", (e) => {
+            e.preventDefault();
+            row.classList.remove("form-attachment-drop-target");
+            if (!fillFormAttachmentDragId || fillFormAttachmentDragId === attachment.id) return;
+            reorderFillFormAttachment(fillFormAttachmentDragId, attachment.id);
+            fillFormAttachmentDragId = null;
+        });
+
+        listEl.appendChild(row);
+    });
+}
+
+function moveFillFormAttachment(id, delta) {
+    const index = fillFormAttachments.findIndex(a => a.id === id);
+    const targetIndex = index + delta;
+    if (index < 0 || targetIndex < 0 || targetIndex >= fillFormAttachments.length) return;
+    const [moved] = fillFormAttachments.splice(index, 1);
+    fillFormAttachments.splice(targetIndex, 0, moved);
+    renderFillFormAttachmentsList();
+}
+
+function reorderFillFormAttachment(draggedId, targetId) {
+    const fromIndex = fillFormAttachments.findIndex(a => a.id === draggedId);
+    const toIndex = fillFormAttachments.findIndex(a => a.id === targetId);
+    if (fromIndex < 0 || toIndex < 0) return;
+    const [moved] = fillFormAttachments.splice(fromIndex, 1);
+    fillFormAttachments.splice(toIndex, 0, moved);
+    renderFillFormAttachmentsList();
+}
+
+function removeFillFormAttachment(id) {
+    fillFormAttachments = fillFormAttachments.filter(a => a.id !== id);
+    renderFillFormAttachmentsList();
+}
+
+// Wired to #fillFormAttachmentsInput's change event. Silently skips
+// anything that isn't actually a PDF (the accept="application/pdf" filter
+// on the picker is a hint, not an enforcement — some OS file pickers let
+// people override it) rather than letting a non-PDF into the merge, where
+// PDFLib would just throw later at submit time.
+function addFillFormAttachmentFiles(fileList) {
+    const messageEl = document.getElementById("fillFormAttachmentsMessage");
+    const files = Array.from(fileList || []);
+    let skipped = 0;
+
+    files.forEach(file => {
+        const looksLikePdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+        if (!looksLikePdf) { skipped++; return; }
+        fillFormAttachments.push({ id: crypto.randomUUID(), name: file.name, file, path: null });
+    });
+
+    if (messageEl) {
+        messageEl.textContent = skipped ? `Skipped ${skipped} file${skipped > 1 ? "s" : ""} — only PDFs can be attached.` : "";
+        messageEl.className = skipped ? "auth-message error" : "auth-message";
+    }
+
+    renderFillFormAttachmentsList();
+}
+
+// Reads an attachment's raw bytes from whichever source it currently has —
+// a fresh File (a new attachment picked this session) or an existing
+// storage path (one kept as-is while editing) — so both look the same to
+// mergeSubmissionAttachments()/PDFLib below.
+async function fetchAttachmentBytes(attachment) {
+    if (attachment.file) return attachment.file.arrayBuffer();
+    const { data, error } = await window.supabaseClient
+        .storage
+        .from(FORM_SUBMISSIONS_BUCKET)
+        .download(attachment.path);
+    if (error) throw error;
+    return data.arrayBuffer();
+}
+
+// Merges the base submission PDF with every attached PDF, in the order
+// they're arranged in the Attach files list, into one output PDF — the
+// base form's own pages first, then each attachment's pages in sequence.
+// Returns baseBlob unchanged (no-op) when there are no attachments, so
+// forms without this feature enabled see zero behavior change.
+async function mergeSubmissionAttachments(baseBlob, attachments) {
+    if (!attachments.length) return baseBlob;
+    if (typeof PDFLib === "undefined") throw new Error("PDF library failed to load");
+
+    const mergedDoc = await PDFLib.PDFDocument.create();
+
+    const baseBytes = await baseBlob.arrayBuffer();
+    const baseDoc = await PDFLib.PDFDocument.load(baseBytes);
+    (await mergedDoc.copyPages(baseDoc, baseDoc.getPageIndices())).forEach(p => mergedDoc.addPage(p));
+
+    for (const attachment of attachments) {
+        let bytes;
+        try {
+            bytes = await fetchAttachmentBytes(attachment);
+        } catch (error) {
+            const friendly = new Error(`Couldn't read "${attachment.name}". Please try re-attaching it.`);
+            friendly.isFriendly = true;
+            throw friendly;
+        }
+        let attachDoc;
+        try {
+            attachDoc = await PDFLib.PDFDocument.load(bytes);
+        } catch (error) {
+            const friendly = new Error(`"${attachment.name}" isn't a valid PDF and couldn't be added.`);
+            friendly.isFriendly = true;
+            throw friendly;
+        }
+        (await mergedDoc.copyPages(attachDoc, attachDoc.getPageIndices())).forEach(p => mergedDoc.addPage(p));
+    }
+
+    const finalBytes = await mergedDoc.save();
+    return new Blob([finalBytes], { type: "application/pdf" });
+}
+
+// Uploads the raw bytes of any newly-added attachment (attachment.file set)
+// to storage so it can be re-fetched and re-merged on a future edit, and
+// returns the final ordered [{name, path}] metadata to save on the
+// submission row. Attachments already in storage (attachment.path set,
+// kept as-is) pass through unchanged.
+async function persistFillFormAttachments(formId, submissionId, attachments) {
+    const metadata = [];
+    for (let i = 0; i < attachments.length; i++) {
+        const attachment = attachments[i];
+        if (attachment.file) {
+            const safeBaseName = sanitizeSubmissionFileName(attachment.name).replace(/\.pdf$/i, "");
+            const path = `${formId}/${submissionId}/attachments/${i}-${safeBaseName}.pdf`;
+            const { error } = await window.supabaseClient
+                .storage
+                .from(FORM_SUBMISSIONS_BUCKET)
+                .upload(path, attachment.file, { cacheControl: "3600", upsert: true, contentType: "application/pdf" });
+            if (error) throw error;
+            metadata.push({ name: attachment.name, path });
+        } else if (attachment.path) {
+            metadata.push({ name: attachment.name, path: attachment.path });
+        }
+    }
+    return metadata;
+}
+
+// After a save, removes from storage any attachment that was on the
+// submission before this edit but isn't in the final saved list — i.e.
+// something the person removed this pass. Best-effort: logs and moves on
+// rather than failing the save over a cleanup step.
+async function cleanupDetachedAttachments(previousAttachments, currentAttachments) {
+    const keptPaths = new Set(currentAttachments.map(a => a.path));
+    const removedPaths = (previousAttachments || []).map(a => a.path).filter(p => p && !keptPaths.has(p));
+    if (!removedPaths.length) return;
+
+    const { error } = await window.supabaseClient.storage.from(FORM_SUBMISSIONS_BUCKET).remove(removedPaths);
+    if (error) console.error("Failed to remove detached attachment(s) from storage:", error);
 }
 
 // Reads the currently-rendered fill-out inputs back into { fieldId: value }.
@@ -1683,6 +1972,17 @@ async function handleSubmitFillForm(event) {
         return;
     }
 
+    // Attachments always merge via PDFLib regardless of legacy vs. PDF-based
+    // form (a legacy form's own base PDF comes from pdfMake, not PDFLib —
+    // the isPdfForm check above only covers that base build, not the merge).
+    if (fillFormAttachments.length && typeof PDFLib === "undefined") {
+        if (messageEl) {
+            messageEl.textContent = "The PDF library failed to load. Refresh and try again.";
+            messageEl.className = "auth-message error";
+        }
+        return;
+    }
+
     if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
 
     const submittedByName = isEditing ? (editingSubmission.submitted_by_name || "Staff") : getFormStaffName();
@@ -1696,7 +1996,11 @@ async function handleSubmitFillForm(event) {
         ? `Submitted by ${submittedByName} on ${new Date(editingSubmission.created_at).toLocaleString()} • Edited by ${getFormStaffName()} on ${new Date().toLocaleString()}`
         : `Submitted by ${submittedByName} on ${new Date().toLocaleString()}`;
 
-    pendingSubmission = { record, isEditing, isPdfForm, answers: result.answers, footerText, submittedByName, submittedById };
+    // Snapshot the attachment list as it stands right now — the fill-out
+    // modal gets hidden (not reset) while the "Name this file" popup is up,
+    // so fillFormAttachments itself stays live and shouldn't be trusted to
+    // hold still until handleConfirmSubmissionFileName() actually runs.
+    pendingSubmission = { record, isEditing, isPdfForm, answers: result.answers, footerText, submittedByName, submittedById, attachments: fillFormAttachments.slice() };
     openNameSubmissionFileModal();
 }
 
@@ -1706,6 +2010,19 @@ async function handleSubmitFillForm(event) {
 function sanitizeSubmissionFileName(name) {
     const cleaned = String(name || "").trim().replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ");
     return cleaned.slice(0, 120) || "Form submission";
+}
+
+// Guarantees a name ends in exactly one ".pdf" (strips any existing one
+// first, case-insensitively, then adds it back) — every submission's own
+// underlying file genuinely is a PDF (the base form, or the base form
+// merged with its attachments), but sanitizeSubmissionFileName() itself
+// deliberately doesn't enforce that, since it's also reused for attachment
+// base names (see addFillFormAttachmentFiles()), where forcing an
+// extension on would be wrong. Kept separate so callers that want a real
+// PDF-suffixed name opt into it explicitly.
+function ensurePdfExtension(name) {
+    const trimmed = String(name || "").trim();
+    return `${trimmed.replace(/\.pdf$/i, "")}.pdf`;
 }
 
 async function openNameSubmissionFileModal() {
@@ -1727,12 +2044,14 @@ async function openNameSubmissionFileModal() {
 
     // Project picker: only for a project-mapped template (default_category
     // set) — and only when we don't already know the project from the URL
-    // (came here via a project's All Files page "+ Fill <template>" link)
-    // or, on an edit, from the submission being edited.
+    // (came here via a project's All Files page "+ Fill <template>" link),
+    // from the submission being edited, or from the form itself being
+    // locked to one project (default_project_id — see the Add/Edit Form
+    // modal's "File submissions into a project folder?" section).
     const projectRow = document.getElementById("submissionProjectRow");
     const projectSelect = document.getElementById("submissionProjectSelect");
     const isProjectMapped = Boolean(record.default_category && record.default_subfolder);
-    const knownProjectId = projectIdFromUrl || (isEditing ? editingSubmission?.project_id : null);
+    const knownProjectId = projectIdFromUrl || (isEditing ? editingSubmission?.project_id : null) || record.default_project_id || null;
 
     if (projectRow && projectSelect) {
         if (isProjectMapped && !knownProjectId) {
@@ -1769,21 +2088,27 @@ async function handleConfirmSubmissionFileName(event) {
     event.preventDefault();
     if (!pendingSubmission) return;
 
-    const { record, isEditing, isPdfForm, answers, footerText, submittedByName, submittedById } = pendingSubmission;
+    const { record, isEditing, isPdfForm, answers, footerText, submittedByName, submittedById, attachments } = pendingSubmission;
 
+    // Always stored (and displayed everywhere — the Responses list, All
+    // Files) with a real .pdf suffix, not just whatever the person typed —
+    // the underlying file is always a PDF regardless of what name they
+    // gave it, and All Files' own preview/download rely on the extension
+    // to know how to render/save it (see project-files.js's
+    // getPreviewKind()).
     const nameInput = document.getElementById("submissionFileNameInput");
-    const fileName = sanitizeSubmissionFileName(nameInput ? nameInput.value : "");
+    const fileName = ensurePdfExtension(sanitizeSubmissionFileName(nameInput ? nameInput.value : ""));
     const messageEl = document.getElementById("nameSubmissionFileMessage");
     const confirmBtn = document.getElementById("confirmNameSubmissionFileBtn");
     const fillMessageEl = document.getElementById("fillFormMessage");
 
     // Project this submission files into, in priority order: known from the
-    // URL/the submission being edited, otherwise whatever was picked in the
-    // project select just shown (blank/no select = not a project-mapped
-    // form, stays null exactly like it does today).
+    // URL/the submission being edited/the form's own project lock, otherwise
+    // whatever was picked in the project select just shown (blank/no select
+    // = not a project-mapped form, stays null exactly like it does today).
     const isProjectMapped = Boolean(record.default_category && record.default_subfolder);
     const projectSelect = document.getElementById("submissionProjectSelect");
-    const knownProjectId = projectIdFromUrl || (isEditing ? editingSubmission?.project_id : null);
+    const knownProjectId = projectIdFromUrl || (isEditing ? editingSubmission?.project_id : null) || record.default_project_id || null;
     const projectId = isProjectMapped ? (knownProjectId || projectSelect?.value || null) : null;
 
     if (isProjectMapped && !projectId) {
@@ -1796,9 +2121,14 @@ async function handleConfirmSubmissionFileName(event) {
     if (messageEl) { messageEl.textContent = isEditing ? "Saving…" : "Submitting…"; messageEl.className = "auth-message"; }
 
     try {
-        const blob = isPdfForm
+        const baseBlob = isPdfForm
             ? await buildPdfSubmissionBlob(record, answers)
             : await pdfMake.createPdf(buildSubmissionPdfDocDefinition(record, answers, footerText)).getBlob();
+
+        // Attaches merge onto the end of the base PDF, in the order they're
+        // arranged in the Attach files list — a no-op passthrough when
+        // there are none, so this line is safe to run unconditionally.
+        const blob = await mergeSubmissionAttachments(baseBlob, attachments || []);
 
         if (isEditing) {
             const submissionId = editingSubmission.id;
@@ -1814,6 +2144,12 @@ async function handleConfirmSubmissionFileName(event) {
                 .upload(pdfPath, blob, { cacheControl: "3600", upsert: true, contentType: "application/pdf" });
             if (uploadError) throw uploadError;
 
+            // Uploads any newly-added attachment's raw bytes (kept
+            // separately from the merged PDF above so they can be re-fetched
+            // and re-merged on a future edit); attachments still present
+            // from before this edit pass through unchanged.
+            const attachmentsMetadata = await persistFillFormAttachments(record.id, submissionId, attachments || []);
+
             const { error: updateError } = await window.supabaseClient
                 .from(FORM_SUBMISSIONS_TABLE)
                 .update({
@@ -1821,12 +2157,19 @@ async function handleConfirmSubmissionFileName(event) {
                     pdf_path: pdfPath,
                     file_name: fileName,
                     project_id: projectId,
+                    attachments: attachmentsMetadata,
                     edited_at: new Date().toISOString(),
                     edited_by: getFormStaffId(),
                     edited_by_name: getFormStaffName()
                 })
                 .eq("id", submissionId);
             if (updateError) throw updateError;
+
+            // Best-effort cleanup: any attachment this edit removed no
+            // longer has a reason to sit in storage. Doesn't block the save
+            // on a cleanup failure (e.g. it was already gone) — the answers/
+            // attachments the person actually asked to save just did.
+            await cleanupDetachedAttachments(editingSubmission.attachments || [], attachmentsMetadata);
 
             closeNameSubmissionFileModal();
             closeFillFormModal(); // also re-opens the Responses modal this edit was opened from, refreshed
@@ -1841,6 +2184,8 @@ async function handleConfirmSubmissionFileName(event) {
                 .upload(pdfPath, blob, { cacheControl: "3600", upsert: false, contentType: "application/pdf" });
             if (uploadError) throw uploadError;
 
+            const attachmentsMetadata = await persistFillFormAttachments(record.id, submissionId, attachments || []);
+
             const { error: insertError } = await window.supabaseClient
                 .from(FORM_SUBMISSIONS_TABLE)
                 .insert({
@@ -1852,7 +2197,8 @@ async function handleConfirmSubmissionFileName(event) {
                     answers,
                     pdf_path: pdfPath,
                     file_name: fileName,
-                    project_id: projectId
+                    project_id: projectId,
+                    attachments: attachmentsMetadata
                 });
             if (insertError) throw insertError;
 
@@ -1874,7 +2220,7 @@ async function handleConfirmSubmissionFileName(event) {
     } catch (error) {
         console.error(isEditing ? "Failed to save response:" : "Failed to submit form:", error);
         if (messageEl) {
-            messageEl.textContent = "Something went wrong. Please try again.";
+            messageEl.textContent = error?.isFriendly ? error.message : "Something went wrong. Please try again.";
             messageEl.className = "auth-message error";
         }
         if (fillMessageEl) { fillMessageEl.textContent = ""; fillMessageEl.className = "auth-message"; }
@@ -1887,6 +2233,8 @@ async function handleConfirmSubmissionFileName(event) {
 
 async function openResponsesModal(record) {
     responsesFormRecord = record;
+    responsesCurrentSubmissions = [];
+    updateDownloadAllResponsesBtnState();
 
     const titleEl = document.getElementById("formResponsesTitle");
     const listEl = document.getElementById("formResponsesList");
@@ -1907,6 +2255,9 @@ async function openResponsesModal(record) {
         if (listEl) listEl.innerHTML = `<p class="workbook-preview-empty">Couldn't load responses. Please try again.</p>`;
         return;
     }
+
+    responsesCurrentSubmissions = data || [];
+    updateDownloadAllResponsesBtnState();
 
     if (!data || !data.length) {
         if (listEl) listEl.innerHTML = `<p class="workbook-preview-empty">No responses yet.</p>`;
@@ -1931,24 +2282,133 @@ async function openResponsesModal(record) {
                     ${editedNote}
                 </div>
                 <div class="form-response-actions">
-                    <button type="button" class="form-response-action-btn form-response-action-btn--view" title="View PDF" aria-label="View PDF"><span></span></button>
-                    <button type="button" class="form-response-action-btn form-response-action-btn--download" title="Download" aria-label="Download"><span></span></button>
-                    <button type="button" class="form-response-action-btn form-response-action-btn--edit" title="Edit" aria-label="Edit"><span></span></button>
-                    <button type="button" class="form-response-action-btn form-response-action-btn--delete" title="Delete" aria-label="Delete"><span></span></button>
+                    <button type="button" class="form-response-menu-btn" data-action="menu" aria-label="Response actions" aria-haspopup="true" aria-expanded="false">
+                        <span class="form-response-menu-icon"></span>
+                    </button>
+                    <div class="form-response-menu-dropdown">
+                        <button type="button" class="form-response-menu-item" data-action="view">View PDF</button>
+                        <button type="button" class="form-response-menu-item" data-action="download">Download</button>
+                        <button type="button" class="form-response-menu-item" data-action="edit">Edit</button>
+                        <div class="form-response-menu-divider"></div>
+                        <button type="button" class="form-response-menu-item form-response-menu-item--danger" data-action="delete">Delete</button>
+                    </div>
                 </div>
             `;
 
-            row.querySelector(".form-response-action-btn--view")
-                .addEventListener("click", () => viewFormSubmission(submission));
-            const downloadBtn = row.querySelector(".form-response-action-btn--download");
-            downloadBtn.addEventListener("click", () => downloadFormSubmission(submission, downloadBtn));
-            row.querySelector(".form-response-action-btn--edit")
-                .addEventListener("click", () => openEditSubmissionModal(record, submission));
-            row.querySelector(".form-response-action-btn--delete")
-                .addEventListener("click", () => openDeleteSubmissionConfirm(record, submission));
+            const menuBtn = row.querySelector('[data-action="menu"]');
+            const dropdown = row.querySelector(".form-response-menu-dropdown");
+            menuBtn?.addEventListener("click", (event) => {
+                event.stopPropagation();
+                toggleResponseRowMenu(menuBtn, dropdown);
+            });
+
+            row.querySelector('[data-action="view"]')
+                ?.addEventListener("click", () => { closeAllResponseRowMenus(); viewFormSubmission(submission); });
+            const downloadBtn = row.querySelector('[data-action="download"]');
+            downloadBtn?.addEventListener("click", () => { closeAllResponseRowMenus(); downloadFormSubmission(submission, downloadBtn); });
+            row.querySelector('[data-action="edit"]')
+                ?.addEventListener("click", () => { closeAllResponseRowMenus(); openEditSubmissionModal(record, submission); });
+            row.querySelector('[data-action="delete"]')
+                ?.addEventListener("click", () => { closeAllResponseRowMenus(); openDeleteSubmissionConfirm(record, submission); });
 
             listEl.appendChild(row);
         });
+    }
+}
+
+/* ---------- per-row "⋯" menu ---------- */
+// Same open/toggle/close-all shape as All Files' per-file menu
+// (project-files.js's openFileRowMenu/toggleFileRowMenu/closeAllFileMenus)
+// — only one row's dropdown open at a time, closed on an outside click or
+// Escape (wired in the DOMContentLoaded block below).
+
+function openResponseRowMenu(menuBtn, dropdown) {
+    closeAllResponseRowMenus();
+    if (!dropdown || !menuBtn) return;
+    dropdown.classList.add("is-open");
+    menuBtn.classList.add("is-open");
+    menuBtn.setAttribute("aria-expanded", "true");
+}
+
+function toggleResponseRowMenu(menuBtn, dropdown) {
+    const isOpen = dropdown?.classList.contains("is-open");
+    if (isOpen) { closeAllResponseRowMenus(); return; }
+    openResponseRowMenu(menuBtn, dropdown);
+}
+
+function closeAllResponseRowMenus() {
+    document.querySelectorAll(".form-response-menu-dropdown.is-open").forEach(d => d.classList.remove("is-open"));
+    document.querySelectorAll(".form-response-menu-btn.is-open").forEach(b => {
+        b.classList.remove("is-open");
+        b.setAttribute("aria-expanded", "false");
+    });
+}
+
+/* ---------- "Download All" ---------- */
+
+function updateDownloadAllResponsesBtnState() {
+    const btn = document.getElementById("downloadAllResponsesBtn");
+    if (!btn) return;
+    btn.disabled = !responsesCurrentSubmissions.some(s => s.pdf_path);
+}
+
+// Bundles every response's PDF into a single .zip (via JSZip, loaded from
+// jsdelivr in form-template.html alongside the app's other CDN libraries)
+// rather than triggering one browser download per file — one file to
+// save, and no risk of a browser's "this site is downloading multiple
+// files" guard silently blocking anything past the first couple.
+async function downloadAllFormResponses() {
+    const btn = document.getElementById("downloadAllResponsesBtn");
+    const label = btn?.querySelector(".form-responses-download-all-label");
+    const downloadable = responsesCurrentSubmissions.filter(s => s.pdf_path);
+    if (!btn || !downloadable.length) return;
+
+    if (typeof JSZip === "undefined") {
+        console.error("JSZip failed to load — can't build the responses zip.");
+        alert("Couldn't build the zip file. Please refresh and try again.");
+        return;
+    }
+
+    btn.disabled = true;
+    const originalLabel = label ? label.textContent : "";
+    const zip = new JSZip();
+    const usedZipNames = new Set(); // two submissions can share a chosen file name (or both fall back to the form title) — zip entries need unique names
+
+    try {
+        for (let i = 0; i < downloadable.length; i++) {
+            if (label) label.textContent = downloadable.length > 1 ? `Zipping ${i + 1} of ${downloadable.length}…` : "Zipping…";
+            const submission = downloadable[i];
+            const blob = await fetchSubmissionPdfBlob(submission);
+
+            // submission.file_name already ends in .pdf for anything saved
+            // since ensurePdfExtension() was added above — strip it back off
+            // here so it isn't doubled, since older submissions saved before
+            // that fix won't have it and still need it added once.
+            const baseName = sanitizeSubmissionFileName(submission.file_name || submission.form_title).replace(/\.pdf$/i, "");
+            let zipName = `${baseName}.pdf`;
+            for (let suffix = 2; usedZipNames.has(zipName); suffix++) zipName = `${baseName} (${suffix}).pdf`;
+            usedZipNames.add(zipName);
+
+            zip.file(zipName, blob);
+        }
+
+        if (label) label.textContent = "Preparing download…";
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+
+        const objectUrl = URL.createObjectURL(zipBlob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = `${sanitizeSubmissionFileName(`${responsesFormRecord?.title || "Form"} responses`)}.zip`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+        console.error("Failed to build responses zip:", error);
+        alert("Couldn't download all responses. Please try again.");
+    } finally {
+        if (label) label.textContent = originalLabel;
+        btn.disabled = false;
     }
 }
 
@@ -1970,6 +2430,8 @@ function closeResponsesModal() {
     document.getElementById("formResponsesModalOverlay")?.classList.add("hidden");
     document.body.classList.remove("popup-active");
     responsesFormRecord = null;
+    responsesCurrentSubmissions = [];
+    closeAllResponseRowMenus();
 }
 
 /* ---------- delete a submission ---------- */
@@ -1977,25 +2439,51 @@ function closeResponsesModal() {
 // open, reveal it again on close" trick as openEditSubmissionModal, since
 // this popup is opened from inside the Responses modal too.
 
+let submissionPendingDeleteName = "";
+
+// Typing the submission's own name to confirm (same pattern used for
+// project deletion) -- cheap insurance against a one-click delete landing
+// on the wrong response, which is otherwise unrecoverable.
+function deleteSubmissionConfirmNameMatches() {
+    const typed = document.getElementById("deleteSubmissionConfirmNameInput").value;
+    return submissionPendingDeleteName.length > 0 && typed.trim() === submissionPendingDeleteName;
+}
+
+function deleteSubmissionConfirmReady() {
+    return deleteSubmissionConfirmNameMatches()
+        && document.getElementById("deleteSubmissionConfirmUnderstandCheckbox").checked;
+}
+
+function updateDeleteSubmissionConfirmBtnState() {
+    document.getElementById("confirmDeleteSubmissionBtn").disabled = !deleteSubmissionConfirmReady();
+}
+
 function openDeleteSubmissionConfirm(record, submission) {
     submissionPendingDelete = { record, submission };
+    submissionPendingDeleteName = submission.file_name || submission.form_title || "";
 
+    document.getElementById("deleteSubmissionConfirmName").textContent = submissionPendingDeleteName || "this submission";
     const copyEl = document.getElementById("deleteSubmissionConfirmCopy");
-    if (copyEl) {
-        const displayName = submission.file_name || submission.form_title || "this submission";
-        copyEl.textContent = `This will permanently delete "${displayName}" and its PDF. This can't be undone.`;
-    }
+    if (copyEl) copyEl.textContent = "This will permanently delete this submission and its PDF. This action cannot be undone.";
+
+    const input = document.getElementById("deleteSubmissionConfirmNameInput");
+    input.value = "";
+    document.getElementById("deleteSubmissionConfirmUnderstandCheckbox").checked = false;
+
     const messageEl = document.getElementById("deleteSubmissionConfirmMessage");
     if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
 
     document.getElementById("formResponsesModalOverlay")?.classList.add("hidden");
     document.getElementById("deleteSubmissionConfirmOverlay")?.classList.remove("hidden");
     document.body.classList.add("popup-active");
+    updateDeleteSubmissionConfirmBtnState();
+    input.focus();
 }
 
 function closeDeleteSubmissionConfirm() {
     document.getElementById("deleteSubmissionConfirmOverlay")?.classList.add("hidden");
     submissionPendingDelete = null;
+    submissionPendingDeleteName = "";
     // Reveal the Responses modal again, refreshed if a delete actually
     // happened (harmless no-op re-fetch if the user just hit Cancel).
     if (responsesFormRecord) {
@@ -2007,6 +2495,7 @@ function closeDeleteSubmissionConfirm() {
 
 async function confirmDeleteSubmission() {
     if (!submissionPendingDelete) return;
+    if (!deleteSubmissionConfirmReady()) return;
     const { submission } = submissionPendingDelete;
     const confirmBtn = document.getElementById("confirmDeleteSubmissionBtn");
     const messageEl = document.getElementById("deleteSubmissionConfirmMessage");
@@ -2014,15 +2503,19 @@ async function confirmDeleteSubmission() {
     if (confirmBtn) confirmBtn.disabled = true;
 
     try {
-        if (submission.pdf_path) {
+        // Submission's own merged PDF, plus any attachment originals kept
+        // separately in storage for re-merging on edit — both are done with
+        // once the record itself is gone.
+        const pathsToRemove = [submission.pdf_path, ...(submission.attachments || []).map(a => a.path)].filter(Boolean);
+        if (pathsToRemove.length) {
             const { error: storageError } = await window.supabaseClient
                 .storage
                 .from(FORM_SUBMISSIONS_BUCKET)
-                .remove([submission.pdf_path]);
+                .remove(pathsToRemove);
             // Don't block the delete on a storage cleanup failure (e.g. the
             // file was already gone) — the response record disappearing is
             // what the person actually asked for.
-            if (storageError) console.error("Failed to remove submission PDF from storage:", storageError);
+            if (storageError) console.error("Failed to remove submission files from storage:", storageError);
         }
 
         const { error: deleteError } = await window.supabaseClient
@@ -2088,6 +2581,22 @@ function closeSubmissionPreviewModal() {
     previewingSubmission = null;
 }
 
+// Fetches one submission's PDF as a Blob via a short-lived signed URL.
+// Shared by the single-file "Download" action (downloadFormSubmission
+// below) and "Download All" (downloadAllFormResponses, which zips several
+// of these together) so both go through the exact same fetch path.
+async function fetchSubmissionPdfBlob(submission) {
+    const { data, error } = await window.supabaseClient
+        .storage
+        .from(FORM_SUBMISSIONS_BUCKET)
+        .createSignedUrl(submission.pdf_path, 60);
+    if (error || !data?.signedUrl) throw error || new Error("No signed URL returned");
+
+    const response = await fetch(data.signedUrl);
+    if (!response.ok) throw new Error(`Download fetch failed: ${response.status}`);
+    return response.blob();
+}
+
 // Downloads a submission's PDF to the person's computer under the name
 // they chose in the "Name this file" popup at submit time (falling back to
 // the form's title for submissions made before that feature existed).
@@ -2096,30 +2605,21 @@ function closeSubmissionPreviewModal() {
 // force a custom filename, but a same-origin blob: URL can.
 //
 // Doesn't touch triggerBtn's textContent — it's called both by the
-// labeled "Download" button in the PDF preview modal and by the icon-only
-// download button in the Responses list (whose only child is a masked
-// <span>, which a textContent swap would destroy) — a disabled/dimmed
-// class covers the busy state for both without caring which kind it is.
+// labeled "Download" button in the PDF preview modal and by the "Download"
+// item in the Responses list's "⋯" menu — a disabled/dimmed class covers
+// the busy state for both without caring which kind it is.
 async function downloadFormSubmission(submission, triggerBtn) {
     if (!submission?.pdf_path) return;
 
     if (triggerBtn) { triggerBtn.disabled = true; triggerBtn.classList.add("is-busy"); }
 
     try {
-        const { data, error } = await window.supabaseClient
-            .storage
-            .from(FORM_SUBMISSIONS_BUCKET)
-            .createSignedUrl(submission.pdf_path, 60);
-        if (error || !data?.signedUrl) throw error || new Error("No signed URL returned");
-
-        const response = await fetch(data.signedUrl);
-        if (!response.ok) throw new Error(`Download fetch failed: ${response.status}`);
-        const blob = await response.blob();
+        const blob = await fetchSubmissionPdfBlob(submission);
 
         const objectUrl = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = objectUrl;
-        link.download = `${sanitizeSubmissionFileName(submission.file_name || submission.form_title)}.pdf`;
+        link.download = ensurePdfExtension(sanitizeSubmissionFileName(submission.file_name || submission.form_title));
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -2207,6 +2707,7 @@ window.addEventListener("DOMContentLoaded", function () {
 
     document.getElementById("formFileCategorySelect")?.addEventListener("change", (e) => {
         renderFileSubfolderOptions(e.target.value, "");
+        renderFileProjectLockOptions(e.target.value, "");
     });
 
     const newFormBtn = document.getElementById("newFormBtn");
@@ -2220,6 +2721,8 @@ window.addEventListener("DOMContentLoaded", function () {
     document.getElementById("deleteFormBtn")?.addEventListener("click", openDeleteFormConfirm);
     document.getElementById("cancelDeleteFormBtn")?.addEventListener("click", closeDeleteFormConfirm);
     document.getElementById("confirmDeleteFormBtn")?.addEventListener("click", confirmDeleteForm);
+    document.getElementById("deleteFormConfirmNameInput")?.addEventListener("input", updateDeleteFormConfirmBtnState);
+    document.getElementById("deleteFormConfirmUnderstandCheckbox")?.addEventListener("change", updateDeleteFormConfirmBtnState);
 
     const addFieldBtn = document.getElementById("addFieldBtn");
     const addFieldTypeSelect = document.getElementById("addFieldTypeSelect");
@@ -2243,12 +2746,17 @@ window.addEventListener("DOMContentLoaded", function () {
 
     document.getElementById("cancelFillFormBtn")?.addEventListener("click", closeFillFormModal);
     document.getElementById("fillForm")?.addEventListener("submit", handleSubmitFillForm);
+    document.getElementById("fillFormAttachmentsInput")?.addEventListener("change", (e) => {
+        addFillFormAttachmentFiles(e.target.files);
+        e.target.value = ""; // allow picking the same file again later (e.g. after removing it)
+    });
 
     document.getElementById("nameSubmissionFileForm")?.addEventListener("submit", handleConfirmSubmissionFileName);
     document.getElementById("cancelNameSubmissionFileBtn")?.addEventListener("click", closeNameSubmissionFileModal);
     document.getElementById("closeNameSubmissionFileBtn")?.addEventListener("click", closeNameSubmissionFileModal);
 
     document.getElementById("closeFormResponsesBtn")?.addEventListener("click", closeResponsesModal);
+    document.getElementById("downloadAllResponsesBtn")?.addEventListener("click", downloadAllFormResponses);
     document.getElementById("closeSubmissionPreviewBtn")?.addEventListener("click", closeSubmissionPreviewModal);
     document.getElementById("downloadSubmissionBtn")?.addEventListener("click", function () {
         if (previewingSubmission) downloadFormSubmission(previewingSubmission, this);
@@ -2256,6 +2764,8 @@ window.addEventListener("DOMContentLoaded", function () {
 
     document.getElementById("cancelDeleteSubmissionBtn")?.addEventListener("click", closeDeleteSubmissionConfirm);
     document.getElementById("confirmDeleteSubmissionBtn")?.addEventListener("click", confirmDeleteSubmission);
+    document.getElementById("deleteSubmissionConfirmNameInput")?.addEventListener("input", updateDeleteSubmissionConfirmBtnState);
+    document.getElementById("deleteSubmissionConfirmUnderstandCheckbox")?.addEventListener("change", updateDeleteSubmissionConfirmBtnState);
 
     document.getElementById("formBuilderModalOverlay")?.addEventListener("click", function (e) {
         if (e.target === this) closeFormBuilderModal();
@@ -2277,5 +2787,14 @@ window.addEventListener("DOMContentLoaded", function () {
     });
     document.getElementById("deleteSubmissionConfirmOverlay")?.addEventListener("click", function (e) {
         if (e.target === this) closeDeleteSubmissionConfirm();
+    });
+
+    // Close an open response row "⋯" menu on an outside click or Escape —
+    // same pattern as All Files' per-file menu (project-files.js).
+    document.addEventListener("click", (event) => {
+        if (!event.target.closest(".form-response-actions")) closeAllResponseRowMenus();
+    });
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeAllResponseRowMenus();
     });
 });

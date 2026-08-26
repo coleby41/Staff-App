@@ -37,17 +37,30 @@ comment on column public.form_templates.page_count is
 -- ============================================================================
 -- Storage: private bucket for the uploaded template PDFs (the source
 -- documents forms are built from). Separate from form-submissions, which
--- holds the filled-out output PDFs. Same anon-RLS pattern as the rest of
--- this project (no Supabase Auth — access control is app-level).
+-- holds the filled-out output PDFs.
+--
+-- 2026-08-26 update: this originally granted `anon` full access (matching
+-- the pre-Supabase-Auth pattern the rest of the project used at the time).
+-- That's since been superseded everywhere else by real per-session
+-- `authenticated` policies (see supabase-rls-lockdown.sql and
+-- supabase-close-unauthenticated-access-gaps.sql) — this bucket's policy
+-- was simply never brought forward when that happened, which is exactly
+-- why saving a PDF-based form template started failing with an RLS error
+-- for real signed-in users (an `anon`-scoped policy doesn't apply to an
+-- `authenticated` session at all). Writing the corrected, authenticated-only
+-- version directly into this base file so a fresh install gets it right
+-- from the start; supabase-close-unauthenticated-access-gaps.sql is what
+-- actually fixes it on the already-deployed database.
 -- ============================================================================
 insert into storage.buckets (id, name, public)
 values ('form-template-sources', 'form-template-sources', false)
 on conflict (id) do nothing;
 
 drop policy if exists "form_template_sources_bucket_anon_all" on storage.objects;
-create policy "form_template_sources_bucket_anon_all"
+drop policy if exists "form_template_sources_bucket_authenticated" on storage.objects;
+create policy "form_template_sources_bucket_authenticated"
 on storage.objects
 for all
-to anon
+to authenticated
 using (bucket_id = 'form-template-sources')
 with check (bucket_id = 'form-template-sources');

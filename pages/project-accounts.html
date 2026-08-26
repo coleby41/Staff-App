@@ -506,15 +506,31 @@
      record's table/label are tracked in JS, same "one modal, parameterized"
      approach as the rest of the app's confirm dialogs). -->
 <div class="popup-overlay hidden" id="deleteRecordConfirmOverlay">
-    <div class="popup">
-        <h2>Delete this record?</h2>
-        <p class="auth-inline-copy">This can't be undone.</p>
+    <div class="popup popup--danger">
+        <div class="delete-confirm-header">
+            <span class="delete-confirm-icon" aria-hidden="true"></span>
+            <h2>Delete this record?</h2>
+        </div>
+
+        <div class="delete-confirm-warning-box">
+            <p id="deleteRecordConfirmWarning">This will <strong>permanently</strong> remove the record. This action cannot be undone.</p>
+        </div>
+
+        <label class="auth-field delete-confirm-name-field">
+            <span>Type <strong id="deleteRecordConfirmName"></strong> below to confirm</span>
+            <input type="text" id="deleteRecordConfirmNameInput" autocomplete="off" autocapitalize="off" spellcheck="false">
+        </label>
+
+        <label class="delete-confirm-checkbox-row">
+            <input type="checkbox" id="deleteRecordConfirmUnderstandCheckbox">
+            <span>I understand this action is permanent and cannot be undone.</span>
+        </label>
 
         <p class="auth-message" id="deleteRecordConfirmMessage"></p>
 
         <div class="popup-buttons">
             <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteRecordBtn">Cancel</button>
-            <button type="button" class="auth-button auth-button--red" id="confirmDeleteRecordBtn">Delete</button>
+            <button type="button" class="auth-button auth-button--red" id="confirmDeleteRecordBtn" disabled>Delete</button>
         </div>
     </div>
 </div>

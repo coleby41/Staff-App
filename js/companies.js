@@ -671,6 +671,35 @@ async function uploadW9(file, existingPath) {
 let pendingDeleteType = null; // "company" | "contact"
 let pendingDeleteId = null;
 let pendingDeleteW9Path = null;
+let pendingDeleteName = "";
+
+// Typing the record's own name to confirm (same pattern used for project
+// deletion) -- cheap insurance against a one-click delete landing on the
+// wrong vendor or contact, which is otherwise unrecoverable. This modal is
+// shared between the vendor and contact delete flows, so the expected name
+// is tracked in pendingDeleteName rather than read from a fixed field.
+function deleteConfirmNameMatches() {
+    const typed = document.getElementById("deleteConfirmNameInput").value;
+    return pendingDeleteName.length > 0 && typed.trim() === pendingDeleteName;
+}
+
+function deleteConfirmReady() {
+    return deleteConfirmNameMatches()
+        && document.getElementById("deleteConfirmUnderstandCheckbox").checked;
+}
+
+function updateDeleteConfirmBtnState() {
+    document.getElementById("confirmDeleteBtn").disabled = !deleteConfirmReady();
+}
+
+function resetDeleteConfirmFields() {
+    const input = document.getElementById("deleteConfirmNameInput");
+    input.value = "";
+    document.getElementById("deleteConfirmUnderstandCheckbox").checked = false;
+    document.getElementById("deleteConfirmMessage").textContent = "";
+    updateDeleteConfirmBtnState();
+    input.focus();
+}
 
 function openDeleteConfirm() {
     const id = document.getElementById("companyIdInput").value;
@@ -681,11 +710,14 @@ function openDeleteConfirm() {
     pendingDeleteType = "company";
     pendingDeleteId = id;
     pendingDeleteW9Path = w9Path || null;
+    pendingDeleteName = document.getElementById("companyNameInput").value.trim() || "";
 
+    document.getElementById("deleteConfirmTitle").textContent = "Delete this vendor?";
+    document.getElementById("deleteConfirmName").textContent = pendingDeleteName || "this vendor";
     document.getElementById("deleteConfirmText").textContent =
         "This will permanently remove the vendor record and its W9 file. This can't be undone.";
-    document.getElementById("deleteConfirmMessage").textContent = "";
     document.getElementById("deleteConfirmOverlay").classList.remove("hidden");
+    resetDeleteConfirmFields();
 }
 
 function openContactDeleteConfirm() {
@@ -696,11 +728,14 @@ function openContactDeleteConfirm() {
     pendingDeleteType = "contact";
     pendingDeleteId = id;
     pendingDeleteW9Path = null;
+    pendingDeleteName = document.getElementById("contactNameInput").value.trim() || "";
 
+    document.getElementById("deleteConfirmTitle").textContent = "Delete this contact?";
+    document.getElementById("deleteConfirmName").textContent = pendingDeleteName || "this contact";
     document.getElementById("deleteConfirmText").textContent =
         "This will permanently remove this contact. This can't be undone.";
-    document.getElementById("deleteConfirmMessage").textContent = "";
     document.getElementById("deleteConfirmOverlay").classList.remove("hidden");
+    resetDeleteConfirmFields();
 }
 
 function closeDeleteConfirm() {
@@ -708,11 +743,13 @@ function closeDeleteConfirm() {
     pendingDeleteType = null;
     pendingDeleteId = null;
     pendingDeleteW9Path = null;
+    pendingDeleteName = "";
 }
 
 async function confirmDelete() {
 
     if (!pendingDeleteId || !pendingDeleteType) return;
+    if (!deleteConfirmReady()) return;
 
     const confirmBtn = document.getElementById("confirmDeleteBtn");
     confirmBtn.disabled = true;
@@ -1737,6 +1774,9 @@ window.initCompaniesPage = async function () {
             if (event.target === deleteOverlay) closeDeleteConfirm();
         });
     }
+
+    document.getElementById("deleteConfirmNameInput")?.addEventListener("input", updateDeleteConfirmBtnState);
+    document.getElementById("deleteConfirmUnderstandCheckbox")?.addEventListener("change", updateDeleteConfirmBtnState);
 
     // Contacts list modal
     const closeContactsBtn = document.getElementById("closeContactsBtn");

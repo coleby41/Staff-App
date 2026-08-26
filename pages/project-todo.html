@@ -157,15 +157,31 @@
 
 <!-- Delete Item Confirmation -->
 <div class="popup-overlay hidden" id="deleteTodoItemConfirmOverlay">
-    <div class="popup">
-        <h2>Delete this item?</h2>
-        <p class="auth-inline-copy">This removes the item and its whole checklist. This can't be undone.</p>
+    <div class="popup popup--danger">
+        <div class="delete-confirm-header">
+            <span class="delete-confirm-icon" aria-hidden="true"></span>
+            <h2>Delete this item?</h2>
+        </div>
+
+        <div class="delete-confirm-warning-box">
+            <p>This removes the item and its whole checklist. This action cannot be undone.</p>
+        </div>
+
+        <label class="auth-field delete-confirm-name-field">
+            <span>Type <strong id="deleteTodoItemConfirmName"></strong> below to confirm</span>
+            <input type="text" id="deleteTodoItemConfirmNameInput" autocomplete="off" autocapitalize="off" spellcheck="false">
+        </label>
+
+        <label class="delete-confirm-checkbox-row">
+            <input type="checkbox" id="deleteTodoItemConfirmUnderstandCheckbox">
+            <span>I understand this action is permanent and cannot be undone.</span>
+        </label>
 
         <p class="auth-message" id="deleteTodoItemConfirmMessage"></p>
 
         <div class="popup-buttons">
             <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteTodoItemBtn">Cancel</button>
-            <button type="button" class="auth-button auth-button--red" id="confirmDeleteTodoItemBtn">Delete</button>
+            <button type="button" class="auth-button auth-button--red" id="confirmDeleteTodoItemBtn" disabled>Delete</button>
         </div>
     </div>
 </div>

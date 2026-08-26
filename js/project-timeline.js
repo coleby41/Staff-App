@@ -1318,18 +1318,43 @@
         }
     }
 
+    // Typing the phase/task's own name to confirm (same pattern used for
+    // project deletion) -- cheap insurance against a one-click delete
+    // landing on the wrong item, which is otherwise unrecoverable.
+    function schedDeleteConfirmNameMatches() {
+        const expected = (pendingDeleteTarget && pendingDeleteTarget.name) || "";
+        const typed = document.getElementById("schedDeleteConfirmNameInput").value;
+        return expected.length > 0 && typed.trim() === expected;
+    }
+
+    function schedDeleteConfirmReady() {
+        return schedDeleteConfirmNameMatches()
+            && document.getElementById("schedDeleteConfirmUnderstandCheckbox").checked;
+    }
+
+    function updateSchedDeleteConfirmBtnState() {
+        document.getElementById("schedConfirmDeleteBtn").disabled = !schedDeleteConfirmReady();
+    }
+
     function openDeleteConfirm(kind, id) {
-        pendingDeleteTarget = { kind, id };
         const name = kind === "phase" ? (phasesById.get(id) || {}).name : (tasksById.get(id) || {}).name;
+        pendingDeleteTarget = { kind, id, name: name || "" };
+        document.getElementById("schedDeleteConfirmName").textContent = name || (kind === "phase" ? "this phase" : "this item");
         document.getElementById("schedDeleteConfirmText").textContent = kind === "phase"
-            ? `Delete phase "${name}"? Phases with tasks in them can't be deleted — move or delete those tasks first.`
-            : `Delete "${name}"? This can't be undone. Any dependencies involving it are removed too.`;
+            ? "Phases with tasks in them can't be deleted — move or delete those tasks first."
+            : "This can't be undone. Any dependencies involving it are removed too.";
         document.getElementById("schedDeleteConfirmMessage").textContent = "";
+        const input = document.getElementById("schedDeleteConfirmNameInput");
+        input.value = "";
+        document.getElementById("schedDeleteConfirmUnderstandCheckbox").checked = false;
         document.getElementById("schedDeleteConfirmOverlay").classList.remove("hidden");
+        updateSchedDeleteConfirmBtnState();
+        input.focus();
     }
 
     async function handleConfirmDelete() {
         if (!pendingDeleteTarget) return;
+        if (!schedDeleteConfirmReady()) return;
         const { kind, id } = pendingDeleteTarget;
         const btn = document.getElementById("schedConfirmDeleteBtn");
         btn.disabled = true;
@@ -1383,6 +1408,8 @@
         document.getElementById("schedDeleteItemBtn").addEventListener("click", () => openDeleteConfirm(drawerItemType === "phase" ? "phase" : "task", drawerItemId));
         document.getElementById("schedCancelDeleteBtn").addEventListener("click", () => { document.getElementById("schedDeleteConfirmOverlay").classList.add("hidden"); pendingDeleteTarget = null; });
         document.getElementById("schedConfirmDeleteBtn").addEventListener("click", handleConfirmDelete);
+        document.getElementById("schedDeleteConfirmNameInput")?.addEventListener("input", updateSchedDeleteConfirmBtnState);
+        document.getElementById("schedDeleteConfirmUnderstandCheckbox")?.addEventListener("change", updateSchedDeleteConfirmBtnState);
 
         document.getElementById("schedProgressInput").addEventListener("input", (e) => {
             document.getElementById("schedProgressValue").textContent = e.target.value + "%";

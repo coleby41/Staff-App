@@ -537,22 +537,49 @@
     }
 
     let pendingDeleteItemId = null;
+    let pendingDeleteItemName = "";
+
+    // Typing the item's own title to confirm (same pattern used for
+    // project deletion) -- cheap insurance against a one-click delete
+    // landing on the wrong item, which is otherwise unrecoverable.
+    function deleteTodoItemConfirmNameMatches() {
+        const typed = document.getElementById("deleteTodoItemConfirmNameInput").value;
+        return pendingDeleteItemName.length > 0 && typed.trim() === pendingDeleteItemName;
+    }
+
+    function deleteTodoItemConfirmReady() {
+        return deleteTodoItemConfirmNameMatches()
+            && document.getElementById("deleteTodoItemConfirmUnderstandCheckbox").checked;
+    }
+
+    function updateDeleteTodoItemConfirmBtnState() {
+        document.getElementById("confirmDeleteTodoItemBtn").disabled = !deleteTodoItemConfirmReady();
+    }
 
     function openDeleteTodoItemConfirm() {
         if (!openPanelItem) return;
         pendingDeleteItemId = openPanelItem.id;
+        pendingDeleteItemName = openPanelItem.title || "";
+        document.getElementById("deleteTodoItemConfirmName").textContent = pendingDeleteItemName || "this item";
+        const input = document.getElementById("deleteTodoItemConfirmNameInput");
+        input.value = "";
+        document.getElementById("deleteTodoItemConfirmUnderstandCheckbox").checked = false;
         const messageEl = document.getElementById("deleteTodoItemConfirmMessage");
         if (messageEl) messageEl.textContent = "";
         document.getElementById("deleteTodoItemConfirmOverlay")?.classList.remove("hidden");
+        updateDeleteTodoItemConfirmBtnState();
+        input.focus();
     }
 
     function closeDeleteTodoItemConfirm() {
         document.getElementById("deleteTodoItemConfirmOverlay")?.classList.add("hidden");
         pendingDeleteItemId = null;
+        pendingDeleteItemName = "";
     }
 
     async function confirmDeleteTodoItem() {
         if (!pendingDeleteItemId) return;
+        if (!deleteTodoItemConfirmReady()) return;
         const itemId = pendingDeleteItemId;
         const confirmBtn = document.getElementById("confirmDeleteTodoItemBtn");
         const messageEl = document.getElementById("deleteTodoItemConfirmMessage");
@@ -703,5 +730,7 @@
         document.getElementById("deleteTodoItemConfirmOverlay")?.addEventListener("click", (e) => {
             if (e.target === e.currentTarget) closeDeleteTodoItemConfirm();
         });
+        document.getElementById("deleteTodoItemConfirmNameInput")?.addEventListener("input", updateDeleteTodoItemConfirmBtnState);
+        document.getElementById("deleteTodoItemConfirmUnderstandCheckbox")?.addEventListener("change", updateDeleteTodoItemConfirmBtnState);
     });
 })();

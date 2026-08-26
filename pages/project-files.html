@@ -236,15 +236,31 @@
 
 <!-- Delete Confirmation -->
 <div class="popup-overlay hidden" id="deleteFileConfirmOverlay">
-    <div class="popup">
-        <h2>Delete this file?</h2>
-        <p class="auth-inline-copy">This can't be undone.</p>
+    <div class="popup popup--danger">
+        <div class="delete-confirm-header">
+            <span class="delete-confirm-icon" aria-hidden="true"></span>
+            <h2>Delete this file?</h2>
+        </div>
+
+        <div class="delete-confirm-warning-box">
+            <p>This will <strong>permanently</strong> remove the file. This action cannot be undone.</p>
+        </div>
+
+        <label class="auth-field delete-confirm-name-field">
+            <span>Type <strong id="deleteFileConfirmName"></strong> below to confirm</span>
+            <input type="text" id="deleteFileConfirmNameInput" autocomplete="off" autocapitalize="off" spellcheck="false">
+        </label>
+
+        <label class="delete-confirm-checkbox-row">
+            <input type="checkbox" id="deleteFileConfirmUnderstandCheckbox">
+            <span>I understand this action is permanent and cannot be undone.</span>
+        </label>
 
         <p class="auth-message" id="deleteFileConfirmMessage"></p>
 
         <div class="popup-buttons">
             <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteFileBtn">Cancel</button>
-            <button type="button" class="auth-button auth-button--red" id="confirmDeleteFileBtn">Delete</button>
+            <button type="button" class="auth-button auth-button--red" id="confirmDeleteFileBtn" disabled>Delete</button>
         </div>
     </div>
 </div>

@@ -332,13 +332,31 @@
 
 <!-- Delete Workgroup Confirmation Modal -->
 <div class="popup-overlay hidden" id="deleteWorkgroupConfirmOverlay">
-    <div class="popup">
-        <h2>Delete this workgroup?</h2>
-        <p class="auth-inline-copy" id="deleteWorkgroupConfirmText"></p>
+    <div class="popup popup--danger">
+        <div class="delete-confirm-header">
+            <span class="delete-confirm-icon" aria-hidden="true"></span>
+            <h2>Delete this workgroup?</h2>
+        </div>
+
+        <div class="delete-confirm-warning-box">
+            <p id="deleteWorkgroupConfirmText"></p>
+        </div>
+
+        <label class="auth-field delete-confirm-name-field">
+            <span>Type <strong id="deleteWorkgroupConfirmName"></strong> below to confirm</span>
+            <input type="text" id="deleteWorkgroupConfirmNameInput" autocomplete="off" autocapitalize="off" spellcheck="false">
+        </label>
+
+        <label class="delete-confirm-checkbox-row">
+            <input type="checkbox" id="deleteWorkgroupConfirmUnderstandCheckbox">
+            <span>I understand this action is permanent and cannot be undone.</span>
+        </label>
+
+        <p class="auth-message" id="deleteWorkgroupConfirmMessage"></p>
 
         <div class="popup-buttons">
             <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteWorkgroupBtn">Cancel</button>
-            <button type="button" class="auth-button auth-button--red" id="confirmDeleteWorkgroupBtn">Delete</button>
+            <button type="button" class="auth-button auth-button--red" id="confirmDeleteWorkgroupBtn" disabled>Delete</button>
         </div>
     </div>
 </div>

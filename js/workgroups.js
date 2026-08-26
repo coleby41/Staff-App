@@ -154,24 +154,52 @@ async function handleAddWorkgroup(event) {
 }
 
 let pendingDeleteWorkgroupId = null;
+let pendingDeleteWorkgroupName = "";
+
+// Typing the workgroup's own name to confirm (same pattern used for project
+// deletion) -- cheap insurance against a one-click delete landing on the
+// wrong workgroup, which is otherwise unrecoverable.
+function deleteWorkgroupConfirmNameMatches() {
+    const typed = document.getElementById("deleteWorkgroupConfirmNameInput").value;
+    return pendingDeleteWorkgroupName.length > 0 && typed.trim() === pendingDeleteWorkgroupName;
+}
+
+function deleteWorkgroupConfirmReady() {
+    return deleteWorkgroupConfirmNameMatches()
+        && document.getElementById("deleteWorkgroupConfirmUnderstandCheckbox").checked;
+}
+
+function updateDeleteWorkgroupConfirmBtnState() {
+    document.getElementById("confirmDeleteWorkgroupBtn").disabled = !deleteWorkgroupConfirmReady();
+}
 
 function openDeleteWorkgroupConfirm(id) {
     pendingDeleteWorkgroupId = id;
     const record = workgroupRecords.find(w => w.id === id);
+    pendingDeleteWorkgroupName = record?.name || "";
+    document.getElementById("deleteWorkgroupConfirmName").textContent = pendingDeleteWorkgroupName || "this workgroup";
     const messageEl = document.getElementById("deleteWorkgroupConfirmText");
-    if (messageEl) messageEl.textContent = `Delete "${record?.name || "this workgroup"}"? Anyone in it will lose whatever access it granted. This can't be undone.`;
+    if (messageEl) messageEl.textContent = "Anyone in it will lose whatever access it granted. This can't be undone.";
+    const input = document.getElementById("deleteWorkgroupConfirmNameInput");
+    input.value = "";
+    document.getElementById("deleteWorkgroupConfirmUnderstandCheckbox").checked = false;
+    document.getElementById("deleteWorkgroupConfirmMessage").textContent = "";
     document.getElementById("deleteWorkgroupConfirmOverlay")?.classList.remove("hidden");
     document.body.classList.add("popup-active");
+    updateDeleteWorkgroupConfirmBtnState();
+    input.focus();
 }
 
 function closeDeleteWorkgroupConfirm() {
     document.getElementById("deleteWorkgroupConfirmOverlay")?.classList.add("hidden");
     document.body.classList.remove("popup-active");
     pendingDeleteWorkgroupId = null;
+    pendingDeleteWorkgroupName = "";
 }
 
 async function confirmDeleteWorkgroup() {
     if (!pendingDeleteWorkgroupId) return;
+    if (!deleteWorkgroupConfirmReady()) return;
     const id = pendingDeleteWorkgroupId;
 
     const { error } = await window.supabaseClient.from("workgroups").delete().eq("id", id);
@@ -274,4 +302,6 @@ window.addEventListener("DOMContentLoaded", function () {
     document.getElementById("deleteWorkgroupConfirmOverlay")?.addEventListener("click", function (e) {
         if (e.target === this) closeDeleteWorkgroupConfirm();
     });
+    document.getElementById("deleteWorkgroupConfirmNameInput")?.addEventListener("input", updateDeleteWorkgroupConfirmBtnState);
+    document.getElementById("deleteWorkgroupConfirmUnderstandCheckbox")?.addEventListener("change", updateDeleteWorkgroupConfirmBtnState);
 });
