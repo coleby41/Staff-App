@@ -75,7 +75,17 @@
         document.querySelectorAll(".sidebar-nav a[data-nav-page]").forEach(link => {
             const page = link.dataset.navPage;
             link.href = buildPageUrl(page, projectId);
-            link.classList.toggle("active", page === currentFileName());
+            // data-nav-page is inconsistent across pages — most items carry
+            // a root-relative path ("/pages/project-files.html"), one
+            // ("Accounting") carries a bare filename — while
+            // currentFileName() always returns just the bare filename.
+            // Comparing the raw values against each other meant the
+            // "/pages/..." form could never match, so the current page's
+            // nav item never actually got its .active highlight. Compare by
+            // basename on both sides instead so it works regardless of
+            // which form a given item uses.
+            const pageFileName = page.split("/").pop();
+            link.classList.toggle("active", pageFileName === currentFileName());
         });
     }
 

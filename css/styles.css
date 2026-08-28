@@ -90,7 +90,21 @@ button { font: inherit; }
   top: 0;
   left: 0;
   right: 0;
-  z-index: var(--z-nav);
+  /* One tick above --z-nav rather than sharing it with .sidebar. A
+     position:fixed element with its own z-index (like .header) creates a
+     stacking context, so anything absolutely-positioned inside it — e.g.
+     .project-switcher-dropdown, which opens directly under the header-left
+     corner and extends down into the sidebar's rectangle — can never
+     out-rank .sidebar as a whole no matter how high its own z-index is set;
+     the .header-vs-.sidebar comparison happens first, and with equal
+     z-index .sidebar wins by simply coming later in the DOM. Bumping the
+     header itself above the sidebar's tier fixes that for every current
+     and future header dropdown, with no visible effect on the header/
+     sidebar's own layout since they don't overlap outside of this case
+     (.sidebar starts at top: var(--header-height), below the header) and
+     .sidebar's own mobile-drawer tier (--z-mobile-nav, see the max-width:
+     820px block) is still far above this either way. */
+  z-index: calc(var(--z-nav) + 1);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -975,6 +989,28 @@ button { font: inherit; }
   background-color: var(--accent);
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpolyline points='14 2 14 8 20 8'/%3E%3Cline x1='16' y1='13' x2='8' y2='13'/%3E%3Cline x1='16' y1='17' x2='8' y2='17'/%3E%3Cpolyline points='10 9 9 9 8 9'/%3E%3C/svg%3E");
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpolyline points='14 2 14 8 20 8'/%3E%3Cline x1='16' y1='13' x2='8' y2='13'/%3E%3Cline x1='16' y1='17' x2='8' y2='17'/%3E%3Cpolyline points='10 9 9 9 8 9'/%3E%3C/svg%3E");
+  mask-size: contain;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-position: center;
+}
+
+/* Change Password modal's icon variant — a padlock, for the notification
+   center's "Change Password" action (see .notification-change-password-btn
+   below and change-password.js). Same recipe as .modal-icon--form, just a
+   different glyph. */
+.modal-icon--lock::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 22px;
+  height: 22px;
+  background-color: var(--accent);
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E");
   mask-size: contain;
   -webkit-mask-size: contain;
   mask-repeat: no-repeat;
@@ -2020,6 +2056,56 @@ button { font: inherit; }
     background: var(--danger-soft);
     border-color: #f2b5b5;
     color: var(--danger);
+}
+
+/* "Change Password" action in the notification center dropdown (see
+   change-password.js). Sits below the Report bug/Sign out footer row.
+   Accent-colored (not the gray placeholder box this replaced, and not the
+   danger tint .header-signout/.report-bug-btn use on hover) since this is
+   a routine account action, not a warning or a way to leave. */
+.notification-change-password-row {
+    padding: 10px 14px 14px;
+    border-top: 1px solid var(--border);
+    background: var(--surface-alt);
+}
+
+.notification-change-password-btn {
+    width: 100%;
+    height: 38px;
+    margin: 0;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    box-sizing: border-box;
+}
+
+.notification-change-password-btn:hover {
+    background: var(--accent);
+    color: #fff;
+}
+
+.notification-change-password-btn-icon {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+    background-color: currentColor;
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E");
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E");
+    mask-size: contain;
+    -webkit-mask-size: contain;
+    mask-repeat: no-repeat;
+    -webkit-mask-repeat: no-repeat;
+    mask-position: center;
+    -webkit-mask-position: center;
 }
 /* ===========================
    EXCEL WORKBOOK LIBRARY
@@ -8230,7 +8316,8 @@ body.week-cal-dragging {
    paired with it), .workbook-edit-btn,
    .form-field-move-btn, .form-field-remove-btn, .project-page-btn,
    .project-page-number, .all-files-folder-tile, .all-files-file-menu-btn,
-   .upload-status-icon-btn, .file-preview-close-btn.
+   .upload-status-icon-btn, .file-preview-close-btn,
+   .notification-change-password-btn.
 
    .form-response-menu-btn (the Responses modal's "⋯" row menu) is
    deliberately NOT in this list — it's a plain icon trigger with no
@@ -8275,7 +8362,8 @@ body.week-cal-dragging {
 .all-files-folder-tile,
 .all-files-file-menu-btn,
 .upload-status-icon-btn,
-.file-preview-close-btn {
+.file-preview-close-btn,
+.notification-change-password-btn {
   /* No position here on purpose — .company-edit-btn/.project-edit-btn/
      .workbook-edit-btn each set their own position: absolute (pinning
      them to their card's top-right corner) in their own rule elsewhere;
@@ -8308,7 +8396,8 @@ body.week-cal-dragging {
 .all-files-folder-tile:hover,
 .all-files-file-menu-btn:hover,
 .upload-status-icon-btn:hover,
-.file-preview-close-btn:hover {
+.file-preview-close-btn:hover,
+.notification-change-password-btn:hover {
   transform: translateY(-1px);
   filter: brightness(1.05);
   box-shadow:
@@ -8334,7 +8423,8 @@ body.week-cal-dragging {
 .all-files-folder-tile:active,
 .all-files-file-menu-btn:active,
 .upload-status-icon-btn:active,
-.file-preview-close-btn:active {
+.file-preview-close-btn:active,
+.notification-change-password-btn:active {
   transform: translateY(1px) scale(0.98);
   filter: brightness(0.96);
   box-shadow:
