@@ -151,11 +151,15 @@ create index if not exists change_orders_status_idx on public.change_orders (pro
 
 alter table public.change_orders enable row level security;
 
+-- 2026-08-31: widened from is_project_member(project_id) — same "everyone
+-- has access to everything in a project" change as every other
+-- project-content table. See supabase-open-project-financials-to-all-staff.sql.
 drop policy if exists "change_orders_select_members" on public.change_orders;
-create policy "change_orders_select_members"
+drop policy if exists "change_orders_select_authenticated" on public.change_orders;
+create policy "change_orders_select_authenticated"
   on public.change_orders for select
   to authenticated
-  using (public.is_project_member(project_id));
+  using (true);
 
 drop policy if exists "change_orders_insert_leadership" on public.change_orders;
 create policy "change_orders_insert_leadership"
@@ -192,6 +196,10 @@ grant select, insert, update, delete on public.change_orders to authenticated;
 -- Masking view — same pattern as projects_overview. Reads go through this;
 -- writes (insert/update) still go straight to the base table, gated by the
 -- row policies above.
+-- 2026-08-31: amount unmasked — see supabase-open-project-financials-to-all-staff.sql.
+-- Approving/rejecting a change order (the update policy above) is
+-- deliberately left as project_admin/accounting-only — this is about
+-- everyone being able to SEE the dollar amount, not who can approve spend.
 create or replace view public.change_orders_overview
 with (security_invoker = true)
 as
@@ -199,7 +207,7 @@ select
   id, project_id, number, title, description, status,
   requested_by, requested_by_name, approved_by, approved_by_name, approved_at,
   created_at, updated_at,
-  case when public.has_financial_access(project_id) then amount end as amount
+  amount
 from public.change_orders;
 
 grant select on public.change_orders_overview to authenticated;
@@ -658,13 +666,12 @@ select
   county_city_office_name, county_city_contact_name, county_city_phone, county_city_email,
   status, project_manager_name, progress_percent, due_date,
   updated_by_id, updated_by_name, cover_photo_url,
-  case when public.has_financial_access(id) then contract_value end as contract_value,
-  case when public.has_financial_access(id) then electric_account_number end as electric_account_number,
-  case when public.has_financial_access(id) then water_account_number end as water_account_number,
-  case when public.has_financial_access(id) then trash_account_number end as trash_account_number,
-  case when public.has_financial_access(id) then porta_potty_account_number end as porta_potty_account_number,
-  case when public.has_financial_access(id) then committed_amount end as committed_amount,
-  case when public.has_financial_access(id) then spent_to_date end as spent_to_date
+  -- 2026-08-31: unmasked — Coleby asked for every staff member to see
+  -- financial figures, not just those with has_financial_access(). See
+  -- supabase-open-project-financials-to-all-staff.sql.
+  contract_value, electric_account_number, water_account_number,
+  trash_account_number, porta_potty_account_number,
+  committed_amount, spent_to_date
 from public.projects;
 
 grant select on public.projects_overview to authenticated;

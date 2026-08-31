@@ -88,32 +88,25 @@ create policy "project_files_select_authenticated"
   -- its project_members rows. See
   -- supabase-open-project-access-to-all-staff.sql.
 
-create policy "project_files_insert_members"
+create policy "project_files_insert_authenticated"
   on public.project_files for insert
   to authenticated
-  with check (public.is_project_member(project_id));
+  with check (true);
 
--- Delete/rename rights: whoever uploaded it, or project leadership — same
--- "uploader or leadership" shape already used for RFI answer permissions.
-create policy "project_files_update_owner_or_leadership"
+-- 2026-08-31: update/delete widened from "uploader or project leadership"
+-- to any authenticated staff member — Coleby asked for everyone to have the
+-- same permissions as everyone else. See
+-- supabase-flatten-project-permissions-to-all-staff.sql.
+create policy "project_files_update_authenticated"
   on public.project_files for update
   to authenticated
-  using (
-    uploaded_by = public.current_staff_id()
-    or public.project_role(project_id) in ('project_admin', 'project_manager')
-  )
-  with check (
-    uploaded_by = public.current_staff_id()
-    or public.project_role(project_id) in ('project_admin', 'project_manager')
-  );
+  using (true)
+  with check (true);
 
-create policy "project_files_delete_owner_or_leadership"
+create policy "project_files_delete_authenticated"
   on public.project_files for delete
   to authenticated
-  using (
-    uploaded_by = public.current_staff_id()
-    or public.project_role(project_id) in ('project_admin', 'project_manager')
-  );
+  using (true);
 
 revoke all on public.project_files from anon;
 grant select, insert, update, delete on public.project_files to authenticated;

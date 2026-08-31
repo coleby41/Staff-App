@@ -389,6 +389,7 @@ begin
     execute format('drop policy if exists "%1$s_select_members" on public.%1$s', t);
     execute format('drop policy if exists "%1$s_select_authenticated" on public.%1$s', t);
     execute format('drop policy if exists "%1$s_write_members" on public.%1$s', t);
+    execute format('drop policy if exists "%1$s_write_authenticated" on public.%1$s', t);
 
     execute format($f$
       create policy "%1$s_select_authenticated" on public.%1$s for select to authenticated
@@ -396,10 +397,13 @@ begin
     $f$, t);
 
     execute format($f$
-      create policy "%1$s_write_members" on public.%1$s for all to authenticated
-      using (public.project_role(project_id) in ('project_admin','project_manager','staff') or public.is_super_admin())
-      with check (public.project_role(project_id) in ('project_admin','project_manager','staff') or public.is_super_admin())
+      create policy "%1$s_write_authenticated" on public.%1$s for all to authenticated
+      using (true)
+      with check (true)
     $f$, t);
+    -- 2026-08-31: widened from project_admin/project_manager/staff-among-
+    -- members — every staff member gets the same permissions as everyone
+    -- else. See supabase-flatten-project-permissions-to-all-staff.sql.
 
     execute format('revoke all on public.%1$s from anon', t);
     execute format('grant select, insert, update, delete on public.%1$s to authenticated', t);

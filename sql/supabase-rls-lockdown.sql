@@ -59,17 +59,25 @@ create policy "projects_insert_authenticated"
                       -- row — see the trigger below.
 
 drop policy if exists "projects_update_members" on public.projects;
-create policy "projects_update_members"
+drop policy if exists "projects_update_authenticated" on public.projects;
+create policy "projects_update_authenticated"
   on public.projects for update
   to authenticated
-  using (public.is_project_member(id))
-  with check (public.is_project_member(id));
+  using (true)
+  with check (true);
+  -- 2026-08-31: widened from is_project_member(id) — Coleby asked for every
+  -- staff member to have the same permissions as everyone else, including
+  -- editing any project. See supabase-flatten-project-permissions-to-all-staff.sql.
 
 drop policy if exists "projects_delete_admins" on public.projects;
-create policy "projects_delete_admins"
+drop policy if exists "projects_delete_authenticated" on public.projects;
+create policy "projects_delete_authenticated"
   on public.projects for delete
   to authenticated
-  using (public.project_role(id) = 'project_admin' or public.is_super_admin());
+  using (true);
+  -- 2026-08-31: widened from project_admin/Super Admin-only — Coleby
+  -- confirmed any staff member can delete a whole project outright. See
+  -- supabase-flatten-project-permissions-to-all-staff.sql.
 
 revoke all on public.projects from anon;
 grant select, insert, update, delete on public.projects to authenticated;
@@ -119,11 +127,11 @@ select
   county_city_office_name, county_city_contact_name, county_city_phone, county_city_email,
   status, project_manager_name, progress_percent, due_date,
   updated_by_id, updated_by_name, cover_photo_url,
-  case when public.has_financial_access(id) then contract_value end as contract_value,
-  case when public.has_financial_access(id) then electric_account_number end as electric_account_number,
-  case when public.has_financial_access(id) then water_account_number end as water_account_number,
-  case when public.has_financial_access(id) then trash_account_number end as trash_account_number,
-  case when public.has_financial_access(id) then porta_potty_account_number end as porta_potty_account_number
+  -- 2026-08-31: unmasked — Coleby asked for every staff member to see
+  -- financial figures, not just those with has_financial_access(). See
+  -- supabase-open-project-financials-to-all-staff.sql.
+  contract_value, electric_account_number, water_account_number,
+  trash_account_number, porta_potty_account_number
 from public.projects;
 
 grant select on public.projects_overview to authenticated;
@@ -168,48 +176,53 @@ create policy "project_members_select_authenticated"
   -- supabase-open-project-access-to-all-staff.sql.
 
 drop policy if exists "project_members_insert_admins" on public.project_members;
-create policy "project_members_insert_admins"
+drop policy if exists "project_members_insert_authenticated" on public.project_members;
+create policy "project_members_insert_authenticated"
   on public.project_members for insert
   to authenticated
-  with check (public.project_role(project_id) = 'project_admin' or public.is_super_admin());
+  with check (true);
+  -- 2026-08-31: Coleby asked to get rid of add/remove-members-and-change-role
+  -- being an admin-only action — every staff member gets the same
+  -- permissions as everyone else. See
+  -- supabase-flatten-project-permissions-to-all-staff.sql.
 
 drop policy if exists "project_members_update_admins" on public.project_members;
-create policy "project_members_update_admins"
+drop policy if exists "project_members_update_authenticated" on public.project_members;
+create policy "project_members_update_authenticated"
   on public.project_members for update
   to authenticated
-  using (public.project_role(project_id) = 'project_admin' or public.is_super_admin())
-  with check (public.project_role(project_id) = 'project_admin' or public.is_super_admin());
+  using (true)
+  with check (true);
 
 drop policy if exists "project_members_delete_admins" on public.project_members;
-create policy "project_members_delete_admins"
+drop policy if exists "project_members_delete_authenticated" on public.project_members;
+create policy "project_members_delete_authenticated"
   on public.project_members for delete
   to authenticated
-  using (public.project_role(project_id) = 'project_admin' or public.is_super_admin());
+  using (true);
 
 grant select, insert, update, delete on public.project_members to authenticated;
 
 
 -- ============================================================================
 -- PROJECT_TIMELINE_ITEMS / PROJECT_TODO_ITEMS / PROJECT_TODO_SUBITEMS
--- Read: any authenticated staff member (2026-08-31 — see
--- supabase-open-project-access-to-all-staff.sql; was "any project member").
--- Write: project_admin/project_manager/staff (viewer is read-only, matching
--- the spec's Viewer role).
+-- Read AND write: any authenticated staff member (2026-08-31 — see
+-- supabase-open-project-access-to-all-staff.sql and
+-- supabase-flatten-project-permissions-to-all-staff.sql; was "any project
+-- member" for read, "project_admin/project_manager/staff" for write).
 -- ============================================================================
 
 do $$
 declare
   t text;
-  pid_col text;
 begin
   foreach t in array array['project_timeline_items', 'project_todo_items', 'project_todo_subitems']
   loop
-    pid_col := 'project_id';
-
     execute format('drop policy if exists "%1$s_all_anon" on public.%1$s', t);
     execute format('drop policy if exists "%1$s_select_members" on public.%1$s', t);
     execute format('drop policy if exists "%1$s_select_authenticated" on public.%1$s', t);
     execute format('drop policy if exists "%1$s_write_members" on public.%1$s', t);
+    execute format('drop policy if exists "%1$s_write_authenticated" on public.%1$s', t);
 
     execute format($f$
       create policy "%1$s_select_authenticated" on public.%1$s for select to authenticated
@@ -217,10 +230,10 @@ begin
     $f$, t);
 
     execute format($f$
-      create policy "%1$s_write_members" on public.%1$s for all to authenticated
-      using (public.project_role(%2$s) in ('project_admin','project_manager','staff') or public.is_super_admin())
-      with check (public.project_role(%2$s) in ('project_admin','project_manager','staff') or public.is_super_admin())
-    $f$, t, pid_col);
+      create policy "%1$s_write_authenticated" on public.%1$s for all to authenticated
+      using (true)
+      with check (true)
+    $f$, t);
 
     execute format('revoke all on public.%1$s from anon', t);
     execute format('grant select, insert, update, delete on public.%1$s to authenticated', t);
@@ -710,32 +723,36 @@ $$;
 
 -- project-documents: site plans / permit plans. Path convention is
 -- "<project_id>/...", matching how project-fields.js already uploads them
--- (pathField values look like "<uuid>/filename.pdf"). 2026-08-31: split into
--- an open SELECT (any authenticated staff member can view/download) plus
--- membership-gated insert/update/delete — same shape as project-covers
--- below. See supabase-open-project-access-to-all-staff.sql.
+-- (pathField values look like "<uuid>/filename.pdf"). Fully open to any
+-- authenticated staff member (2026-08-31 — see
+-- supabase-open-project-access-to-all-staff.sql, then
+-- supabase-flatten-project-permissions-to-all-staff.sql for insert/update/
+-- delete no longer requiring project membership either).
 drop policy if exists "project_documents_bucket_anon_all" on storage.objects;
 drop policy if exists "project_documents_authenticated" on storage.objects;
 drop policy if exists "project_documents_select_authenticated" on storage.objects;
 drop policy if exists "project_documents_members_write" on storage.objects;
 drop policy if exists "project_documents_members_update" on storage.objects;
 drop policy if exists "project_documents_members_delete" on storage.objects;
+drop policy if exists "project_documents_write_authenticated" on storage.objects;
+drop policy if exists "project_documents_update_authenticated" on storage.objects;
+drop policy if exists "project_documents_delete_authenticated" on storage.objects;
 
 create policy "project_documents_select_authenticated"
 on storage.objects for select to authenticated
 using (bucket_id = 'project-documents');
 
-create policy "project_documents_members_write"
+create policy "project_documents_write_authenticated"
 on storage.objects for insert to authenticated
-with check (bucket_id = 'project-documents' and public.is_project_member(public.try_uuid((storage.foldername(name))[1])));
+with check (bucket_id = 'project-documents');
 
-create policy "project_documents_members_update"
+create policy "project_documents_update_authenticated"
 on storage.objects for update to authenticated
-using (bucket_id = 'project-documents' and public.is_project_member(public.try_uuid((storage.foldername(name))[1])));
+using (bucket_id = 'project-documents');
 
-create policy "project_documents_members_delete"
+create policy "project_documents_delete_authenticated"
 on storage.objects for delete to authenticated
-using (bucket_id = 'project-documents' and public.is_project_member(public.try_uuid((storage.foldername(name))[1])));
+using (bucket_id = 'project-documents');
 
 -- staff-documents: generated timesheet PDFs etc. Accounting/Office/Super
 -- Admin (has_payroll_access()) can read/write into ANY employee's folder
@@ -759,26 +776,30 @@ on storage.objects for all to authenticated
 using (bucket_id = 'form-submissions')
 with check (bucket_id = 'form-submissions');
 
--- project-covers: intentionally stays public-READ (cover photos are meant to
--- render in a public-facing card grid, low sensitivity), write restricted to
--- project members.
+-- project-covers: public-READ (cover photos are meant to render in a
+-- public-facing card grid, low sensitivity); write fully open to any
+-- authenticated staff member (2026-08-31 — was project-membership-gated,
+-- see supabase-flatten-project-permissions-to-all-staff.sql).
 drop policy if exists "project_covers_bucket_anon_all" on storage.objects;
 drop policy if exists "project_covers_public_read" on storage.objects;
 drop policy if exists "project_covers_members_write" on storage.objects;
 drop policy if exists "project_covers_members_update" on storage.objects;
 drop policy if exists "project_covers_members_delete" on storage.objects;
+drop policy if exists "project_covers_write_authenticated" on storage.objects;
+drop policy if exists "project_covers_update_authenticated" on storage.objects;
+drop policy if exists "project_covers_delete_authenticated" on storage.objects;
 create policy "project_covers_public_read"
 on storage.objects for select
 using (bucket_id = 'project-covers');
-create policy "project_covers_members_write"
+create policy "project_covers_write_authenticated"
 on storage.objects for insert to authenticated
-with check (bucket_id = 'project-covers' and public.is_project_member(public.try_uuid((storage.foldername(name))[1])));
-create policy "project_covers_members_update"
+with check (bucket_id = 'project-covers');
+create policy "project_covers_update_authenticated"
 on storage.objects for update to authenticated
-using (bucket_id = 'project-covers' and public.is_project_member(public.try_uuid((storage.foldername(name))[1])));
-create policy "project_covers_members_delete"
+using (bucket_id = 'project-covers');
+create policy "project_covers_delete_authenticated"
 on storage.objects for delete to authenticated
-using (bucket_id = 'project-covers' and public.is_project_member(public.try_uuid((storage.foldername(name))[1])));
+using (bucket_id = 'project-covers');
 
 -- company-w9s: tax documents. Originally restricted to
 -- Accounting/Office/Super Admin (has_payroll_access()) to mirror the

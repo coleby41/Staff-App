@@ -1262,12 +1262,62 @@ button { font: inherit; }
   overflow-x: hidden;
 }
 
+/* Login pages only (pages/login.html, index.html) — swaps the bold navy
+   diagonal gradient above for a calmer, neutral gray-blue canvas. Coleby
+   asked for a "corporate login" look; admin-users.html and staff-users.html
+   also use .auth-page for their own unrelated forms, so this is layered on
+   as its own class (added alongside .auth-page on the login pages' <body>)
+   rather than changing the shared .auth-page background itself. */
+.auth-page--login {
+  background: linear-gradient(180deg, #eef2f6 0%, #e2e8ef 100%);
+}
+
+/* Shown only when Supabase itself is reporting an incident (see
+   js/supabase-status-banner.js) — a sibling of .auth-shell inside
+   .auth-page's grid, so it stacks above the login card and stays
+   horizontally centered with it via .auth-page's own place-items: center. */
+.supabase-status-banner {
+  width: min(1100px, 100%);
+  margin-bottom: 16px;
+  padding: 14px 20px;
+  background: var(--warning-soft);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-sm);
+  color: var(--warning);
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+}
+.supabase-status-banner a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
 .auth-shell {
   width: min(1100px, 100%);
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
   gap: 20px;
   align-items: stretch;
+}
+
+/* Login pages only (pages/login.html, index.html) — no .auth-panel sidebar,
+   so this is a single centered card instead of the two-column layout above
+   (still used as-is by admin-users.html's "Access Matrix" panel). Went
+   through a couple of sizes here: first a narrow 600px box, then a wide
+   1100px card (matching the old two-card width) with the form centered
+   inside it — Coleby found that one had way too much empty space around
+   the form, so this settled on a compact, standard login-card width
+   instead, just with the calmer 16px corner radius (vs. the original 25px,
+   which was tuned to nestle against the now-removed panel) and the base
+   .auth-card's own padding, no extra centering machinery needed. */
+.auth-shell--solo {
+  grid-template-columns: 1fr;
+  width: min(440px, 100%);
+}
+.auth-shell--solo .auth-card {
+  border-radius: 16px;
 }
 
 .auth-card {
@@ -2709,6 +2759,107 @@ button { font: inherit; }
     margin: 0;
     color: var(--accent-strong);
     font-size: 1.2rem;
+}
+
+/* Manage Tags modal's "?" walkthrough button (see companies.js) -- sits in
+   the top .wizard-topbar row, inline with "‹ Cancel", rather than next to
+   the "Manage Tags" heading (moved there, and made bigger, per Coleby's
+   feedback on the first version of this). Clicking it starts a spotlight
+   walkthrough (.tag-tour-* below) rather than a plain popover. */
+.tag-help-btn {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tag-help-btn:hover {
+    background: var(--accent);
+    color: white;
+}
+
+/* Spotlight walkthrough triggered by the "?" button above -- dims the
+   screen and cuts a highlighted "window" around whichever real field is
+   the current step (first the "New tag name" box, then "New category
+   name"), with a tooltip describing it. Fixed positioning, same as
+   .pdf-field-popover elsewhere in this file, since .popup-overlay/.popup
+   don't use transform -- so this sits relative to the viewport no matter
+   where it's nested in the DOM, and above the modal via --z-modal-popover
+   (the same token .pdf-field-popover uses for the same reason). Left with
+   pointer-events: none except the tooltip itself, so the walkthrough is a
+   guide layered on top rather than something that blocks using the modal
+   underneath while it's open. */
+.tag-tour-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal-popover);
+    pointer-events: none;
+}
+
+.tag-tour-overlay.hidden { display: none; }
+
+.tag-tour-highlight {
+    position: fixed;
+    border-radius: 10px;
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+    /* The "cutout" trick: this box has no background of its own, but its
+       box-shadow is spread out 9999px in every direction -- since that
+       shadow can't render inside the box's own bounds, everywhere BUT this
+       rounded rect reads as dimmed. */
+    box-shadow: 0 0 0 9999px rgba(7, 20, 30, 0.65);
+    transition: top 0.2s ease, left 0.2s ease, width 0.2s ease, height 0.2s ease;
+}
+
+.tag-tour-tooltip {
+    position: fixed;
+    width: min(90vw, 300px);
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.32);
+    pointer-events: auto;
+    transition: top 0.2s ease, left 0.2s ease;
+}
+
+.tag-tour-tooltip-text {
+    margin: 0 0 12px;
+    color: var(--text);
+    font-size: 0.92rem;
+    line-height: 1.5;
+}
+
+.tag-tour-tooltip-text strong {
+    color: var(--accent-strong);
+}
+
+.tag-tour-tooltip-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.tag-tour-step-count {
+    font-size: 0.78rem;
+    color: var(--text-soft);
+}
+
+.tag-tour-tooltip-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 /* Responses modal header — title stays alone on the left; "Download All"
@@ -4329,6 +4480,47 @@ button { font: inherit; }
 
 .company-form-popup::-webkit-scrollbar-thumb:hover {
   background: var(--text-soft);
+}
+
+/* Add/Edit Vendor form -- Coleby: "can you make add vender look more
+   corporate?" Grouped the previously flat list of fields (name, street,
+   city, state, zip, SSN/FID, tags, W9 -- one after another with no
+   structure) into labeled sections, the way an enterprise intake form
+   usually reads: Vendor Details / Address / Tax Information / Tags / W9
+   Document. Left the popup's own width and colors alone -- Coleby dialed
+   the login-page redesign back for having "too much space," so this stays
+   a structural pass on the existing 480px-wide form rather than a bigger
+   visual overhaul. */
+.company-form-section-title {
+  margin: 4px 0 -6px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+/* The very first section title has nothing above it to separate from. */
+.company-form-section-title:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+/* City / State / Zip on one row instead of three full-width stacked
+   fields -- the single clearest "flat list" vs. "structured form" tell. */
+.company-form-row {
+  display: grid;
+  grid-template-columns: 1fr 80px 110px;
+  gap: 14px;
+}
+
+@media (max-width: 480px) {
+  .company-form-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ===========================

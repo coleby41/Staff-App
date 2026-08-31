@@ -7,8 +7,15 @@
   <link rel="stylesheet" href="/css/styles.css">
   <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
 </head>
-<body class="auth-page">
-  <div class="auth-shell">
+<body class="auth-page auth-page--login">
+  <!-- Shown only when status.supabase.com reports Supabase itself is having
+       an incident (see js/supabase-status-banner.js) — hidden by default,
+       and stays hidden if the status check fails for any reason. -->
+  <div id="supabaseStatusBanner" class="supabase-status-banner hidden" role="status">
+    It looks like our server provider is having some issues. Login times and database entries may be experiencing longer wait times. For more information, <a href="https://status.supabase.com" target="_blank" rel="noopener noreferrer">read about it here</a>.
+  </div>
+
+  <div class="auth-shell auth-shell--solo">
     <div class="auth-card">
       <div class="auth-card__brand">
         <div class="brand-mark">
@@ -80,16 +87,6 @@
         <p class="auth-inline-copy">New accounts are created by IT administrators only.</p>
       </div>
     </div>
-
-    <div class="auth-panel">
-      <div class="auth-panel__badge">LeeWard Group</div>
-      <h2>LeeWard Group - Staff Portal</h2>
-      <ul>
-        <li>Upload Documents</li>
-        <li>View Project Updates</li>
-        <li>Access Field Support Tools</li>
-      </ul>
-    </div>
   </div>
 
   <!-- Shared popup shown while a sign-in or password-reset request is in
@@ -119,5 +116,6 @@
   <script src="/js/supabase-auth.js"></script>
   <script src="/js/auth-guard.js"></script>
   <script src="/js/login.js"></script>
+  <script src="/js/supabase-status-banner.js"></script>
 </body>
 </html>

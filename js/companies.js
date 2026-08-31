@@ -1018,6 +1018,135 @@ function openManageTagsModal() {
 function closeManageTagsModal() {
     document.getElementById("manageTagsModalOverlay").classList.add("hidden");
     document.body.classList.remove("popup-active");
+    // Also end the "?" walkthrough, if it was left running, so it doesn't
+    // reappear already in progress the next time this modal is opened.
+    closeManageTagsTour();
+}
+
+/* ===========================
+   MANAGE TAGS "?" WALKTHROUGH
+
+   Coleby, after seeing a first version that was just a small static
+   popover: "make it bigger and make it inline with the cancel[,] and then
+   make it work by having a popup... write instructions and kind of go over
+   the pop up so they know how to do these things." -- a spotlight
+   walkthrough: dim the screen, cut a highlighted window around the real
+   "New tag name" box, explain it, then step to the real "New category
+   name" box and explain that one, rather than a single static text box.
+=========================== */
+
+const MANAGE_TAGS_TOUR_STEPS = [
+    {
+        selector: "#manageTagsCategories .tag-admin-add-tag",
+        html: "<strong>Add a tag:</strong> type a name here, under whichever category it belongs in, then click <strong>+ Add Tag</strong>."
+    },
+    {
+        selector: "#manageTagsModalOverlay .tag-admin-add-category",
+        html: "<strong>Add a category:</strong> type a name here, then click <strong>+ Add Category</strong>. Categories group related tags together, like “Asset Specialty” or “Trade.”"
+    }
+];
+
+let manageTagsTourStepIndex = 0;
+
+function findManageTagsTourStep(index) {
+    const step = MANAGE_TAGS_TOUR_STEPS[index];
+    if (!step) return null;
+    const target = document.querySelector(step.selector);
+    if (!target) return null; // e.g. no categories exist yet to point at
+    return { html: step.html, target };
+}
+
+function positionManageTagsTourStep(target) {
+    const highlight = document.getElementById("manageTagsTourHighlight");
+    const tooltip = document.getElementById("manageTagsTourTooltip");
+    if (!highlight || !tooltip) return;
+
+    const pad = 8;
+    const rect = target.getBoundingClientRect();
+
+    highlight.style.top = `${rect.top - pad}px`;
+    highlight.style.left = `${rect.left - pad}px`;
+    highlight.style.width = `${rect.width + pad * 2}px`;
+    highlight.style.height = `${rect.height + pad * 2}px`;
+
+    // Prefer the tooltip below the highlighted box; if there isn't room
+    // before the bottom of the screen, put it above instead.
+    const tooltipHeight = tooltip.offsetHeight || 140;
+    const tooltipWidth = tooltip.offsetWidth || 300;
+    const gap = 12;
+
+    let top = rect.bottom + pad + gap;
+    if (top + tooltipHeight > window.innerHeight - 12) {
+        top = rect.top - pad - gap - tooltipHeight;
+    }
+    top = Math.max(12, Math.min(top, window.innerHeight - tooltipHeight - 12));
+
+    let left = Math.max(12, Math.min(rect.left, window.innerWidth - tooltipWidth - 12));
+
+    tooltip.style.top = `${top}px`;
+    tooltip.style.left = `${left}px`;
+}
+
+function handleManageTagsTourReposition() {
+    const overlay = document.getElementById("manageTagsTourOverlay");
+    if (!overlay || overlay.classList.contains("hidden")) return;
+    const step = findManageTagsTourStep(manageTagsTourStepIndex);
+    if (step) positionManageTagsTourStep(step.target);
+}
+
+function showManageTagsTourStep(index) {
+    const step = findManageTagsTourStep(index);
+    if (!step) {
+        // Nothing to point at (e.g. no categories yet) -- don't get stuck
+        // showing an empty step, just end the walkthrough.
+        closeManageTagsTour();
+        return;
+    }
+
+    manageTagsTourStepIndex = index;
+
+    if (step.target.scrollIntoView) {
+        step.target.scrollIntoView({ block: "center", behavior: "auto" });
+    }
+    // scrollIntoView can take a frame to settle before the new position
+    // shows up in getBoundingClientRect().
+    requestAnimationFrame(() => positionManageTagsTourStep(step.target));
+
+    document.getElementById("manageTagsTourText").innerHTML = step.html;
+
+    const isLastStep = index === MANAGE_TAGS_TOUR_STEPS.length - 1;
+    const nextBtn = document.getElementById("manageTagsTourNextBtn");
+    if (nextBtn) nextBtn.textContent = isLastStep ? "Done" : "Next";
+
+    const stepCount = document.getElementById("manageTagsTourStepCount");
+    if (stepCount) stepCount.textContent = `${index + 1} of ${MANAGE_TAGS_TOUR_STEPS.length}`;
+
+    document.getElementById("manageTagsTourOverlay").classList.remove("hidden");
+}
+
+function openManageTagsTour() {
+    showManageTagsTourStep(0);
+    window.addEventListener("resize", handleManageTagsTourReposition);
+    // capture: true so this also catches scrolling inside the modal itself,
+    // not just the window -- either way the highlighted box needs to move.
+    window.addEventListener("scroll", handleManageTagsTourReposition, true);
+}
+
+function advanceManageTagsTour() {
+    const isLastStep = manageTagsTourStepIndex === MANAGE_TAGS_TOUR_STEPS.length - 1;
+    if (isLastStep) {
+        closeManageTagsTour();
+    } else {
+        showManageTagsTourStep(manageTagsTourStepIndex + 1);
+    }
+}
+
+function closeManageTagsTour() {
+    const overlay = document.getElementById("manageTagsTourOverlay");
+    if (overlay) overlay.classList.add("hidden");
+    manageTagsTourStepIndex = 0;
+    window.removeEventListener("resize", handleManageTagsTourReposition);
+    window.removeEventListener("scroll", handleManageTagsTourReposition, true);
 }
 
 function renderManageTagsCategories() {
@@ -1697,6 +1826,23 @@ window.initCompaniesPage = async function () {
             if (event.target === manageTagsOverlay) closeManageTagsModal();
         });
     }
+
+    // "?" walkthrough button on the Manage Tags modal (see the
+    // MANAGE TAGS "?" WALKTHROUGH block above for the actual logic).
+    const manageTagsHelpBtn = document.getElementById("manageTagsHelpBtn");
+    if (manageTagsHelpBtn) manageTagsHelpBtn.addEventListener("click", openManageTagsTour);
+
+    const manageTagsTourNextBtn = document.getElementById("manageTagsTourNextBtn");
+    if (manageTagsTourNextBtn) manageTagsTourNextBtn.addEventListener("click", advanceManageTagsTour);
+
+    const manageTagsTourSkipBtn = document.getElementById("manageTagsTourSkipBtn");
+    if (manageTagsTourSkipBtn) manageTagsTourSkipBtn.addEventListener("click", closeManageTagsTour);
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape") return;
+        const tourOverlay = document.getElementById("manageTagsTourOverlay");
+        if (tourOverlay && !tourOverlay.classList.contains("hidden")) closeManageTagsTour();
+    });
 
     const addTagCategoryBtn = document.getElementById("addTagCategoryBtn");
     if (addTagCategoryBtn) addTagCategoryBtn.addEventListener("click", addTagCategory);

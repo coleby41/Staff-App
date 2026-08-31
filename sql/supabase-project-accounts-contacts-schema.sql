@@ -78,32 +78,26 @@ create policy "project_contacts_select_authenticated"
   -- 2026-08-31: widened — see supabase-open-project-access-to-all-staff.sql.
 
 drop policy if exists "project_contacts_insert_members" on public.project_contacts;
-create policy "project_contacts_insert_members"
+create policy "project_contacts_insert_authenticated"
   on public.project_contacts for insert
   to authenticated
-  with check (public.is_project_member(project_id));
+  with check (true);
 
+-- 2026-08-31: update/delete widened from "creator or project leadership" to
+-- any authenticated staff member. See
+-- supabase-flatten-project-permissions-to-all-staff.sql.
 drop policy if exists "project_contacts_update_owner_or_leadership" on public.project_contacts;
-create policy "project_contacts_update_owner_or_leadership"
+create policy "project_contacts_update_authenticated"
   on public.project_contacts for update
   to authenticated
-  using (
-    created_by = public.current_staff_id()
-    or public.project_role(project_id) in ('project_admin', 'project_manager')
-  )
-  with check (
-    created_by = public.current_staff_id()
-    or public.project_role(project_id) in ('project_admin', 'project_manager')
-  );
+  using (true)
+  with check (true);
 
 drop policy if exists "project_contacts_delete_owner_or_leadership" on public.project_contacts;
-create policy "project_contacts_delete_owner_or_leadership"
+create policy "project_contacts_delete_authenticated"
   on public.project_contacts for delete
   to authenticated
-  using (
-    created_by = public.current_staff_id()
-    or public.project_role(project_id) in ('project_admin', 'project_manager')
-  );
+  using (true);
 
 revoke all on public.project_contacts from anon;
 grant select, insert, update, delete on public.project_contacts to authenticated;
@@ -180,32 +174,24 @@ create policy "project_organizations_select_authenticated"
   -- 2026-08-31: widened — see supabase-open-project-access-to-all-staff.sql.
 
 drop policy if exists "project_organizations_insert_members" on public.project_organizations;
-create policy "project_organizations_insert_members"
+create policy "project_organizations_insert_authenticated"
   on public.project_organizations for insert
   to authenticated
-  with check (public.is_project_member(project_id));
+  with check (true);
 
+-- 2026-08-31: widened — see supabase-flatten-project-permissions-to-all-staff.sql.
 drop policy if exists "project_organizations_update_owner_or_leadership" on public.project_organizations;
-create policy "project_organizations_update_owner_or_leadership"
+create policy "project_organizations_update_authenticated"
   on public.project_organizations for update
   to authenticated
-  using (
-    created_by = public.current_staff_id()
-    or public.project_role(project_id) in ('project_admin', 'project_manager')
-  )
-  with check (
-    created_by = public.current_staff_id()
-    or public.project_role(project_id) in ('project_admin', 'project_manager')
-  );
+  using (true)
+  with check (true);
 
 drop policy if exists "project_organizations_delete_owner_or_leadership" on public.project_organizations;
-create policy "project_organizations_delete_owner_or_leadership"
+create policy "project_organizations_delete_authenticated"
   on public.project_organizations for delete
   to authenticated
-  using (
-    created_by = public.current_staff_id()
-    or public.project_role(project_id) in ('project_admin', 'project_manager')
-  );
+  using (true);
 
 revoke all on public.project_organizations from anon;
 grant select, insert, update, delete on public.project_organizations to authenticated;
@@ -279,32 +265,24 @@ create policy "project_utility_accounts_select_authenticated"
   -- 2026-08-31: widened — see supabase-open-project-access-to-all-staff.sql.
 
 drop policy if exists "project_utility_accounts_insert_members" on public.project_utility_accounts;
-create policy "project_utility_accounts_insert_members"
+create policy "project_utility_accounts_insert_authenticated"
   on public.project_utility_accounts for insert
   to authenticated
-  with check (public.is_project_member(project_id));
+  with check (true);
 
+-- 2026-08-31: widened — see supabase-flatten-project-permissions-to-all-staff.sql.
 drop policy if exists "project_utility_accounts_update_owner_or_leadership" on public.project_utility_accounts;
-create policy "project_utility_accounts_update_owner_or_leadership"
+create policy "project_utility_accounts_update_authenticated"
   on public.project_utility_accounts for update
   to authenticated
-  using (
-    created_by = public.current_staff_id()
-    or public.project_role(project_id) in ('project_admin', 'project_manager')
-  )
-  with check (
-    created_by = public.current_staff_id()
-    or public.project_role(project_id) in ('project_admin', 'project_manager')
-  );
+  using (true)
+  with check (true);
 
 drop policy if exists "project_utility_accounts_delete_owner_or_leadership" on public.project_utility_accounts;
-create policy "project_utility_accounts_delete_owner_or_leadership"
+create policy "project_utility_accounts_delete_authenticated"
   on public.project_utility_accounts for delete
   to authenticated
-  using (
-    created_by = public.current_staff_id()
-    or public.project_role(project_id) in ('project_admin', 'project_manager')
-  );
+  using (true);
 
 revoke all on public.project_utility_accounts from anon;
 grant select, insert, update, delete on public.project_utility_accounts to authenticated;
@@ -379,32 +357,24 @@ create policy "project_gov_offices_select_authenticated"
   -- 2026-08-31: widened — see supabase-open-project-access-to-all-staff.sql.
 
 drop policy if exists "project_gov_offices_insert_members" on public.project_gov_offices;
-create policy "project_gov_offices_insert_members"
+create policy "project_gov_offices_insert_authenticated"
   on public.project_gov_offices for insert
   to authenticated
-  with check (public.is_project_member(project_id));
+  with check (true);
 
+-- 2026-08-31: widened — see supabase-flatten-project-permissions-to-all-staff.sql.
 drop policy if exists "project_gov_offices_update_owner_or_leadership" on public.project_gov_offices;
-create policy "project_gov_offices_update_owner_or_leadership"
+create policy "project_gov_offices_update_authenticated"
   on public.project_gov_offices for update
   to authenticated
-  using (
-    created_by = public.current_staff_id()
-    or public.project_role(project_id) in ('project_admin', 'project_manager')
-  )
-  with check (
-    created_by = public.current_staff_id()
-    or public.project_role(project_id) in ('project_admin', 'project_manager')
-  );
+  using (true)
+  with check (true);
 
 drop policy if exists "project_gov_offices_delete_owner_or_leadership" on public.project_gov_offices;
-create policy "project_gov_offices_delete_owner_or_leadership"
+create policy "project_gov_offices_delete_authenticated"
   on public.project_gov_offices for delete
   to authenticated
-  using (
-    created_by = public.current_staff_id()
-    or public.project_role(project_id) in ('project_admin', 'project_manager')
-  );
+  using (true);
 
 revoke all on public.project_gov_offices from anon;
 grant select, insert, update, delete on public.project_gov_offices to authenticated;

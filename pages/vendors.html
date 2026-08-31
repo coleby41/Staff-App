@@ -497,45 +497,57 @@
             <input type="hidden" id="companyIdInput">
             <input type="hidden" id="companyExistingW9PathInput">
 
+            <p class="company-form-section-title">Vendor Details</p>
+
             <label class="auth-field">
                 Vendor name
                 <input type="text" id="companyNameInput" name="name" required placeholder="e.g. Leeward Construction LLC">
             </label>
+
+            <p class="company-form-section-title">Address</p>
 
             <label class="auth-field">
                 Street
                 <input type="text" id="companyStreetInput" name="street" placeholder="e.g. 123 Main St">
             </label>
 
-            <label class="auth-field">
-                City
-                <input type="text" id="companyCityInput" name="city" placeholder="e.g. Wilmington">
-            </label>
+            <div class="company-form-row">
+                <label class="auth-field">
+                    City
+                    <input type="text" id="companyCityInput" name="city" placeholder="e.g. Wilmington">
+                </label>
 
-            <label class="auth-field">
-                State
-                <input type="text" id="companyStateInput" name="state" maxlength="2" placeholder="e.g. NC" style="text-transform:uppercase;">
-            </label>
+                <label class="auth-field">
+                    State
+                    <input type="text" id="companyStateInput" name="state" maxlength="2" placeholder="NC" style="text-transform:uppercase;">
+                </label>
 
-            <label class="auth-field">
-                Zip
-                <input type="text" id="companyZipInput" name="zip" inputmode="numeric" placeholder="e.g. 28401">
-            </label>
+                <label class="auth-field">
+                    Zip
+                    <input type="text" id="companyZipInput" name="zip" inputmode="numeric" placeholder="28401">
+                </label>
+            </div>
+
+            <p class="company-form-section-title">Tax Information</p>
 
             <label class="auth-field">
                 SSN / FID
                 <input type="text" id="companySsnFidInput" name="ssnFid" placeholder="e.g. 12-3456789">
             </label>
 
+            <p class="company-form-section-title">Tags</p>
+
             <div class="auth-field">
-                Tags
+                Assigned tags
                 <div id="companyTagsFieldWrap" class="tag-picker">
                     <!-- One .tag-picker-group per category, populated by companies.js -->
                 </div>
             </div>
 
+            <p class="company-form-section-title">W9 Document</p>
+
             <label class="auth-field">
-                W9 (PDF)
+                Upload W9 (PDF)
                 <input type="file" id="companyW9Input" name="w9" accept="application/pdf">
             </label>
 
@@ -605,6 +617,7 @@
 
         <div class="wizard-topbar">
             <button type="button" class="wizard-topbar-link" id="cancelManageTagsBtn">&lsaquo; Cancel</button>
+            <button type="button" class="tag-help-btn" id="manageTagsHelpBtn" aria-label="Show me how to add a tag or category">?</button>
         </div>
 
         <div class="workbook-preview-header">
@@ -623,6 +636,27 @@
         </div>
 
         <p class="auth-message" id="manageTagsMessage"></p>
+    </div>
+
+    <!-- "?" walkthrough (see companies.js) -- dims the screen and spotlights
+         the real "New tag name" box, then the real "New category name" box,
+         one at a time, since it's not obvious at a glance that tags and
+         categories are added in two different places. Sits outside .popup
+         (but still inside this modal's overlay) since it's fixed-position
+         and viewport-relative -- it doesn't need to scroll or clip with the
+         modal's own content, it just needs to be above it. -->
+    <div class="tag-tour-overlay hidden" id="manageTagsTourOverlay">
+        <div class="tag-tour-highlight" id="manageTagsTourHighlight"></div>
+        <div class="tag-tour-tooltip" id="manageTagsTourTooltip">
+            <p class="tag-tour-tooltip-text" id="manageTagsTourText"></p>
+            <div class="tag-tour-tooltip-footer">
+                <span class="tag-tour-step-count" id="manageTagsTourStepCount"></span>
+                <div class="tag-tour-tooltip-actions">
+                    <button type="button" class="wizard-topbar-link" id="manageTagsTourSkipBtn">Skip</button>
+                    <button type="button" class="auth-button auth-button--sm" id="manageTagsTourNextBtn">Next</button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
