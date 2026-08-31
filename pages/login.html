@@ -92,6 +92,28 @@
     </div>
   </div>
 
+  <!-- Shared popup shown while a sign-in or password-reset request is in
+       flight, instead of swapping loginMessage's/resetMessage's text through
+       "Signing in..."/"Access granted..."/etc. (see login.js's
+       showLoadingPopup()/hideLoadingPopup()) -- and, once a request settles
+       with an error, swapped in place into an error state (spinner replaced
+       by a warning icon, the error text in red, and an Okay button to
+       dismiss -- see showErrorPopup()/loginErrorOkayBtn's click handler)
+       instead of leaving the error as plain text under the form. Shared by
+       both forms since only one is ever submitting at a time. Reuses the
+       app's standard .popup-overlay/.popup modal shell. The loading state
+       itself stays non-dismissible (no close button/outside-click handler)
+       since it's a brief, automatic state; the error state adds the Okay
+       button because that one needs the person to actually acknowledge it. -->
+  <div id="loginLoadingOverlay" class="popup-overlay hidden">
+    <div class="popup login-loading-popup">
+      <div class="login-loading-spinner" id="loginLoadingSpinner"></div>
+      <div class="login-error-icon hidden" id="loginErrorIcon"></div>
+      <p class="login-loading-text" id="loginLoadingText" role="status">Please wait...</p>
+      <button type="button" class="auth-button login-error-okay-btn hidden" id="loginErrorOkayBtn">Okay</button>
+    </div>
+  </div>
+
   <script src="/js/supabase-config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/js/supabase-auth.js"></script>

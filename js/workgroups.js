@@ -17,7 +17,7 @@ const GOVERNABLE_TABS = [
     { key: "form_templates", label: "Form Templates" },
     { key: "personal_finance", label: "Staff Finance" },
     { key: "project_overview", label: "Project Overview" },
-    { key: "vendor_contacts", label: "Vendor Contacts" },
+    { key: "vendor_contacts", label: "Vendor Information" },
     { key: "payroll_tools", label: "Payroll Tools" },
     { key: "manage_employees", label: "Manage Employees *" },
     { key: "create_account", label: "Create Account" },

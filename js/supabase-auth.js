@@ -225,6 +225,20 @@
     }
   };
 
+  // Resolves once with whatever staff_users row comes back from the FIRST
+  // onAuthStateChange firing on this page load (or null if not signed in /
+  // not configured) — auth-guard.js awaits this instead of running its own
+  // second, duplicate staff_users query for the same must_reset_password
+  // check every single page load (found 2026-08-28 while investigating
+  // "everything is slow" — every page navigation was quietly paying for two
+  // separate round trips to staff_users for overlapping data). Only the
+  // first resolution matters for this; a Promise ignores further attempts
+  // to resolve it, which is fine since later auth events (sign-out, token
+  // refresh) don't need to re-trigger auth-guard.js's one-time page-load
+  // check.
+  let resolveInitialProfile;
+  window.supabaseInitialProfilePromise = new Promise((resolve) => { resolveInitialProfile = resolve; });
+
   // Keep window.currentSupabaseProfile in sync with real auth state —
   // fires once immediately with whatever session already exists (e.g.
   // navigating from one page to the next while signed in), and again on
@@ -232,8 +246,15 @@
   // out in another tab).
   const client = ensureClient();
   if (client) {
+    let firstFire = true;
     client.auth.onAuthStateChange((_event, session) => {
-      loadProfileForSession(session);
+      const profilePromise = loadProfileForSession(session);
+      if (firstFire) {
+        firstFire = false;
+        profilePromise.then(resolveInitialProfile);
+      }
     });
+  } else {
+    resolveInitialProfile(null);
   }
 })();

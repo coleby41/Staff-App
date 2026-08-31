@@ -157,10 +157,15 @@ create trigger projects_add_creator_as_admin
 -- ============================================================================
 
 drop policy if exists "project_members_select_fellow_members" on public.project_members;
-create policy "project_members_select_fellow_members"
+drop policy if exists "project_members_select_authenticated" on public.project_members;
+create policy "project_members_select_authenticated"
   on public.project_members for select
   to authenticated
-  using (public.is_project_member(project_id));
+  using (true);
+  -- 2026-08-31: widened from `using (public.is_project_member(project_id))`
+  -- — same "everyone can view, membership still gates who can act as
+  -- leadership" change as every project-content table below. See
+  -- supabase-open-project-access-to-all-staff.sql.
 
 drop policy if exists "project_members_insert_admins" on public.project_members;
 create policy "project_members_insert_admins"
@@ -186,8 +191,10 @@ grant select, insert, update, delete on public.project_members to authenticated;
 
 -- ============================================================================
 -- PROJECT_TIMELINE_ITEMS / PROJECT_TODO_ITEMS / PROJECT_TODO_SUBITEMS
--- Read: any project member. Write: project_admin/project_manager/staff
--- (viewer is read-only, matching the spec's Viewer role).
+-- Read: any authenticated staff member (2026-08-31 — see
+-- supabase-open-project-access-to-all-staff.sql; was "any project member").
+-- Write: project_admin/project_manager/staff (viewer is read-only, matching
+-- the spec's Viewer role).
 -- ============================================================================
 
 do $$
@@ -201,12 +208,13 @@ begin
 
     execute format('drop policy if exists "%1$s_all_anon" on public.%1$s', t);
     execute format('drop policy if exists "%1$s_select_members" on public.%1$s', t);
+    execute format('drop policy if exists "%1$s_select_authenticated" on public.%1$s', t);
     execute format('drop policy if exists "%1$s_write_members" on public.%1$s', t);
 
     execute format($f$
-      create policy "%1$s_select_members" on public.%1$s for select to authenticated
-      using (public.is_project_member(%2$s))
-    $f$, t, pid_col);
+      create policy "%1$s_select_authenticated" on public.%1$s for select to authenticated
+      using (true)
+    $f$, t);
 
     execute format($f$
       create policy "%1$s_write_members" on public.%1$s for all to authenticated
@@ -702,13 +710,32 @@ $$;
 
 -- project-documents: site plans / permit plans. Path convention is
 -- "<project_id>/...", matching how project-fields.js already uploads them
--- (pathField values look like "<uuid>/filename.pdf").
+-- (pathField values look like "<uuid>/filename.pdf"). 2026-08-31: split into
+-- an open SELECT (any authenticated staff member can view/download) plus
+-- membership-gated insert/update/delete — same shape as project-covers
+-- below. See supabase-open-project-access-to-all-staff.sql.
 drop policy if exists "project_documents_bucket_anon_all" on storage.objects;
 drop policy if exists "project_documents_authenticated" on storage.objects;
-create policy "project_documents_authenticated"
-on storage.objects for all to authenticated
-using (bucket_id = 'project-documents' and public.is_project_member(public.try_uuid((storage.foldername(name))[1])))
+drop policy if exists "project_documents_select_authenticated" on storage.objects;
+drop policy if exists "project_documents_members_write" on storage.objects;
+drop policy if exists "project_documents_members_update" on storage.objects;
+drop policy if exists "project_documents_members_delete" on storage.objects;
+
+create policy "project_documents_select_authenticated"
+on storage.objects for select to authenticated
+using (bucket_id = 'project-documents');
+
+create policy "project_documents_members_write"
+on storage.objects for insert to authenticated
 with check (bucket_id = 'project-documents' and public.is_project_member(public.try_uuid((storage.foldername(name))[1])));
+
+create policy "project_documents_members_update"
+on storage.objects for update to authenticated
+using (bucket_id = 'project-documents' and public.is_project_member(public.try_uuid((storage.foldername(name))[1])));
+
+create policy "project_documents_members_delete"
+on storage.objects for delete to authenticated
+using (bucket_id = 'project-documents' and public.is_project_member(public.try_uuid((storage.foldername(name))[1])));
 
 -- staff-documents: generated timesheet PDFs etc. Accounting/Office/Super
 -- Admin (has_payroll_access()) can read/write into ANY employee's folder

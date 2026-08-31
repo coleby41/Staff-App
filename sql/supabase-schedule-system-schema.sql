@@ -369,11 +369,11 @@ create trigger schedule_tasks_audit
 
 
 -- ============================================================================
--- 6. Row Level Security — same convention as the rest of this app's project-
--- scoped tables (see supabase-rls-lockdown.sql's project_timeline_items /
--- project_todo_items / project_todo_subitems loop): any project member can
--- read; project_admin / project_manager / staff can write (accounting and
--- viewer stay read-only on schedules, matching that existing convention).
+-- 6. Row Level Security — any authenticated staff member can read (2026-08-31
+-- — see supabase-open-project-access-to-all-staff.sql; was "any project
+-- member"); project_admin / project_manager / staff can write (accounting
+-- and viewer stay read-only on schedules, matching that existing
+-- convention).
 -- ============================================================================
 
 alter table public.schedule_phases enable row level security;
@@ -387,11 +387,12 @@ begin
   foreach t in array array['schedule_phases', 'schedule_tasks', 'schedule_dependencies']
   loop
     execute format('drop policy if exists "%1$s_select_members" on public.%1$s', t);
+    execute format('drop policy if exists "%1$s_select_authenticated" on public.%1$s', t);
     execute format('drop policy if exists "%1$s_write_members" on public.%1$s', t);
 
     execute format($f$
-      create policy "%1$s_select_members" on public.%1$s for select to authenticated
-      using (public.is_project_member(project_id))
+      create policy "%1$s_select_authenticated" on public.%1$s for select to authenticated
+      using (true)
     $f$, t);
 
     execute format($f$

@@ -284,6 +284,20 @@ button { font: inherit; }
   padding: 12px 14px;
   border-radius: 12px;
   color: #dce9f2;
+  /* Without this, a label like "Project Files" wraps onto two lines for
+     the ~200ms the sidebar is still narrower than the text needs during
+     the expand transition (body.sidebar-collapsed .nav-text's display:none
+     comes off instantly — display can't itself transition — while the
+     sidebar's own width is still easing open), then snaps back to one
+     line once the width transition finishes. nowrap keeps it on one line
+     throughout; .sidebar's overflow-y:auto implicitly resolves overflow-x
+     to auto too (the CSS spec forces the "visible" axis to "auto" when its
+     sibling axis isn't visible), so the too-wide line just gets clipped by
+     the sidebar's own edge instead of wrapping — reading as the label
+     sliding smoothly into view rather than visibly reflowing mid-animation.
+     Confirmed by extracting and comparing frames from Coleby's screen
+     recording of the collapse/expand toggle. */
+  white-space: nowrap;
   transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -995,6 +1009,78 @@ button { font: inherit; }
   -webkit-mask-repeat: no-repeat;
   mask-position: center;
   -webkit-mask-position: center;
+}
+
+/* Login loading popup — a plain spinner + status line, shown instead of
+   swapping loginMessage's/resetMessage's text through
+   "Signing in..."/"Access granted..."/etc while a sign-in or
+   password-reset request is in flight (see login.js). Reuses
+   .popup-overlay/.popup like every other modal in the app; deliberately no
+   icon-header/buttons since this is a brief automatic state, not a decision
+   for someone to make. Spinner reuses the same CSS-only recipe/keyframe as
+   .upload-status-item-spinner, just larger. */
+.login-loading-popup {
+  width: min(92vw, 320px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 32px 24px;
+  text-align: center;
+}
+
+.login-loading-spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  animation: upload-status-spin 0.7s linear infinite;
+}
+
+.login-loading-text {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Error state of the same popup (see showErrorPopup() in login.js) -- the
+   spinner is swapped for this warning-triangle badge, same recipe/glyph as
+   .delete-confirm-icon, and the text turns red via .login-loading-text--error
+   below. */
+.login-error-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--danger-soft);
+  position: relative;
+}
+
+.login-error-icon::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 22px;
+  height: 22px;
+  background-color: var(--danger);
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'/%3E%3C/svg%3E");
+  mask-size: contain;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-position: center;
+}
+
+.login-loading-text--error {
+  color: var(--danger);
+}
+
+.login-error-okay-btn {
+  width: 100%;
 }
 
 /* Change Password modal's icon variant — a padlock, for the notification
@@ -5892,6 +5978,43 @@ body.todo-panel-resizing .todo-panel-resize-handle::after {
   color: var(--text-soft);
 }
 
+/* Collapsed-rail search icon — hidden by default, shown only via
+   body.sidebar-collapsed .sidebar-search-wrap above once the sidebar
+   shrinks to its 68px icon-only rail. Sized and styled to match the
+   collapsed .nav-item treatment (same hover tint, same 18px icon size) so
+   it reads as one more item in the icon rail rather than a different kind
+   of control. Click behavior (expand + focus the real input) is wired in
+   project-shell.js's initSidebarSearchCollapsedButton(). */
+.sidebar-search-collapsed-btn {
+  display: none;
+  width: 100%;
+  padding: 10px 0;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  color: #dce9f2;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.sidebar-search-collapsed-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+body.sidebar-collapsed .sidebar-search-collapsed-btn {
+  display: block;
+}
+
+.sidebar-search-collapsed-icon {
+  display: block;
+  width: 18px;
+  height: 18px;
+  margin: 0 auto;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
 /* Overview / Site Plans page content — reuses .vendor-profile-section /
    .company-card-label from the vendor profile popup for a consistent
    read-only summary look, just laid out full-width on the page. */
@@ -5959,15 +6082,26 @@ body.todo-panel-resizing .todo-panel-resize-handle::after {
 
 /* Sidebar collapse toggle — a small round tab straddling the sidebar's
    right edge, vertically centered on the first nav item (Overview), per
-   the sketch. Positioned via JS (project-shell.js) since it needs to
-   track the sidebar's actual edge, including through the collapse
-   animation. Replaces the old hamburger menu on this page. */
+   the sketch. Replaces the old hamburger menu on this page. */
 /* A flat-left, rounded-right "bump" flush against the sidebar's edge,
-   matching the sketch — not a floating circle. left/top are set in JS
-   (project-shell.js) to the sidebar's real edge and the Overview row's
-   vertical center, so only translateY is needed here. */
+   matching the sketch — not a floating circle. `top` is set in JS
+   (project-shell.js, positionToggle()) to the Overview row's vertical
+   center, since that depends on content layout, not on --sidebar-width.
+   `left` used to be JS-set too (to the sidebar's live getBoundingClientRect
+   — see project-shell.js history), computed once on click and once on the
+   width transition's `transitionend`. That left the toggle sitting at its
+   FINAL, post-transition position for the entire ~200ms the sidebar was
+   still visually animating toward it — a real, confirmed desync (found by
+   extracting and comparing frames from Coleby's screen recording): the
+   button appeared to "jump ahead" and just sit there while the sidebar's
+   edge caught up to it, reading as the button being on a delay. Driving
+   `left` from the same --sidebar-width custom property the sidebar's own
+   width already animates from — with a matching transition — lets the
+   browser interpolate both from the same source in lockstep, every frame,
+   with no JS involved at all. */
 .sidebar-collapse-toggle {
   position: fixed;
+  left: var(--sidebar-width);
   width: 24px;
   height: 46px;
   padding: 0;
@@ -5982,19 +6116,24 @@ body.todo-panel-resizing .todo-panel-resize-handle::after {
   cursor: pointer;
   z-index: var(--z-floating-control);
   transform: translateY(-50%);
-  transition: background 0.15s ease, box-shadow 0.15s ease;
+  transition: left 0.2s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .sidebar-collapse-toggle:hover {
   background: var(--accent-soft);
 }
 
+/* 0.2s to match .sidebar's own width/transform transition and
+   .main-content's margin-left transition exactly — this used to be 0.25s,
+   so the arrow kept rotating for an extra ~50ms after the sidebar and
+   toggle position had already finished settling, which read as one more
+   small "still catching up" lag on top of the left-position bug above. */
 .sidebar-collapse-toggle-icon {
   display: inline-block;
   font-size: 1.15rem;
   font-weight: 700;
   line-height: 1;
-  transition: transform 0.25s ease;
+  transition: transform 0.2s ease;
 }
 
 /* Collapsed = arrow flips 180° in place (‹ reads as ›) — a smooth rotation
@@ -6010,10 +6149,23 @@ body.sidebar-collapsed {
   --sidebar-width: 68px;
 }
 
-body.sidebar-collapsed .sidebar-search-wrap,
+body.sidebar-collapsed .sidebar-search-input,
+body.sidebar-collapsed .sidebar-search-shortcut-hint,
+body.sidebar-collapsed .sidebar-search-results,
 body.sidebar-collapsed .sidebar-footer,
 body.sidebar-collapsed .nav-text {
   display: none;
+}
+
+/* Icon-only stand-in for the search box, shown ONLY once collapsed (see
+   .sidebar-search-collapsed-btn below) — .sidebar-search-wrap itself used
+   to be hidden outright here, which took its input/hint/results with it
+   but also left no visible way to search at all short of already knowing
+   the ⌘F/Ctrl+F shortcut (project-shell.js's initSearchShortcut()). The
+   wrap now stays visible; only its three real-search children are hidden
+   above, and this button takes their place. */
+body.sidebar-collapsed .sidebar-search-wrap {
+  justify-content: center;
 }
 
 body.sidebar-collapsed .nav-item {
@@ -11021,7 +11173,14 @@ body.week-cal-dragging {
   background: var(--surface);
   border-left: 1px solid var(--border);
   box-shadow: var(--shadow);
-  z-index: 60;
+  /* Was a hardcoded 60 — far below this app's own documented z-index scale
+     (--z-drawer: 1000 exists specifically for exactly this: a fixed,
+     full-height slide-in panel). Harmless today only because nothing else on
+     this page happens to claim a z-index between 60 and 1000, but it left
+     this drawer one stray future dropdown/overlay away from silently
+     rendering (and accepting clicks) behind something that should be under
+     it. Switched to the real token so it can't drift out of sync again. */
+  z-index: var(--z-drawer);
   display: flex;
   flex-direction: column;
   overflow-y: auto;

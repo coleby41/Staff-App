@@ -70,10 +70,12 @@ create index if not exists project_contacts_type_idx on public.project_contacts 
 alter table public.project_contacts enable row level security;
 
 drop policy if exists "project_contacts_select_members" on public.project_contacts;
-create policy "project_contacts_select_members"
+drop policy if exists "project_contacts_select_authenticated" on public.project_contacts;
+create policy "project_contacts_select_authenticated"
   on public.project_contacts for select
   to authenticated
-  using (public.is_project_member(project_id));
+  using (true);
+  -- 2026-08-31: widened — see supabase-open-project-access-to-all-staff.sql.
 
 drop policy if exists "project_contacts_insert_members" on public.project_contacts;
 create policy "project_contacts_insert_members"
@@ -170,10 +172,12 @@ create index if not exists project_organizations_project_id_idx on public.projec
 alter table public.project_organizations enable row level security;
 
 drop policy if exists "project_organizations_select_members" on public.project_organizations;
-create policy "project_organizations_select_members"
+drop policy if exists "project_organizations_select_authenticated" on public.project_organizations;
+create policy "project_organizations_select_authenticated"
   on public.project_organizations for select
   to authenticated
-  using (public.is_project_member(project_id));
+  using (true);
+  -- 2026-08-31: widened — see supabase-open-project-access-to-all-staff.sql.
 
 drop policy if exists "project_organizations_insert_members" on public.project_organizations;
 create policy "project_organizations_insert_members"
@@ -267,10 +271,12 @@ create index if not exists project_utility_accounts_project_id_idx on public.pro
 alter table public.project_utility_accounts enable row level security;
 
 drop policy if exists "project_utility_accounts_select_members" on public.project_utility_accounts;
-create policy "project_utility_accounts_select_members"
+drop policy if exists "project_utility_accounts_select_authenticated" on public.project_utility_accounts;
+create policy "project_utility_accounts_select_authenticated"
   on public.project_utility_accounts for select
   to authenticated
-  using (public.is_project_member(project_id));
+  using (true);
+  -- 2026-08-31: widened — see supabase-open-project-access-to-all-staff.sql.
 
 drop policy if exists "project_utility_accounts_insert_members" on public.project_utility_accounts;
 create policy "project_utility_accounts_insert_members"
@@ -365,10 +371,12 @@ create index if not exists project_gov_offices_project_id_idx on public.project_
 alter table public.project_gov_offices enable row level security;
 
 drop policy if exists "project_gov_offices_select_members" on public.project_gov_offices;
-create policy "project_gov_offices_select_members"
+drop policy if exists "project_gov_offices_select_authenticated" on public.project_gov_offices;
+create policy "project_gov_offices_select_authenticated"
   on public.project_gov_offices for select
   to authenticated
-  using (public.is_project_member(project_id));
+  using (true);
+  -- 2026-08-31: widened — see supabase-open-project-access-to-all-staff.sql.
 
 drop policy if exists "project_gov_offices_insert_members" on public.project_gov_offices;
 create policy "project_gov_offices_insert_members"

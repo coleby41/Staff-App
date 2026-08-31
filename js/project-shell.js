@@ -669,6 +669,20 @@
        regardless of what's currently focused on the page.
     =========================== */
 
+    // Shared by the ⌘F/Ctrl+F shortcut below and the collapsed-rail search
+    // icon (initSidebarSearchCollapsedButton()) — both need to expand the
+    // sidebar back out of its icon-only rail before the real search input
+    // is usable/focusable again.
+    function expandSidebarIfCollapsed() {
+        if (!document.body.classList.contains("sidebar-collapsed")) return;
+        document.body.classList.remove("sidebar-collapsed");
+        const collapseToggle = document.getElementById("sidebarCollapseToggle");
+        if (collapseToggle) {
+            collapseToggle.classList.remove("is-collapsed");
+            collapseToggle.setAttribute("aria-label", "Collapse navigation");
+        }
+    }
+
     function initSearchShortcut() {
         document.addEventListener("keydown", (event) => {
             const key = event.key ? event.key.toLowerCase() : "";
@@ -679,18 +693,29 @@
             if (!input) return;
 
             event.preventDefault();
+            expandSidebarIfCollapsed();
+            input.focus();
+            input.select();
+        });
+    }
 
-            // If the sidebar is collapsed to icon-only, expand it first —
-            // the search box is hidden in that state.
-            if (document.body.classList.contains("sidebar-collapsed")) {
-                document.body.classList.remove("sidebar-collapsed");
-                const collapseToggle = document.getElementById("sidebarCollapseToggle");
-                if (collapseToggle) {
-                    collapseToggle.classList.remove("is-collapsed");
-                    collapseToggle.setAttribute("aria-label", "Collapse navigation");
-                }
-            }
+    /* ===========================
+       COLLAPSED-RAIL SEARCH ICON
+       .sidebar-search-wrap's real input/hint/results hide once the sidebar
+       collapses to its 68px icon-only rail (styles.css), which previously
+       left no visible way to search at all short of already knowing the
+       ⌘F/Ctrl+F shortcut above. #sidebarSearchCollapsedBtn (in each page's
+       own HTML, alongside the search box) takes that slot instead and
+       reuses the exact same expand-then-focus behavior.
+    =========================== */
 
+    function initSidebarSearchCollapsedButton() {
+        const btn = document.getElementById("sidebarSearchCollapsedBtn");
+        const input = document.getElementById("sidebarSearchInput");
+        if (!btn || !input) return;
+
+        btn.addEventListener("click", () => {
+            expandSidebarIfCollapsed();
             input.focus();
             input.select();
         });
@@ -701,9 +726,26 @@
        A small round tab straddling the sidebar's right edge, vertically
        centered on the first nav item (Overview) — replaces the old
        hamburger menu on this page family. Collapses to an icon-only rail
-       rather than hiding the sidebar entirely. Positioned via JS (not
-       just CSS) so it tracks the sidebar's real edge through the width
-       transition and any responsive breakpoint changes.
+       rather than hiding the sidebar entirely.
+
+       `left` is CSS-driven (styles.css: left: var(--sidebar-width), same
+       transition duration/easing as .sidebar's own width) so the toggle
+       tracks the sidebar's animating edge every frame, not just at two
+       JS-sampled instants. positionToggle() here only computes `top`,
+       which depends on the first nav item's layout, not on
+       --sidebar-width, and so never needs to move during the collapse
+       animation itself.
+
+       This used to also JS-compute `left` from sidebar.getBoundingClient-
+       Rect(), read once synchronously right on click and again on the
+       width transition's `transitionend`. That meant the toggle jumped
+       straight to its POST-transition position immediately on click and
+       then just sat there for the ~200ms the sidebar was still visually
+       animating toward it underneath — confirmed by extracting and
+       comparing frames from Coleby's screen recording of the toggle being
+       clicked. Letting CSS drive `left` off the same custom property the
+       sidebar's width already animates from fixes that without any JS
+       polling loop.
     =========================== */
 
     function initSidebarCollapse() {
@@ -720,9 +762,7 @@
 
         function positionToggle() {
             const firstItem = sidebar.querySelector(".sidebar-nav .nav-item");
-            const sidebarRect = sidebar.getBoundingClientRect();
             const anchorRect = (firstItem || sidebar).getBoundingClientRect();
-            toggle.style.left = `${sidebarRect.right}px`;
             toggle.style.top = `${anchorRect.top + anchorRect.height / 2}px`;
         }
 
@@ -736,14 +776,11 @@
 
         toggle.addEventListener("click", () => {
             setCollapsed(!document.body.classList.contains("sidebar-collapsed"));
-            positionToggle();
         });
 
-        // Sidebar width animates (see .sidebar's transition) — reposition
-        // once mid-flight and once after it settles so the tab doesn't lag.
-        sidebar.addEventListener("transitionend", (event) => {
-            if (event.propertyName === "width") positionToggle();
-        });
+        // top never changes during the collapse animation itself (it's
+        // driven by the first nav item's position, not --sidebar-width),
+        // but the viewport resizing could still shift that row's position.
         window.addEventListener("resize", positionToggle);
 
         positionToggle();
@@ -800,6 +837,7 @@
     document.addEventListener("DOMContentLoaded", () => {
         initSidebarCollapse();
         initSearchShortcut();
+        initSidebarSearchCollapsedButton();
         initProjectShell();
     });
 

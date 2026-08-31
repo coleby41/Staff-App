@@ -1,6 +1,17 @@
 (function () {
-  const path = window.location.pathname.split('/').pop() || '/index.html';
-  const isLoginPage = path === '/pages/login.html' || path === '/index.html';
+  // window.location.pathname.split('/').pop() returns a bare filename with
+  // no leading slash (e.g. "login.html", or just "login" once cleanUrls —
+  // enabled in vercel.json — strips the extension on the deployed site), so
+  // comparing it against a root-relative string like '/pages/login.html'
+  // could never match. That made isLoginPage always false while actually on
+  // the login page, which made every unauthenticated page-load of
+  // login.html immediately redirect() to '/pages/login.html' — i.e. reload
+  // itself — over and over. Normalize both sides to a bare, extensionless
+  // name instead (this is the same "compare basenames, not raw paths" fix
+  // already applied to project-shell.js's currentFileName() comparison).
+  const lastSegment = window.location.pathname.split('/').pop() || '';
+  const normalizedPage = lastSegment.replace(/\.html$/i, '');
+  const isLoginPage = normalizedPage === '' || normalizedPage === 'index' || normalizedPage === 'login';
 
   // Real Supabase Auth session check (was: Boolean(localStorage.getItem
   // ('staffProfile'))). That old check was cosmetic — anyone could set that
@@ -31,11 +42,16 @@
     // than letting them continue on their old/temporary password, and
     // rather than bouncing them straight to the dashboard just because a
     // session exists.
-    const { data: profileRow } = await window.supabaseClient
-      .from('staff_users')
-      .select('must_reset_password')
-      .eq('auth_user_id', session.user.id)
-      .maybeSingle();
+    //
+    // This used to run its own separate `staff_users` query here — but
+    // supabase-auth.js is already loading this exact row (it needs the same
+    // session to populate window.currentSupabaseProfile), so this now just
+    // waits for that instead of firing a second, duplicate query. Found
+    // 2026-08-28 investigating a reported "everything is slow" — every
+    // single page navigation in this app was quietly paying for two
+    // separate round trips to staff_users for overlapping data; this cuts
+    // one of them out of every page load, app-wide.
+    const profileRow = await window.supabaseInitialProfilePromise;
 
     if (profileRow?.must_reset_password) {
       if (!isLoginPage) window.location.replace('/pages/login.html?mustReset=1');

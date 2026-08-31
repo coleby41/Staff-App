@@ -79,10 +79,14 @@ create index if not exists project_files_form_submission_id_idx on public.projec
 
 alter table public.project_files enable row level security;
 
-create policy "project_files_select_members"
+create policy "project_files_select_authenticated"
   on public.project_files for select
   to authenticated
-  using (public.is_project_member(project_id));
+  using (true);
+  -- 2026-08-31: widened from `using (public.is_project_member(project_id))`
+  -- — every signed-in staff member can now see a project's files, not just
+  -- its project_members rows. See
+  -- supabase-open-project-access-to-all-staff.sql.
 
 create policy "project_files_insert_members"
   on public.project_files for insert

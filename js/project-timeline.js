@@ -1145,6 +1145,23 @@
         const endLabelText = document.getElementById("schedEndDateLabelText");
         if (type === "milestone") { startLabel.style.display = "none"; endLabelText.textContent = "Date"; document.getElementById("schedStartDateInput").required = false; }
         else { startLabel.style.display = ""; endLabelText.textContent = "End date"; document.getElementById("schedStartDateInput").required = type === "task"; }
+
+        // THE ACTUAL "Save does nothing" ROOT CAUSE: schedPhaseInput and
+        // schedEndDateInput are hardcoded `required` in the HTML and were
+        // never toggled off here the way schedStartDateInput's required is
+        // above. Both live inside .sched-field--item-only, which styles.css
+        // sets to display:none for phase type -- but hiding a required field
+        // with display:none does NOT exempt it from the browser's native
+        // form validation, it just makes the invalid field unfocusable. On
+        // submit, Chrome still finds it invalid, can't focus it to show the
+        // usual red validation bubble, silently blocks the submit anyway,
+        // and only logs "An invalid form control with name='' is not
+        // focusable" to the console -- which is exactly what "the Save
+        // button does nothing" looks like: every attempt to save a new
+        // Phase failed here, on two fields the user never even sees.
+        const isPhase = type === "phase";
+        document.getElementById("schedPhaseInput").required = !isPhase;
+        document.getElementById("schedEndDateInput").required = !isPhase;
     }
 
     function openDrawerForCreate(type, defaultPhaseId) {
@@ -1253,6 +1270,20 @@
         saveBtn.disabled = true;
         setDrawerMessage("");
 
+        // Defensive guard: every payload below reads currentProject.id
+        // unconditionally. If this drawer is ever opened before
+        // "project-shell:ready" has actually set currentProject (e.g. a
+        // slow/failed project load that the user didn't notice because the
+        // rest of the page still rendered), that property access used to
+        // throw a bare TypeError with nothing shown in the drawer — the
+        // button would just silently do nothing while the real error only
+        // showed up in the browser console. Surface it instead.
+        if (!currentProject || !currentProject.id) {
+            setDrawerMessage("This project hasn't finished loading yet. Refresh the page and try again.", "error");
+            saveBtn.disabled = false;
+            return;
+        }
+
         try {
             if (drawerItemType === "phase") {
                 const payload = {
@@ -1293,8 +1324,16 @@
                     weather_delay: document.getElementById("schedWeatherDelayInput").checked,
                     assigned_user_id: document.getElementById("schedAssigneeInput").value || null,
                     assigned_user_name: (staffDirectory.find(s => s.id === document.getElementById("schedAssigneeInput").value) || {}).full_name || null,
+                    // contractor_id is bigint on the Companies table, but every
+                    // <select> option's .value is always a string — comparing
+                    // contractors[].id (a number, as Supabase deserializes
+                    // bigint) against that string with === always failed, so
+                    // contractor_name was silently saved as null even when a
+                    // contractor was actually selected. String() on both sides
+                    // fixes the comparison without changing contractor_id
+                    // itself (Postgres accepts the numeric string fine).
                     contractor_id: document.getElementById("schedContractorInput").value || null,
-                    contractor_name: (contractors.find(c => c.id === document.getElementById("schedContractorInput").value) || {}).name || null
+                    contractor_name: (contractors.find(c => String(c.id) === document.getElementById("schedContractorInput").value) || {}).name || null
                 };
                 if (!payload.name) { setDrawerMessage("Name is required.", "error"); return; }
                 if (!payload.end_date) { setDrawerMessage("Date is required.", "error"); return; }
@@ -1313,6 +1352,17 @@
             }
             closeDrawer();
             setPageMessage("Saved.", "success");
+        } catch (err) {
+            // Belt-and-suspenders: optimisticCreate*/optimisticUpdate* already
+            // catch and surface real Supabase errors via setDrawerMessage, so
+            // this only fires for a genuine bug in this function itself (a
+            // null/undefined property read, etc.) — those used to fail as an
+            // unhandled promise rejection with zero on-screen feedback, which
+            // is exactly what "the Save button doesn't do anything" looks
+            // like from the outside. Now it at least tells the user something
+            // broke instead of leaving them to click Save into the void.
+            console.error("Unexpected error saving from the schedule drawer:", err);
+            setDrawerMessage("Something went wrong saving this. Please try again.", "error");
         } finally {
             saveBtn.disabled = false;
         }

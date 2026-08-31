@@ -40,21 +40,31 @@ const NAV_ITEMS = [
     { key: "project_overview", selector: 'a[href="/pages/project-home.html"]' }
 ];
 
-// Filename (as it appears in location.pathname) -> the nav key that page
-// represents, so this script can gate the CURRENT page's own content too,
-// not just hide sidebar links to it.
+// Bare, extensionless page name -> the nav key that page represents, so
+// this script can gate the CURRENT page's own content too, not just hide
+// sidebar links to it. Keyed on a normalized basename (see
+// navAccessCurrentFileName() below) rather than a root-relative path —
+// window.location.pathname.split("/").pop() only ever returns a bare
+// filename, and once cleanUrls (vercel.json) strips ".html" on the
+// deployed site it's not even that, so comparing it against
+// "/pages/dashboard.html" could never match. That silently made this
+// function's own `key` always undefined, which meant applyCurrentPageGate()
+// always hit its `if (!key) return;` and never actually gated a restricted
+// page's content by workgroup access, on any page, ever (found while
+// investigating login.html's auth-guard.js redirect-loop bug below — same
+// bare-filename-vs-root-relative-path mismatch, different file).
 const PATH_TO_KEY = {
-    "/pages/dashboard.html": "dashboard",
-    "/pages/excel-workbook.html": "excel_workbook",
-    "/pages/form-template.html": "form_templates",
-    "/pages/timesheet.html": "personal_finance",
-    "/pages/vendors.html": "vendor_contacts",
-    "/pages/payroll-tools.html": "payroll_tools",
-    "/pages/manage-employees.html": "manage_employees",
-    "/pages/admin-users.html": "create_account",
-    "/pages/staff-users.html": "staff_users",
-    "/pages/workgroups.html": "workgroups",
-    "/pages/project-home.html": "project_overview"
+    "dashboard": "dashboard",
+    "excel-workbook": "excel_workbook",
+    "form-template": "form_templates",
+    "timesheet": "personal_finance",
+    "vendors": "vendor_contacts",
+    "payroll-tools": "payroll_tools",
+    "manage-employees": "manage_employees",
+    "admin-users": "create_account",
+    "staff-users": "staff_users",
+    "workgroups": "workgroups",
+    "project-home": "project_overview"
 };
 
 // A few pages already have their own "restricted view" markup (built before
@@ -80,7 +90,8 @@ function navAccessIsManagerRole(profile) {
 }
 
 function navAccessCurrentFileName() {
-    return decodeURIComponent(window.location.pathname.split("/").pop() || "");
+    const lastSegment = decodeURIComponent(window.location.pathname.split("/").pop() || "");
+    return lastSegment.replace(/\.html$/i, "");
 }
 
 async function loadWorkgroupAccessMap() {

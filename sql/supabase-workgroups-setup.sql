@@ -111,7 +111,14 @@ begin
       (wg.id, 'excel_workbook'),
       (wg.id, 'form_templates'),
       (wg.id, 'personal_finance'),
-      (wg.id, 'vendor_contacts')
+      (wg.id, 'vendor_contacts'),
+      -- 2026-08-31: added so every workgroup can see the Projects sidebar
+      -- link / project-home.html out of the box — this key was missing from
+      -- the original seed list entirely, which silently hid Projects from
+      -- every workgroup until someone granted it by hand from the
+      -- Workgroups tab. See supabase-open-project-access-to-all-staff.sql
+      -- for the fix applied to an already-running database.
+      (wg.id, 'project_overview')
     on conflict (workgroup_id, nav_key) do nothing;
   end loop;
 
