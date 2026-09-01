@@ -260,17 +260,17 @@ function renderCompanies(companies) {
                     ${companyTags.length > 2 ? `<span class="chip chip--muted">+${companyTags.length - 2} more</span>` : ""}
                 </div>` : ""}
 
-                <div class="company-card-row">
+                <div class="company-card-row company-card-row--status">
                     <span class="company-card-label">Status</span>
                     <span class="chip ${approved ? "chip--success" : "chip--danger"}">${approved ? "Approved" : "Not Approved"}</span>
                 </div>
 
-                <div class="company-card-row">
+                <div class="company-card-row company-card-row--ssn">
                     <span class="company-card-label">SSN / FID</span>
                     <span class="company-card-value">${escapeHtmlCompanies(maskSsnFid(company["SSN/FID"]))}</span>
                 </div>
 
-                <div class="company-card-row">
+                <div class="company-card-row company-card-row--w9">
                     <span class="company-card-label">W9</span>
                     <span class="chip ${hasW9 ? "" : "chip--muted"}">${hasW9 ? "On file" : "Missing"}</span>
                 </div>

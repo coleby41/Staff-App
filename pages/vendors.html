@@ -476,7 +476,36 @@
         <p>No Vendors match your search.</p>
     </div>
 
+    <div class="vendor-list-header hidden" id="vendorListHeader">
+        <span>Company &amp; Address</span>
+        <span>Projects</span>
+        <span>SSN / FID</span>
+        <span>W9</span>
+        <span>Actions</span>
+        <span>Status</span>
+        <span></span>
+    </div>
+
     <div class="workbook-grid" id="companyGrid"></div>
+
+    <!-- Reuses the app's existing pagination component (.project-pagination /
+         .project-page-btn / .project-page-number / .project-page-size-select
+         -- first built for project-home.html) rather than a new one-off,
+         so it already carries the app-wide 3D button treatment and the
+         same look everywhere else pagination shows up. -->
+    <div class="project-pagination" id="companyPagination" style="display:none;">
+        <p class="project-pagination-summary" id="companyPaginationSummary"></p>
+        <div class="project-pagination-controls">
+            <button type="button" class="project-page-btn" id="companyPagePrevBtn" aria-label="Previous page">‹</button>
+            <span class="project-pagination-numbers" id="companyPaginationNumbers"></span>
+            <button type="button" class="project-page-btn" id="companyPageNextBtn" aria-label="Next page">›</button>
+        </div>
+        <select class="project-page-size-select" id="companyPageSizeSelect" aria-label="Vendors per page">
+            <option value="10">10 per page</option>
+            <option value="25">25 per page</option>
+            <option value="50">50 per page</option>
+        </select>
+    </div>
 
 </main>
 
@@ -976,6 +1005,7 @@
 function initCompanyViewToggle() {
 
     const grid = document.getElementById("companyGrid");
+    const listHeader = document.getElementById("vendorListHeader");
     const toggle = document.getElementById("companyViewToggle");
     const cardBtn = document.getElementById("cardViewBtn");
     const listBtn = document.getElementById("listViewBtn");
@@ -987,6 +1017,7 @@ function initCompanyViewToggle() {
         const isList = view === "list";
 
         grid.classList.toggle("workbook-grid--list", isList);
+        if (listHeader) listHeader.classList.toggle("hidden", !isList);
         toggle.classList.toggle("view-toggle--list", isList);
 
         cardBtn.classList.toggle("active", !isList);
@@ -1297,7 +1328,7 @@ window.addEventListener("DOMContentLoaded", function() {
     // Notifications are handled by the shared notifications.js
     // (loaded via <script src> below), which self-initializes.
 
-    initCompanySearch();
+    initCompanyListControls();
     initCompanyViewToggle();
     initVendorActionsMenu();
     initStartReportModal();
@@ -1763,80 +1794,171 @@ function escapeHtmlLocal(str) {
 
 
 /* ===========================
-   COMPANY SEARCH
-   Filters whatever cards companies.js renders
-   into #companyGrid, matching against each
-   card's visible text content.
+   COMPANY SEARCH + PAGINATION
+   Filters and paginates whatever cards companies.js renders into
+   #companyGrid, matching against each card's visible text content.
+   Search and pagination both decide a card's visibility together (a
+   card shows only if it matches the search AND falls on the current
+   page) rather than each fighting over card.style.display separately,
+   so typing a search query and flipping pages behave correctly
+   together instead of one silently undoing the other.
 =========================== */
 
-function initCompanySearch() {
+function initCompanyListControls() {
 
-    const searchInput =
-        document.getElementById("companySearchInput");
+    const grid = document.getElementById("companyGrid");
+    if (!grid) return;
 
-    const grid =
-        document.getElementById("companyGrid");
+    const searchInput = document.getElementById("companySearchInput");
+    const noResultsState = document.getElementById("companyNoResultsState");
 
-    const noResultsState =
-        document.getElementById("companyNoResultsState");
+    const pageWrap = document.getElementById("companyPagination");
+    const summary = document.getElementById("companyPaginationSummary");
+    const numbersWrap = document.getElementById("companyPaginationNumbers");
+    const prevBtn = document.getElementById("companyPagePrevBtn");
+    const nextBtn = document.getElementById("companyPageNextBtn");
+    const sizeSelect = document.getElementById("companyPageSizeSelect");
 
-    if (!searchInput || !grid) return;
+    const hasPagination =
+        Boolean(pageWrap && summary && numbersWrap && prevBtn && nextBtn && sizeSelect);
+
+    let currentPage = 1;
 
 
     function getCards() {
-
         return Array.from(grid.children);
+    }
+
+
+    // Marks every card with data-search-match (doesn't touch display yet)
+    // and returns just the cards that matched, for pagination to slice.
+    function applySearch() {
+
+        const query = searchInput ? searchInput.value.trim().toLowerCase() : "";
+        const cards = getCards();
+        let matchCount = 0;
+
+        cards.forEach(card => {
+
+            const matches = !query || card.textContent.toLowerCase().includes(query);
+            card.dataset.searchMatch = matches ? "true" : "false";
+            if (matches) matchCount++;
+
+        });
+
+        if (noResultsState) {
+            noResultsState.style.display =
+                (cards.length > 0 && query && matchCount === 0) ? "block" : "none";
+        }
+
+        return cards.filter(card => card.dataset.searchMatch !== "false");
 
     }
 
 
-    function applyFilter() {
+    // Shows/hides cards for the current page out of whatever search
+    // already matched, and (re)builds the pagination bar to match.
+    function renderPage(matchingCards) {
 
-        const query =
-            searchInput.value.trim().toLowerCase();
+        if (!hasPagination) {
+            // No pagination controls on this page -- just make every
+            // search match visible and hide the rest.
+            matchingCards.forEach(card => { card.style.display = ""; });
+            getCards()
+                .filter(card => card.dataset.searchMatch === "false")
+                .forEach(card => { card.style.display = "none"; });
+            return;
+        }
 
-        const cards =
-            getCards();
+        const pageSize = parseInt(sizeSelect.value, 10) || 10;
+        const total = matchingCards.length;
+        const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-        let visibleCount = 0;
+        currentPage = Math.min(Math.max(currentPage, 1), totalPages);
 
-        cards.forEach(card => {
+        const start = (currentPage - 1) * pageSize;
+        const end = start + pageSize;
 
-            const text =
-                card.textContent.toLowerCase();
-
-            const matches =
-                !query || text.includes(query);
-
-            card.style.display =
-                matches ? "" : "none";
-
-            if (matches) visibleCount++;
-
+        matchingCards.forEach((card, i) => {
+            card.style.display = (i >= start && i < end) ? "" : "none";
         });
 
+        getCards()
+            .filter(card => card.dataset.searchMatch === "false")
+            .forEach(card => { card.style.display = "none"; });
 
-        const hasCards =
-            cards.length > 0;
+        // Nothing to page through -- hide the whole bar rather than show
+        // a single, permanently-disabled "1" button.
+        pageWrap.style.display = (total === 0 || totalPages <= 1) ? "none" : "";
 
-        if (noResultsState) {
+        const noun = total === 1 ? "vendor" : "vendors";
+        summary.textContent = total === 0
+            ? `No ${noun} to show`
+            : `Showing ${start + 1} to ${Math.min(end, total)} of ${total} ${noun}`;
 
-            noResultsState.style.display =
-                (hasCards && query && visibleCount === 0)
-                ? "block"
-                : "none";
+        prevBtn.disabled = currentPage <= 1;
+        nextBtn.disabled = currentPage >= totalPages;
+
+        numbersWrap.innerHTML = "";
+
+        for (let page = 1; page <= totalPages; page++) {
+
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "project-page-number" + (page === currentPage ? " active" : "");
+            btn.textContent = String(page);
+            btn.setAttribute("aria-label", `Page ${page}`);
+
+            btn.addEventListener("click", () => {
+                currentPage = page;
+                update();
+            });
+
+            numbersWrap.appendChild(btn);
 
         }
 
     }
 
 
-    searchInput.addEventListener("input", applyFilter);
+    function update() {
+        renderPage(applySearch());
+    }
 
 
-    const observer = new MutationObserver(applyFilter);
+    if (searchInput) {
+        searchInput.addEventListener("input", () => {
+            currentPage = 1;
+            update();
+        });
+    }
 
+    if (hasPagination) {
+
+        prevBtn.addEventListener("click", () => {
+            currentPage -= 1;
+            update();
+        });
+
+        nextBtn.addEventListener("click", () => {
+            currentPage += 1;
+            update();
+        });
+
+        sizeSelect.addEventListener("change", () => {
+            currentPage = 1;
+            update();
+        });
+
+    }
+
+    // companies.js re-renders #companyGrid from scratch on first load and
+    // again after any add/edit/delete -- re-run search + pagination every
+    // time that happens instead of only once at startup.
+    const observer = new MutationObserver(update);
     observer.observe(grid, { childList: true });
+
+    update();
 
 }
 
