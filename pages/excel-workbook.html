@@ -346,11 +346,13 @@
         </div>
 
         <h2 id="workbookModalTitle">Add Workbook</h2>
-        <p class="auth-inline-copy" id="workbookModalSubtitle">Upload a cover image and the Excel file. Everything else is filled in automatically.</p>
+        <p class="auth-inline-copy" id="workbookModalSubtitle">Upload the Excel file. A cover image is optional — everything else is filled in automatically.</p>
 
         <form class="auth-form" id="uploadWorkbookForm">
 
             <input type="hidden" id="workbookIdInput" value="">
+
+            <p class="workbook-form-section-title">Workbook Details</p>
 
             <label class="auth-field">
                 Workbook title
@@ -362,8 +364,16 @@
                 <input type="text" id="workbookUploaderInput" name="uploadedBy" required readonly>
             </label>
 
+            <p class="workbook-form-section-title">Files</p>
+
+            <label class="auth-field" id="workbookFileFieldLabel">
+                Excel file (.xlsx, .xls, .xlsm)
+                <input type="file" id="workbookFileInput" name="file" accept=".xlsx,.xls,.xlsm">
+            </label>
+            <p class="auth-inline-copy" id="workbookFileExistingNote" style="display:none;">Leave blank to keep the current file.</p>
+
             <label class="auth-field" id="workbookCoverFieldLabel">
-                Cover image
+                Cover image (optional)
                 <input type="file" id="workbookCoverInput" name="cover" accept="image/*">
             </label>
             <p class="auth-inline-copy" id="workbookCoverExistingNote" style="display:none;">Leave blank to keep the current cover image.</p>
@@ -371,12 +381,6 @@
             <div class="workbook-cover-preview-wrap" id="coverPreviewWrap" style="display:none;">
                 <img id="coverPreviewImg" alt="Cover preview">
             </div>
-
-            <label class="auth-field" id="workbookFileFieldLabel">
-                Excel file (.xlsx, .xls, .xlsm)
-                <input type="file" id="workbookFileInput" name="file" accept=".xlsx,.xls,.xlsm">
-            </label>
-            <p class="auth-inline-copy" id="workbookFileExistingNote" style="display:none;">Leave blank to keep the current file.</p>
 
             <p class="auth-message" id="uploadFormMessage"></p>
 

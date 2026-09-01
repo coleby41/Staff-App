@@ -2328,6 +2328,34 @@ function openResponseRowMenu(menuBtn, dropdown) {
     dropdown.classList.add("is-open");
     menuBtn.classList.add("is-open");
     menuBtn.setAttribute("aria-expanded", "true");
+    positionResponseMenuDropdown(menuBtn, dropdown);
+}
+
+// The dropdown is position: fixed (see its CSS rule for why -- escaping
+// #formResponsesList's internal scroll clipping), so unlike the old
+// position: absolute it no longer anchors itself to the "⋯" button on
+// its own. Same clamp-to-viewport approach as positionPdfPopover above:
+// right-align under the button by default (matching the old `right: 0`
+// look), nudge back on screen if that would run off an edge, and flip
+// above the button if there's no room below it.
+function positionResponseMenuDropdown(menuBtn, dropdown) {
+    const margin = 4;
+    const btnRect = menuBtn.getBoundingClientRect();
+    const dropRect = dropdown.getBoundingClientRect();
+
+    let left = btnRect.right - dropRect.width;
+    if (left < margin) left = margin;
+    if (left + dropRect.width > window.innerWidth - margin) {
+        left = window.innerWidth - dropRect.width - margin;
+    }
+
+    let top = btnRect.bottom + margin;
+    if (top + dropRect.height > window.innerHeight - margin) {
+        top = btnRect.top - dropRect.height - margin;
+    }
+
+    dropdown.style.left = `${Math.max(margin, left)}px`;
+    dropdown.style.top = `${Math.max(margin, top)}px`;
 }
 
 function toggleResponseRowMenu(menuBtn, dropdown) {
@@ -2797,4 +2825,8 @@ window.addEventListener("DOMContentLoaded", function () {
     document.addEventListener("keydown", (event) => {
         if (event.key === "Escape") closeAllResponseRowMenus();
     });
+    // The dropdown is position: fixed now (see its CSS rule), so it no
+    // longer scrolls along with its row -- close it if the list scrolls
+    // instead of leaving it floating over the wrong row.
+    document.getElementById("formResponsesList")?.addEventListener("scroll", closeAllResponseRowMenus, { passive: true });
 });

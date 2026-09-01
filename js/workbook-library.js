@@ -147,8 +147,15 @@ function buildWorkbookCard(record) {
     card.className = "workbook-card";
     card.dataset.id = record.id;
 
+    // record.cover_url is optional now (Add Workbook no longer requires a
+    // cover image) -- when there isn't one, leave the inline style off
+    // entirely rather than emitting background-image:url(''), and
+    // .workbook-cover's own background-color + the gradient overlay below
+    // still give the card a presentable plain cover.
+    const coverStyle = record.cover_url ? ` style="background-image:url('${escapeHtml(record.cover_url)}')"` : "";
+
     card.innerHTML = `
-        <div class="workbook-cover" style="background-image:url('${escapeHtml(record.cover_url)}')">
+        <div class="workbook-cover"${coverStyle}>
             <div class="workbook-cover-gradient"></div>
             <button type="button" class="workbook-edit-btn" data-action="edit" aria-label="Edit workbook">
                 <span class="company-edit-icon"></span>
@@ -225,10 +232,14 @@ function openWorkbookModal(record) {
         if (deleteBtn) deleteBtn.style.display = "block";
     } else {
         if (titleEl) titleEl.textContent = "Add Workbook";
-        if (subtitleEl) subtitleEl.textContent = "Upload a cover image and the Excel file. Everything else is filled in automatically.";
+        if (subtitleEl) subtitleEl.textContent = "Upload the Excel file. A cover image is optional — everything else is filled in automatically.";
         if (idInput) idInput.value = "";
         if (uploaderInput) uploaderInput.value = getCurrentStaffName();
-        if (coverInput) coverInput.required = true;
+        // Cover image is optional even when adding -- only the Excel file
+        // itself is required. See handleUploadSubmit's missingRequiredField
+        // check and the cover-upload block below it for the other half of
+        // this.
+        if (coverInput) coverInput.required = false;
         if (fileInput) fileInput.required = true;
         if (coverExistingNote) coverExistingNote.style.display = "none";
         if (fileExistingNote) fileExistingNote.style.display = "none";
@@ -385,7 +396,7 @@ async function handleUploadSubmit(event) {
 
     const missingRequiredField = isEditing
         ? (!title || !uploadedBy)
-        : (!title || !uploadedBy || !coverFile || !workbookFile);
+        : (!title || !uploadedBy || !workbookFile);
 
     if (missingRequiredField) {
         if (messageEl) {
@@ -432,9 +443,12 @@ async function handleUploadSubmit(event) {
 
             payload.cover_path = coverPath;
             payload.cover_url = window.supabaseClient.storage.from(WORKBOOKS_BUCKET).getPublicUrl(coverPath).data.publicUrl;
-        } else if (!isEditing) {
-            throw new Error("Cover image is required.");
         }
+        // No "else" branch when adding without a cover file -- cover image
+        // is optional now, so payload.cover_path/cover_url are simply left
+        // unset and the workbook card falls back to its plain gradient
+        // cover (see buildWorkbookCard). Editing without a new cover file
+        // already left the existing cover untouched the same way.
 
         if (workbookFile) {
             const filePath = `files/${id}-${sanitizeForStorageKey(workbookFile.name)}`;

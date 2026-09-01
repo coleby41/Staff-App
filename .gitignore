@@ -1,0 +1,16 @@
+# Environment variables / secrets — never commit these.
+# This app doesn't currently use a .env file (the Supabase anon key is
+# meant to be public and is hardcoded in js/supabase-config.js on purpose;
+# the service-role key is only ever passed as an env var when running
+# scripts/migrate-staff-to-auth.ts by hand, never stored in a file). This
+# is a safety net for if that ever changes.
+.env
+.env.*
+!.env.example
+
+# macOS
+.DS_Store
+
+# Editor cruft
+*.swp
+.vscode/

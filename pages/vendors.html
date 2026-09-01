@@ -501,7 +501,7 @@
             <button type="button" class="project-page-btn" id="companyPageNextBtn" aria-label="Next page">›</button>
         </div>
         <select class="project-page-size-select" id="companyPageSizeSelect" aria-label="Vendors per page">
-            <option value="10">10 per page</option>
+            <option value="12">12 per page</option>
             <option value="25">25 per page</option>
             <option value="50">50 per page</option>
         </select>
@@ -1870,7 +1870,7 @@ function initCompanyListControls() {
             return;
         }
 
-        const pageSize = parseInt(sizeSelect.value, 10) || 10;
+        const pageSize = parseInt(sizeSelect.value, 10) || 12;
         const total = matchingCards.length;
         const totalPages = Math.max(1, Math.ceil(total / pageSize));
 

@@ -1,0 +1,12 @@
+-- REVERTED (2026-09-02) -- do not run this file.
+--
+-- This was a masking view + storage-policy split intended to restrict
+-- vendor "SSN/FID" and W9 visibility to Accounting/Office/Super Admin.
+-- Coleby asked for it to be reverted, so it was never run against the
+-- live Supabase project and js/companies.js was reverted back to
+-- reading/writing public."Companies" directly with no masking.
+--
+-- Nothing in this repo references public.companies_overview anymore.
+-- This file is left in place only because the device link this session
+-- had couldn't delete files -- safe to delete manually if you'd rather
+-- it not be here.

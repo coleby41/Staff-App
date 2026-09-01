@@ -2724,6 +2724,35 @@ button { font: inherit; }
     color: var(--accent-strong);
 }
 
+/* Add/Edit Workbook form -- Coleby: "make the Add Workbook [form] look more
+   corporate." Same treatment as the Add/Edit Vendor form's
+   .company-form-section-title/.company-form-row (styles.css, "Add/Edit
+   Vendor form" comment): grouped the previously flat field list (title,
+   uploaded by, cover image, file -- one after another with no structure)
+   into labeled sections, Workbook Details / Files, the way an enterprise
+   form usually reads. A separate, identically-named-in-spirit class rather
+   than reusing .company-form-section-title itself, since that class's name
+   is specific to the vendor form and this popup isn't a "company form" --
+   kept as its own small rule instead of renaming the vendor one, to avoid
+   touching vendors.html for an unrelated change. */
+.workbook-form-section-title {
+    margin: 4px 0 -6px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+}
+
+/* The very first section title has nothing above it to separate from. */
+.workbook-form-section-title:first-of-type {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+}
+
 .workbook-cover-preview-wrap {
     border: 1px solid var(--border);
     border-radius: 12px;
@@ -9118,10 +9147,15 @@ body.week-cal-dragging {
     font-style: italic;
 }
 
-/* position: relative so .form-response-menu-dropdown (position: absolute)
-   anchors to this wrapper instead of the row or the popup. */
+/* No longer position: relative. .form-response-menu-dropdown used to be
+   position: absolute and anchor to this wrapper, but that meant
+   #formResponsesList's internal scroll (overflow-y: auto, added so a
+   form with lots of responses scrolls instead of getting cut off at the
+   bottom of the popup) clipped the dropdown whenever a row sat near the
+   bottom of the visible list. The dropdown is now position: fixed and
+   positioned in JS instead (see its own rule below), so this wrapper
+   doesn't need to be a positioning anchor any more. */
 .form-response-actions {
-    position: relative;
     flex: 0 0 auto;
     display: flex;
     align-items: center;
@@ -9167,18 +9201,30 @@ body.week-cal-dragging {
     background: var(--accent-strong);
 }
 
+/* position: fixed (not absolute) -- this dropdown lives inside
+   #formResponsesList, which scrolls internally so a form with lots of
+   responses doesn't get cut off at the bottom of the popup. An
+   absolutely-positioned dropdown gets clipped to that scrolling box's
+   bounds; a fixed one doesn't, for the same reason .pdf-field-popover
+   and .tag-tour-overlay escape their own modals elsewhere in this file:
+   .popup-overlay/.popup don't use transform, so position: fixed sits
+   relative to the real viewport no matter where it's nested in the DOM.
+   top/left are set in JS (positionResponseMenuDropdown in
+   form-builder.js) from the "⋯" button's own position, since fixed
+   positioning no longer auto-anchors to .form-response-actions the way
+   absolute did. z-index uses --z-modal-popover (not --z-dropdown), same
+   as .pdf-field-popover, since this is a popover launched from within
+   an open modal and needs to sit above it. */
 .form-response-menu-dropdown {
     display: none;
-    position: absolute;
-    top: calc(100% + 4px);
-    right: 0;
+    position: fixed;
     min-width: 160px;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 12px;
     box-shadow: var(--shadow);
     padding: 6px;
-    z-index: var(--z-dropdown);
+    z-index: var(--z-modal-popover);
 }
 
 .form-response-menu-dropdown.is-open {
