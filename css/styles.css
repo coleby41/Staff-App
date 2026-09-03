@@ -3309,6 +3309,146 @@ button { font: inherit; }
     cursor: not-allowed;
 }
 
+/* ===========================================================
+   VENDOR DOCUMENT STATUS BADGE (W9 + COI)
+   Replaces the plain "On file/Missing" chip + separate View/Download
+   pill buttons on the vendor grid with a single clickable badge that
+   expands into a small dropdown (status chip + a meta line, then View
+   Document / Download) -- requested by Coleby to match a mockup he sent
+   (2026-09-02). Used for both W9 and COI, in both card view and list
+   view (#companyGrid / #companyGrid.workbook-grid--list), built by the
+   shared buildDocBadgeHtml() helper in companies.js so the two documents
+   always stay visually identical. Deliberately NOT used inside the
+   read-only vendor profile popup (vendorProfileModalOverlay) -- that
+   already has its own simple chip + "View" button and lives inside an
+   open modal, which would need the dropdown on --z-modal-popover instead
+   of --z-dropdown; not worth the extra variant for a display-only view.
+
+   The dropdown is position: fixed with JS-computed top/left (see
+   positionDocBadgeDropdown() in companies.js) for the same reason
+   .form-response-menu-dropdown is: .workbook-card (the base class
+   .company-card extends) has overflow: hidden, which would clip an
+   absolutely-positioned dropdown the moment a badge sits near a card's
+   edge or (in list view) near the bottom of the page. Fixed positioning
+   escapes that clipping since .workbook-card/.popup don't use
+   `transform`. z-index uses --z-dropdown (not --z-modal-popover) because
+   this badge lives directly on the page, not inside an open modal.
+=========================================================== */
+
+.doc-badge {
+    position: relative;
+    display: inline-flex;
+}
+
+.doc-badge-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    margin: 0;
+    border: none;
+    border-radius: var(--radius-sm);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.doc-badge-trigger:hover {
+    filter: brightness(0.97);
+}
+
+.doc-badge-trigger--missing {
+    background: var(--surface-alt);
+    color: var(--text-soft);
+    cursor: default;
+}
+
+.doc-badge-trigger--missing:hover {
+    filter: none;
+}
+
+.doc-badge-trigger--expiring {
+    background: var(--warning-soft);
+    color: var(--warning);
+}
+
+.doc-badge-trigger--expired {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.doc-badge-chevron {
+    width: 9px;
+    height: 9px;
+    flex: 0 0 auto;
+    background: currentColor;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") center/contain no-repeat;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") center/contain no-repeat;
+    transition: transform 0.15s ease;
+}
+
+.doc-badge-trigger.is-open .doc-badge-chevron {
+    transform: rotate(180deg);
+}
+
+/* See the big comment above .doc-badge for why this is position: fixed
+   with JS-computed coordinates rather than absolute. */
+.doc-badge-dropdown {
+    display: none;
+    position: fixed;
+    min-width: 210px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 12px;
+    z-index: var(--z-dropdown);
+}
+
+.doc-badge-dropdown.is-open {
+    display: block;
+}
+
+.doc-badge-dropdown-meta {
+    margin: 8px 0 0;
+    font-size: 0.8rem;
+    color: var(--text-soft);
+}
+
+.doc-badge-dropdown-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 10px 0;
+}
+
+.doc-badge-dropdown-action {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 10px;
+    margin: 0;
+    border: none;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--text);
+    background: none;
+    cursor: pointer;
+    transition: background 0.12s ease;
+}
+
+.doc-badge-dropdown-action:hover {
+    background: var(--accent-soft);
+}
+
+.doc-badge-dropdown-action + .doc-badge-dropdown-action {
+    margin-top: 2px;
+}
+
 /* ===========================
    VIEW TOGGLE
 =========================== */
@@ -3879,6 +4019,12 @@ button { font: inherit; }
    VENDORS — row (list) view rebuilt as a real table, matching a
    reference screenshot Coleby sent (Company & Address / Projects /
    SSN-FID / W9 / Actions / Status columns with a header row).
+   Reworked again (2026-09-02) to add a COI column and drop the old
+   separate "Actions" column -- View/Download are now inside each
+   document's own badge dropdown (see the VENDOR DOCUMENT STATUS BADGE
+   block above), so there's nothing left for a standalone Actions column
+   to hold. Column order is now Company & Address / Tags / SSN-FID / W9 /
+   COI / Status / (blank edit-pencil column), matching Coleby's mockup.
    .company-card-name/-address/-row and .workbook-grid--list itself are
    shared with other pages (e.g. project cards reuse .company-card-name
    for their own header), so every rule here is scoped to #companyGrid
@@ -3890,7 +4036,7 @@ button { font: inherit; }
 
 .vendor-list-header {
     display: grid;
-    grid-template-columns: minmax(220px, 1.6fr) minmax(160px, 1fr) 110px 90px 210px 120px 40px;
+    grid-template-columns: minmax(220px, 1.6fr) minmax(160px, 1fr) 110px 120px 120px 120px 40px;
     gap: 16px;
     align-items: center;
     padding: 10px 16px;
@@ -3921,7 +4067,7 @@ button { font: inherit; }
 
 #companyGrid.workbook-grid--list .company-card-body {
     display: grid;
-    grid-template-columns: minmax(220px, 1.6fr) minmax(160px, 1fr) 110px 90px 210px 120px 40px;
+    grid-template-columns: minmax(220px, 1.6fr) minmax(160px, 1fr) 110px 120px 120px 120px 40px;
     grid-template-rows: auto auto;
     column-gap: 16px;
     row-gap: 4px;
@@ -3964,9 +4110,9 @@ button { font: inherit; }
 
 /* SSN/FID and Status repeat their column header, so the inline label
    inside the cell would be redundant -- hide it and show just the value/
-   chip, the way the reference screenshot does. W9 keeps its inline label
-   (styled solid, not soft-gray) since the screenshot shows "W9" printed
-   above the "On file" chip inside that cell too. */
+   chip, the way the reference screenshot does. W9 and COI keep their
+   inline label (styled solid, not soft-gray) since the mockup shows
+   "W9"/"COI" printed above each document's badge inside that cell too. */
 #companyGrid.workbook-grid--list .company-card-row--ssn .company-card-label,
 #companyGrid.workbook-grid--list .company-card-row--status .company-card-label {
     display: none;
@@ -3977,7 +4123,13 @@ button { font: inherit; }
     grid-row: 1 / 3;
 }
 
-#companyGrid.workbook-grid--list .company-card-row--w9 .company-card-label {
+#companyGrid.workbook-grid--list .company-card-row--coi {
+    grid-column: 5;
+    grid-row: 1 / 3;
+}
+
+#companyGrid.workbook-grid--list .company-card-row--w9 .company-card-label,
+#companyGrid.workbook-grid--list .company-card-row--coi .company-card-label {
     color: var(--text);
     font-weight: 700;
 }
@@ -3987,65 +4139,15 @@ button { font: inherit; }
     grid-row: 1 / 3;
 }
 
-#companyGrid.workbook-grid--list .workbook-actions {
-    grid-column: 5;
-    grid-row: 2;
-    align-self: center;
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-    border: none;
-}
-
-/* Two separate outlined buttons instead of the joined "pill group" look
-   .workbook-pill-group normally gives these two buttons elsewhere, plus a
-   small eye/download icon on each -- matching the reference screenshot's
-   Actions column. Scoped to this list view only; the pill-group look is
-   untouched everywhere else that class is used. */
-#companyGrid.workbook-grid--list .workbook-actions .workbook-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    border: 1px solid var(--accent);
-    border-radius: var(--radius-sm);
-    margin: 0;
-    padding: 6px 10px;
-    font-size: 0.78rem;
-}
-
-#companyGrid.workbook-grid--list .workbook-actions .workbook-btn + .workbook-btn {
-    border-left: 1px solid var(--accent);
-}
-
-#companyGrid.workbook-grid--list .company-view-w9-btn::before,
-#companyGrid.workbook-grid--list .company-download-w9-btn::before {
-    content: "";
-    width: 14px;
-    height: 14px;
-    flex: 0 0 auto;
-    background: currentColor;
-}
-
-#companyGrid.workbook-grid--list .company-view-w9-btn::before {
-    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E") center/contain no-repeat;
-    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E") center/contain no-repeat;
-}
-
-#companyGrid.workbook-grid--list .company-download-w9-btn::before {
-    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/%3E%3Cpolyline points='7 10 12 15 17 10'/%3E%3Cline x1='12' y1='15' x2='12' y2='3'/%3E%3C/svg%3E") center/contain no-repeat;
-    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/%3E%3Cpolyline points='7 10 12 15 17 10'/%3E%3Cline x1='12' y1='15' x2='12' y2='3'/%3E%3C/svg%3E") center/contain no-repeat;
-}
-
-/* Its own row below the Company & Address / Actions block (row 3 is new
-   -- an implicit row that only this column uses, so it doesn't affect
-   the SSN/W9/Status/edit-button cells, which stay spanning rows 1-2). */
+/* Its own row below the Company & Address block (row 3 is new -- an
+   implicit row that only this column uses, so it doesn't affect the
+   SSN/W9/COI/Status/edit-button cells, which stay spanning rows 1-2). */
 #companyGrid.workbook-grid--list .company-view-contacts-link {
-    /* Spans through the Status and edit-pencil columns (5-7) so
-       justify-self: end lands it at the true right edge of the row,
-       not just the right edge of the Actions column it used to sit in.
-       Safe to share those columns' row-3 space -- Status/edit-btn only
-       span rows 1-2 (grid-row: 1 / 3), leaving row 3 free there. */
-    grid-column: 5 / 8;
+    /* Spans from the W9 column through the edit-pencil column (4-7) so
+       justify-self: end lands it at the true right edge of the row.
+       Safe to share those columns' row-3 space -- W9/COI/Status/edit-btn
+       only span rows 1-2 (grid-row: 1 / 3), leaving row 3 free there. */
+    grid-column: 4 / 8;
     grid-row: 3;
     margin-top: 4px;
     justify-self: end;
@@ -4084,7 +4186,6 @@ button { font: inherit; }
     #companyGrid.workbook-grid--list .company-card-address,
     #companyGrid.workbook-grid--list .company-card-tags,
     #companyGrid.workbook-grid--list .company-card-row,
-    #companyGrid.workbook-grid--list .workbook-actions,
     #companyGrid.workbook-grid--list .company-view-contacts-link {
         grid-column: auto;
         grid-row: auto;

@@ -481,7 +481,7 @@
         <span>Tags</span>
         <span>SSN / FID</span>
         <span>W9</span>
-        <span>Actions</span>
+        <span>COI</span>
         <span>Status</span>
         <span></span>
     </div>
@@ -525,6 +525,7 @@
 
             <input type="hidden" id="companyIdInput">
             <input type="hidden" id="companyExistingW9PathInput">
+            <input type="hidden" id="companyExistingCoiPathInput">
 
             <p class="company-form-section-title">Vendor Details</p>
 
@@ -582,6 +583,20 @@
 
             <p class="auth-inline-copy" id="companyExistingW9Note" style="display:none;"></p>
 
+            <p class="company-form-section-title">Certificate of Insurance (COI)</p>
+
+            <label class="auth-field">
+                Upload COI (PDF)
+                <input type="file" id="companyCoiInput" name="coi" accept="application/pdf">
+            </label>
+
+            <label class="auth-field">
+                COI expiration date
+                <input type="date" id="companyCoiExpiresInput" name="coiExpiresOn">
+            </label>
+
+            <p class="auth-inline-copy" id="companyExistingCoiNote" style="display:none;"></p>
+
             <p class="auth-message" id="companyFormMessage"></p>
 
             <div class="popup-buttons">
@@ -624,6 +639,11 @@
                     <span class="company-card-label">W9</span>
                     <div id="vendorProfileW9Status"></div>
                 </div>
+            </div>
+
+            <div class="vendor-profile-section">
+                <span class="company-card-label">COI</span>
+                <div id="vendorProfileCoiStatus"></div>
             </div>
 
             <div id="vendorProfileTagGroups" class="vendor-profile-tag-groups">

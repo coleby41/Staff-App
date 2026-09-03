@@ -7,6 +7,13 @@
 
 const COMPANIES_TABLE = "Companies";
 const W9_BUCKET = "company-w9s";
+const COI_BUCKET = "company-cois";
+
+// A COI within this many days of its expiration date shows as "Expiring
+// soon" (amber) instead of a plain "On file" (green) -- Coleby asked to
+// track a real expiration date specifically so an expired/soon-to-expire
+// COI stands out, not just "on file vs. missing".
+const COI_EXPIRING_SOON_DAYS = 30;
 
 /* ===========================
    VENDOR TAGS (Supabase)
@@ -58,6 +65,189 @@ function formatAddress(company) {
         street: company.Street || "",
         line2: line2 || ""
     };
+}
+
+/* ===========================
+   DOCUMENT STATUS BADGE (W9 + COI)
+   Shared by both documents so their card/list-view treatment always stays
+   visually identical -- see the "VENDOR DOCUMENT STATUS BADGE" comment
+   block in styles.css for the full reasoning behind the markup/CSS this
+   builds. type is "w9" or "coi".
+=========================== */
+
+// Formats a stored date/timestamp as e.g. "8/15/2026". dateOnly=true for a
+// plain `date` column (COIExpiresOn) -- appending T00:00:00 so it's read
+// as local midnight instead of UTC midnight, which can otherwise print a
+// day early in timezones behind UTC (same trick project-shell.js uses for
+// its own due-date column).
+function formatDocDate(value, dateOnly) {
+    if (!value) return "";
+    const d = dateOnly ? new Date(`${value}T00:00:00`) : new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "numeric" });
+}
+
+function daysUntil(dateOnlyValue) {
+    if (!dateOnlyValue) return null;
+    const target = new Date(`${dateOnlyValue}T00:00:00`);
+    if (Number.isNaN(target.getTime())) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.round((target - today) / (1000 * 60 * 60 * 24));
+}
+
+// Returns everything a doc badge needs to render: whether the document is
+// on file, which visual state it's in, the label shown on the trigger
+// button, and the meta line shown inside the dropdown.
+function getDocStatus(company, type) {
+    if (type === "coi") {
+        const filePath = company.COIFilePath || null;
+        if (!filePath) return { hasFile: false, state: "missing", label: "Missing", meta: "" };
+
+        const remaining = daysUntil(company.COIExpiresOn);
+        let state = "onfile";
+        let label = "On file";
+        if (remaining !== null) {
+            if (remaining < 0) { state = "expired"; label = "Expired"; }
+            else if (remaining <= COI_EXPIRING_SOON_DAYS) { state = "expiring"; label = "Expiring soon"; }
+        }
+        const meta = company.COIExpiresOn
+            ? `Expires ${formatDocDate(company.COIExpiresOn, true)}`
+            : "No expiration date on file";
+        return { hasFile: true, state, label, meta, filePath };
+    }
+
+    // w9
+    const filePath = company.W9FilePath || null;
+    if (!filePath) return { hasFile: false, state: "missing", label: "Missing", meta: "" };
+    const meta = company.W9UpdatedAt ? `Updated ${formatDocDate(company.W9UpdatedAt, false)}` : "";
+    return { hasFile: true, state: "onfile", label: "On file", meta, filePath };
+}
+
+// Builds the whole .doc-badge component (trigger button + dropdown) for
+// one document on one company. docLabel is the human label shown inside
+// the dropdown ("W9" / "Certificate of Insurance").
+function buildDocBadgeHtml(company, type, docLabel) {
+    const status = getDocStatus(company, type);
+    const stateClass = status.state === "missing" ? "doc-badge-trigger--missing"
+        : status.state === "expired" ? "doc-badge-trigger--expired"
+        : status.state === "expiring" ? "doc-badge-trigger--expiring"
+        : "";
+
+    if (!status.hasFile) {
+        return `
+            <div class="doc-badge">
+                <button type="button" class="doc-badge-trigger ${stateClass}" disabled>
+                    <span class="doc-badge-label">Missing</span>
+                </button>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="doc-badge">
+            <button
+                type="button"
+                class="doc-badge-trigger ${stateClass} doc-badge-toggle-btn"
+                data-id="${company.id}"
+                data-doc-type="${type}"
+                aria-haspopup="true"
+                aria-expanded="false">
+                <span class="doc-badge-label">${escapeHtmlCompanies(status.label)}</span>
+                <span class="doc-badge-chevron"></span>
+            </button>
+            <div class="doc-badge-dropdown" data-id="${company.id}" data-doc-type="${type}" data-file-path="${escapeHtmlCompanies(status.filePath)}">
+                <span class="chip ${status.state === "expired" ? "chip--danger" : status.state === "expiring" ? "chip--warning" : ""}">${escapeHtmlCompanies(status.label)}</span>
+                ${status.meta ? `<p class="doc-badge-dropdown-meta">${escapeHtmlCompanies(status.meta)}</p>` : ""}
+                <div class="doc-badge-dropdown-divider"></div>
+                <button type="button" class="doc-badge-dropdown-action doc-badge-view-btn" data-id="${company.id}" data-doc-type="${type}">View Document</button>
+                <button type="button" class="doc-badge-dropdown-action doc-badge-download-btn" data-id="${company.id}" data-doc-type="${type}" data-doc-label="${escapeHtmlCompanies(docLabel)}">Download</button>
+            </div>
+        </div>
+    `;
+}
+
+// Same position: fixed + JS-computed-coordinates pattern used for
+// .form-response-menu-dropdown (see form-builder.js's
+// positionResponseMenuDropdown) and for the same reason: .workbook-card
+// has overflow: hidden, which would clip an absolutely-positioned
+// dropdown the moment a badge sits near a card's edge.
+function positionDocBadgeDropdown(trigger, dropdown) {
+    const margin = 4;
+    const btnRect = trigger.getBoundingClientRect();
+    const dropRect = dropdown.getBoundingClientRect();
+
+    let left = btnRect.left;
+    if (left + dropRect.width > window.innerWidth - margin) {
+        left = window.innerWidth - dropRect.width - margin;
+    }
+    if (left < margin) left = margin;
+
+    let top = btnRect.bottom + margin;
+    if (top + dropRect.height > window.innerHeight - margin) {
+        top = btnRect.top - dropRect.height - margin;
+    }
+    if (top < margin) top = margin;
+
+    dropdown.style.left = `${left}px`;
+    dropdown.style.top = `${top}px`;
+}
+
+function closeAllDocBadges() {
+    document.querySelectorAll(".doc-badge-dropdown.is-open").forEach(d => d.classList.remove("is-open"));
+    document.querySelectorAll(".doc-badge-toggle-btn.is-open").forEach(b => {
+        b.classList.remove("is-open");
+        b.setAttribute("aria-expanded", "false");
+    });
+}
+
+function toggleDocBadge(trigger, dropdown) {
+    const isOpen = dropdown.classList.contains("is-open");
+    closeAllDocBadges();
+    if (isOpen) return;
+    dropdown.classList.add("is-open");
+    trigger.classList.add("is-open");
+    trigger.setAttribute("aria-expanded", "true");
+    positionDocBadgeDropdown(trigger, dropdown);
+}
+
+// Wires the doc badges rendered into `container` (either #companyGrid or
+// the vendor profile modal, though the profile modal currently uses a
+// simpler chip + button instead of the full dropdown -- see the comment
+// above .doc-badge in styles.css).
+function wireDocBadges(container) {
+    container.querySelectorAll(".doc-badge-toggle-btn").forEach(btn => {
+        const dropdown = btn.parentElement.querySelector(".doc-badge-dropdown");
+        if (!dropdown) return;
+        btn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            toggleDocBadge(btn, dropdown);
+        });
+    });
+
+    container.querySelectorAll(".doc-badge-view-btn").forEach(btn => {
+        btn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            closeAllDocBadges();
+            const id = btn.dataset.id;
+            const company = allCompanies.find(c => String(c.id) === String(id));
+            if (!company) return;
+            const filePath = btn.dataset.docType === "coi" ? company.COIFilePath : company.W9FilePath;
+            if (filePath) viewDocFile(btn.dataset.docType === "coi" ? COI_BUCKET : W9_BUCKET, filePath);
+        });
+    });
+
+    container.querySelectorAll(".doc-badge-download-btn").forEach(btn => {
+        btn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            closeAllDocBadges();
+            const id = btn.dataset.id;
+            const company = allCompanies.find(c => String(c.id) === String(id));
+            if (!company) return;
+            const filePath = btn.dataset.docType === "coi" ? company.COIFilePath : company.W9FilePath;
+            if (filePath) downloadDocFile(btn.dataset.docType === "coi" ? COI_BUCKET : W9_BUCKET, filePath, `${company.Name || "vendor"} - ${btn.dataset.docLabel}.pdf`);
+        });
+    });
 }
 
 function showCompanyMessage(text, type) {
@@ -147,7 +337,7 @@ function isBlank(value) {
 // Returns the list of human-readable things this vendor is missing.
 // Empty array = approved.
 function missingVendorRequirements(company) {
-    if (!company) return ["Vendor name", "Street", "City", "State", "Zip", "SSN / FID", "W9"];
+    if (!company) return ["Vendor name", "Street", "City", "State", "Zip", "SSN / FID", "W9", "Valid COI"];
 
     const missing = [];
     if (isBlank(company.Name)) missing.push("Vendor name");
@@ -157,6 +347,13 @@ function missingVendorRequirements(company) {
     if (isBlank(company.Zip)) missing.push("Zip");
     if (isBlank(company["SSN/FID"])) missing.push("SSN / FID");
     if (!company.W9FilePath) missing.push("W9");
+
+    // A COI counts toward approval only while it's actually valid -- an
+    // expired one is treated the same as missing entirely, same as
+    // Coleby confirmed (2026-09-02): approval status should reflect a
+    // COI that's actually still in force, not just "was uploaded once".
+    const coiStatus = getDocStatus(company, "coi");
+    if (!coiStatus.hasFile || coiStatus.state === "expired") missing.push("Valid COI");
 
     if (allTagCategories.length === 0) {
         missing.push("Tags");
@@ -227,7 +424,6 @@ function renderCompanies(companies) {
     companies.forEach(company => {
 
         const address = formatAddress(company);
-        const hasW9 = Boolean(company.W9FilePath);
         const companyTags = tagsForCompany(company.id);
         const approved = isVendorApproved(company);
 
@@ -272,28 +468,13 @@ function renderCompanies(companies) {
 
                 <div class="company-card-row company-card-row--w9">
                     <span class="company-card-label">W9</span>
-                    <span class="chip ${hasW9 ? "" : "chip--muted"}">${hasW9 ? "On file" : "Missing"}</span>
+                    ${buildDocBadgeHtml(company, "w9", "W9")}
                 </div>
 
-                <div class="workbook-actions workbook-pill-group">
-    <button
-        type="button"
-        class="workbook-btn workbook-btn--preview company-view-w9-btn"
-        data-id="${company.id}"
-        ${hasW9 ? "" : "disabled"}
-    >
-        View W9
-    </button>
-
-    <button
-        type="button"
-        class="workbook-btn workbook-btn--download company-download-w9-btn"
-        data-id="${company.id}"
-        ${hasW9 ? "" : "disabled"}
-    >
-        Download W9
-    </button>
-</div>
+                <div class="company-card-row company-card-row--coi">
+                    <span class="company-card-label">COI</span>
+                    ${buildDocBadgeHtml(company, "coi", "Certificate of Insurance")}
+                </div>
 
                 <a href="#" class="company-view-contacts-link" data-id="${company.id}" data-name="${escapeHtmlCompanies(company.Name || "")}">View Contact Info</a>
 
@@ -307,7 +488,7 @@ function renderCompanies(companies) {
     // read-only vendor profile popup.
     grid.querySelectorAll(".company-card").forEach(card => {
         card.addEventListener("click", (event) => {
-            if (event.target.closest(".company-edit-btn, .company-view-w9-btn, .company-download-w9-btn, .company-view-contacts-link")) return;
+            if (event.target.closest(".company-edit-btn, .doc-badge, .company-view-contacts-link")) return;
             const id = card.dataset.companyId;
             const company = allCompanies.find(c => String(c.id) === String(id));
             if (company) openVendorProfileModal(company);
@@ -323,14 +504,9 @@ function renderCompanies(companies) {
         });
     });
 
-    // View W9 buttons
-    grid.querySelectorAll(".company-view-w9-btn").forEach(btn => {
-        btn.addEventListener("click", () => {
-            const id = btn.dataset.id;
-            const company = allCompanies.find(c => String(c.id) === String(id));
-            if (company && company.W9FilePath) viewW9(company.W9FilePath);
-        });
-    });
+    // W9 / COI status badges (trigger + dropdown, and the View/Download
+    // actions inside each dropdown).
+    wireDocBadges(grid);
 
     // View Contact Info links
     grid.querySelectorAll(".company-view-contacts-link").forEach(link => {
@@ -344,25 +520,68 @@ function renderCompanies(companies) {
 }
 
 /* ===========================
-   VIEW W9 (signed URL, bucket is private)
+   VIEW / DOWNLOAD DOCUMENT (signed URL, buckets are private)
 =========================== */
 
-async function viewW9(filePath) {
-
-    if (!window.supabaseClient) return;
+async function createDocSignedUrl(bucket, filePath) {
+    if (!window.supabaseClient) return null;
 
     const { data, error } = await window.supabaseClient
         .storage
-        .from(W9_BUCKET)
+        .from(bucket)
         .createSignedUrl(filePath, 60 * 5); // 5 minute link
 
     if (error || !data?.signedUrl) {
-        console.error("Failed to create signed URL for W9:", error);
-        showCompanyMessage("Couldn't open that W9 file. Please try again.", "error");
+        console.error(`Failed to create signed URL (${bucket}):`, error);
+        return null;
+    }
+
+    return data.signedUrl;
+}
+
+async function viewDocFile(bucket, filePath) {
+    const url = await createDocSignedUrl(bucket, filePath);
+    if (!url) {
+        showCompanyMessage("Couldn't open that file. Please try again.", "error");
+        return;
+    }
+    window.open(url, "_blank", "noopener");
+}
+
+// Unlike viewDocFile (which just opens the signed URL in a new tab), this
+// fetches the file itself and triggers a real download -- Supabase's
+// signed URLs don't set Content-Disposition: attachment, so opening one
+// directly just previews the PDF/image instead of downloading it.
+async function downloadDocFile(bucket, filePath, filename) {
+    const url = await createDocSignedUrl(bucket, filePath);
+    if (!url) {
+        showCompanyMessage("Couldn't download that file. Please try again.", "error");
         return;
     }
 
-    window.open(data.signedUrl, "_blank", "noopener");
+    try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Download failed with status ${response.status}`);
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = filename || "document";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+        console.error("Failed to download file:", error);
+        showCompanyMessage("Couldn't download that file. Please try again.", "error");
+    }
+}
+
+// Kept as a thin wrapper -- other pages/older code may still call viewW9
+// by name.
+async function viewW9(filePath) {
+    return viewDocFile(W9_BUCKET, filePath);
 }
 
 /* ===========================
@@ -378,6 +597,7 @@ function openVendorProfileModal(company) {
     const overlay = document.getElementById("vendorProfileModalOverlay");
     const address = formatAddress(company);
     const hasW9 = Boolean(company.W9FilePath);
+    const hasCoi = Boolean(company.COIFilePath);
 
     document.getElementById("vendorProfileName").textContent = company.Name || "Unnamed company";
 
@@ -403,7 +623,23 @@ function openVendorProfileModal(company) {
 
     const viewW9Btn = document.getElementById("vendorProfileViewW9Btn");
     if (viewW9Btn) {
-        viewW9Btn.addEventListener("click", () => viewW9(company.W9FilePath));
+        viewW9Btn.addEventListener("click", () => viewDocFile(W9_BUCKET, company.W9FilePath));
+    }
+
+    // COI -- same plain chip + "View" button as W9 above (deliberately not
+    // the interactive dropdown badge used on the grid; see the comment
+    // above .doc-badge in styles.css for why).
+    const coiStatus = getDocStatus(company, "coi");
+    const coiStatusEl = document.getElementById("vendorProfileCoiStatus");
+    coiStatusEl.innerHTML = hasCoi
+        ? `<span class="chip ${coiStatus.state === "expired" ? "chip--danger" : coiStatus.state === "expiring" ? "chip--warning" : ""}">${escapeHtmlCompanies(coiStatus.label)}</span>
+           ${coiStatus.meta ? `<span class="company-card-muted">${escapeHtmlCompanies(coiStatus.meta)}</span>` : ""}
+           <button type="button" class="workbook-btn workbook-btn--preview" id="vendorProfileViewCoiBtn">View COI</button>`
+        : `<span class="chip chip--muted">Missing</span>`;
+
+    const viewCoiBtn = document.getElementById("vendorProfileViewCoiBtn");
+    if (viewCoiBtn) {
+        viewCoiBtn.addEventListener("click", () => viewDocFile(COI_BUCKET, company.COIFilePath));
     }
 
     const groups = groupTagsByCategory(tagsForCompany(company.id));
@@ -521,9 +757,11 @@ function openCompanyModal(company) {
     const subtitle = document.getElementById("companyModalSubtitle");
     const deleteBtn = document.getElementById("deleteCompanyBtn");
     const existingW9Note = document.getElementById("companyExistingW9Note");
+    const existingCoiNote = document.getElementById("companyExistingCoiNote");
 
     document.getElementById("companyIdInput").value = company?.id ?? "";
     document.getElementById("companyExistingW9PathInput").value = company?.W9FilePath ?? "";
+    document.getElementById("companyExistingCoiPathInput").value = company?.COIFilePath ?? "";
     document.getElementById("companyNameInput").value = company?.Name ?? "";
     document.getElementById("companyStreetInput").value = company?.Street ?? "";
     document.getElementById("companyCityInput").value = company?.City ?? "";
@@ -531,6 +769,8 @@ function openCompanyModal(company) {
     document.getElementById("companyZipInput").value = company?.Zip ?? "";
     document.getElementById("companySsnFidInput").value = company?.["SSN/FID"] ?? "";
     document.getElementById("companyW9Input").value = "";
+    document.getElementById("companyCoiInput").value = "";
+    document.getElementById("companyCoiExpiresInput").value = company?.COIExpiresOn ?? "";
 
     const selectedTagIds = new Set(
         company?.id ? tagsForCompany(company.id).map(tag => String(tag.id)) : []
@@ -550,11 +790,19 @@ function openCompanyModal(company) {
         } else {
             existingW9Note.style.display = "none";
         }
+
+        if (company.COIFilePath) {
+            existingCoiNote.style.display = "block";
+            existingCoiNote.textContent = "A COI is already on file. Uploading a new one will replace it.";
+        } else {
+            existingCoiNote.style.display = "none";
+        }
     } else {
         title.textContent = "Add Vendor";
         subtitle.textContent = "Enter the Vendor's details below.";
         deleteBtn.style.display = "none";
         existingW9Note.style.display = "none";
+        existingCoiNote.style.display = "none";
     }
 
     overlay.classList.remove("hidden");
@@ -574,6 +822,7 @@ async function handleCompanyFormSubmit(event) {
     const submitBtn = document.getElementById("submitCompanyBtn");
     const id = document.getElementById("companyIdInput").value;
     const existingW9Path = document.getElementById("companyExistingW9PathInput").value;
+    const existingCoiPath = document.getElementById("companyExistingCoiPathInput").value;
 
     const payload = {
         Name: document.getElementById("companyNameInput").value.trim(),
@@ -583,7 +832,8 @@ async function handleCompanyFormSubmit(event) {
         Zip: document.getElementById("companyZipInput").value.trim()
             ? Number(document.getElementById("companyZipInput").value.trim())
             : null,
-        "SSN/FID": document.getElementById("companySsnFidInput").value.trim() || null
+        "SSN/FID": document.getElementById("companySsnFidInput").value.trim() || null,
+        COIExpiresOn: document.getElementById("companyCoiExpiresInput").value || null
     };
 
     if (!payload.Name) {
@@ -601,6 +851,17 @@ async function handleCompanyFormSubmit(event) {
         if (w9File) {
             const uploadedPath = await uploadW9(w9File, existingW9Path);
             payload.W9FilePath = uploadedPath;
+            // Set automatically, not something staff fill in -- see the
+            // comment on the W9UpdatedAt column in
+            // sql/supabase-vendor-coi-setup.sql for why it exists.
+            payload.W9UpdatedAt = new Date().toISOString();
+        }
+
+        const coiFile = document.getElementById("companyCoiInput").files[0];
+
+        if (coiFile) {
+            const uploadedPath = await uploadCoi(coiFile, existingCoiPath);
+            payload.COIFilePath = uploadedPath;
         }
 
         let saveError;
@@ -664,6 +925,30 @@ async function uploadW9(file, existingPath) {
     return path;
 }
 
+// Mirrors uploadW9() above exactly, just against the company-cois bucket.
+async function uploadCoi(file, existingPath) {
+
+    const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, "_");
+    const path = `${Date.now()}-${safeName}`;
+
+    const { error: uploadError } = await window.supabaseClient
+        .storage
+        .from(COI_BUCKET)
+        .upload(path, file, { upsert: false });
+
+    if (uploadError) throw uploadError;
+
+    if (existingPath) {
+        window.supabaseClient
+            .storage
+            .from(COI_BUCKET)
+            .remove([existingPath])
+            .catch(err => console.warn("Couldn't remove old COI file:", err));
+    }
+
+    return path;
+}
+
 /* ===========================
    DELETE (shared by companies + contacts)
 =========================== */
@@ -671,6 +956,7 @@ async function uploadW9(file, existingPath) {
 let pendingDeleteType = null; // "company" | "contact"
 let pendingDeleteId = null;
 let pendingDeleteW9Path = null;
+let pendingDeleteCoiPath = null;
 let pendingDeleteName = "";
 
 // Typing the record's own name to confirm (same pattern used for project
@@ -704,18 +990,20 @@ function resetDeleteConfirmFields() {
 function openDeleteConfirm() {
     const id = document.getElementById("companyIdInput").value;
     const w9Path = document.getElementById("companyExistingW9PathInput").value;
+    const coiPath = document.getElementById("companyExistingCoiPathInput").value;
 
     if (!id) return;
 
     pendingDeleteType = "company";
     pendingDeleteId = id;
     pendingDeleteW9Path = w9Path || null;
+    pendingDeleteCoiPath = coiPath || null;
     pendingDeleteName = document.getElementById("companyNameInput").value.trim() || "";
 
     document.getElementById("deleteConfirmTitle").textContent = "Delete this vendor?";
     document.getElementById("deleteConfirmName").textContent = pendingDeleteName || "this vendor";
     document.getElementById("deleteConfirmText").textContent =
-        "This will permanently remove the vendor record and its W9 file. This can't be undone.";
+        "This will permanently remove the vendor record and its W9/COI files. This can't be undone.";
     document.getElementById("deleteConfirmOverlay").classList.remove("hidden");
     resetDeleteConfirmFields();
 }
@@ -728,6 +1016,7 @@ function openContactDeleteConfirm() {
     pendingDeleteType = "contact";
     pendingDeleteId = id;
     pendingDeleteW9Path = null;
+    pendingDeleteCoiPath = null;
     pendingDeleteName = document.getElementById("contactNameInput").value.trim() || "";
 
     document.getElementById("deleteConfirmTitle").textContent = "Delete this contact?";
@@ -743,6 +1032,7 @@ function closeDeleteConfirm() {
     pendingDeleteType = null;
     pendingDeleteId = null;
     pendingDeleteW9Path = null;
+    pendingDeleteCoiPath = null;
     pendingDeleteName = "";
 }
 
@@ -771,6 +1061,14 @@ async function confirmDelete() {
                     .from(W9_BUCKET)
                     .remove([pendingDeleteW9Path])
                     .catch(err => console.warn("Couldn't remove W9 file:", err));
+            }
+
+            if (pendingDeleteCoiPath) {
+                window.supabaseClient
+                    .storage
+                    .from(COI_BUCKET)
+                    .remove([pendingDeleteCoiPath])
+                    .catch(err => console.warn("Couldn't remove COI file:", err));
             }
 
             closeDeleteConfirm();
@@ -1524,7 +1822,7 @@ async function buildApprovalStatusReportPdf() {
                 "automatically in our system, resulting in not being automatically selected in the bid process."
             ),
             {
-                ul: ["Submitted W-9", "Valid SSN / FID", "Valid Address", "Proper internal tags", "Asset Specialty", "Trade code specialty"],
+                ul: ["Submitted W-9", "Valid COI", "Valid SSN / FID", "Valid Address", "Proper internal tags", "Asset Specialty", "Trade code specialty"],
                 italics: true,
                 margin: [0, 0, 0, 10],
             },
@@ -1781,6 +2079,21 @@ window.initCompaniesPage = async function () {
 
     await loadVendorTagData();
     loadCompanies();
+
+    // Close any open W9/COI doc badge dropdown on an outside click, Escape,
+    // or the page scrolling/resizing (same pattern as the Manage Tags "?"
+    // tour's reposition-on-scroll, and the same reasoning as All Files'
+    // per-file "⋯" menu / Form Responses' row menu: a fixed-position
+    // dropdown doesn't auto-close on scroll the way an absolutely
+    // positioned one effectively would, so it has to be closed by hand).
+    document.addEventListener("click", (event) => {
+        if (!event.target.closest(".doc-badge")) closeAllDocBadges();
+    });
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeAllDocBadges();
+    });
+    window.addEventListener("scroll", closeAllDocBadges, true);
+    window.addEventListener("resize", closeAllDocBadges);
 
     // Vendor Profile popup
     const closeVendorProfileBtn = document.getElementById("closeVendorProfileBtn");
