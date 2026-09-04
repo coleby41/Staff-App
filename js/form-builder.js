@@ -21,6 +21,54 @@ const FORM_SUBMISSIONS_TABLE = "form_submissions";
 const FORM_SUBMISSIONS_BUCKET = "form-submissions";
 const FORM_TEMPLATE_SOURCES_BUCKET = "form-template-sources";
 
+// Session freshness gate for this file's higher-stakes writes (submitting a
+// form, deleting one). supabase-js's own background auto-refresh runs on a
+// timer that browsers throttle heavily for a backgrounded/idle tab, so on a
+// long-lived page — someone spends 20 minutes filling out a form, or leaves
+// the tab open — the in-memory access token can sit quietly expired well
+// before that timer ever fires, and the very first write after that goes out
+// with a stale/missing token. Different Supabase services react differently
+// to that: a plain REST call (e.g. deleting a form) gets a flat 401 from
+// Supabase Auth's own JWT check; a storage/table write whose bearer token
+// silently dropped out gets treated as anonymous and blocked by RLS instead,
+// which surfaces as "new row violates row-level security policy" — a
+// confusing, data-sounding error for what's really just a stale login.
+// Calling this right before a write forces a check (and refresh, if needed)
+// so the request that follows carries a genuinely current token, instead of
+// finding out only after the write already failed.
+async function ensureFreshSupabaseSession() {
+    try {
+        const { data, error } = await window.supabaseClient.auth.getSession();
+        if (error || !data?.session) return false;
+
+        // expires_at is unix seconds; refresh proactively inside the last
+        // minute rather than waiting to actually hit the wall.
+        const expiresAt = data.session.expires_at;
+        const isStaleOrExpiring = !expiresAt || (expiresAt * 1000) < (Date.now() + 60000);
+        if (!isStaleOrExpiring) return true;
+
+        const { data: refreshed, error: refreshError } = await window.supabaseClient.auth.refreshSession();
+        return Boolean(!refreshError && refreshed?.session);
+    } catch (err) {
+        console.warn("ensureFreshSupabaseSession: couldn't verify/refresh session", err);
+        return false;
+    }
+}
+
+// True when a caught error looks like the request went out without a valid
+// session (see ensureFreshSupabaseSession above) rather than an actual data
+// problem — so the person gets told to sign back in instead of a generic
+// "try again" that will just fail the exact same way every time.
+function isAuthSessionError(error) {
+    const status = error?.status ?? error?.statusCode;
+    const message = String(error?.message || "");
+    return status === 401 || status === "401"
+        || /row-level security policy/i.test(message)
+        || /jwt/i.test(message);
+}
+
+const SESSION_EXPIRED_MESSAGE = "Your session has expired. Please refresh the page and sign in again.";
+
 // Legacy (pre-PDF) field types — still used to edit older forms that were
 // built the manual way (record.pdf_path is null).
 const FORM_FIELD_TYPES = [
@@ -1109,6 +1157,10 @@ async function confirmDeleteForm() {
     if (confirmBtn) confirmBtn.disabled = true;
 
     try {
+        if (!(await ensureFreshSupabaseSession())) {
+            throw Object.assign(new Error(SESSION_EXPIRED_MESSAGE), { isFriendly: true });
+        }
+
         const { error } = await window.supabaseClient
             .from(FORM_TEMPLATES_TABLE)
             .delete()
@@ -1122,7 +1174,11 @@ async function confirmDeleteForm() {
         showFormPageMessage(`"${record.title}" was deleted.`, "success");
     } catch (error) {
         console.error("Failed to delete form:", error);
-        if (messageEl) messageEl.textContent = "Something went wrong deleting this form. Please try again.";
+        if (messageEl) {
+            messageEl.textContent = error?.isFriendly
+                ? error.message
+                : (isAuthSessionError(error) ? SESSION_EXPIRED_MESSAGE : "Something went wrong deleting this form. Please try again.");
+        }
     } finally {
         if (confirmBtn) confirmBtn.disabled = false;
     }
@@ -2121,6 +2177,10 @@ async function handleConfirmSubmissionFileName(event) {
     if (messageEl) { messageEl.textContent = isEditing ? "Saving…" : "Submitting…"; messageEl.className = "auth-message"; }
 
     try {
+        if (!(await ensureFreshSupabaseSession())) {
+            throw Object.assign(new Error(SESSION_EXPIRED_MESSAGE), { isFriendly: true });
+        }
+
         const baseBlob = isPdfForm
             ? await buildPdfSubmissionBlob(record, answers)
             : await pdfMake.createPdf(buildSubmissionPdfDocDefinition(record, answers, footerText)).getBlob();
@@ -2220,7 +2280,9 @@ async function handleConfirmSubmissionFileName(event) {
     } catch (error) {
         console.error(isEditing ? "Failed to save response:" : "Failed to submit form:", error);
         if (messageEl) {
-            messageEl.textContent = error?.isFriendly ? error.message : "Something went wrong. Please try again.";
+            messageEl.textContent = error?.isFriendly
+                ? error.message
+                : (isAuthSessionError(error) ? SESSION_EXPIRED_MESSAGE : "Something went wrong. Please try again.");
             messageEl.className = "auth-message error";
         }
         if (fillMessageEl) { fillMessageEl.textContent = ""; fillMessageEl.className = "auth-message"; }
