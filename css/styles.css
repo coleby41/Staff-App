@@ -11758,3 +11758,82 @@ body.week-cal-dragging {
   .sched-toolbar-row--controls { gap: 6px; }
   .sched-add-actions { margin-left: 0; }
 }
+
+/* ===========================================================
+   COI NOTIFICATIONS MODAL (vendors.html, IT/Super Admin only)
+   One section per phase: a title, a wrapping list of recipient email
+   chips (reuses the app-wide .chip look), and an add-email row. Same
+   labeled-section idea as .company-form-section-title/.workbook-form-
+   section-title elsewhere, given its own class rather than reused since
+   this popup isn't a "company form" or a "workbook" popup either.
+=========================================================== */
+
+.coi-notif-section-title {
+  margin: 4px 0 10px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.coi-notif-section-title:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.coi-notif-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 32px;
+  margin-bottom: 10px;
+}
+
+.coi-notif-chip-empty {
+  font-size: 0.8rem;
+  color: var(--text-soft);
+  font-style: italic;
+}
+
+.coi-notif-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.coi-notif-chip-remove {
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 0;
+  opacity: 0.7;
+}
+
+.coi-notif-chip-remove:hover { opacity: 1; }
+
+.coi-notif-add-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.coi-notif-add-row input {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}

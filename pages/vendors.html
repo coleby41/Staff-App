@@ -443,6 +443,11 @@
                 <button type="button" class="vendor-toolbar-menu-item" id="addCompanyBtn">+ Add Vendor</button>
                 <button type="button" class="vendor-toolbar-menu-item" id="manageTagsBtn">Manage Tags</button>
                 <button type="button" class="vendor-toolbar-menu-item" id="startReportBtn">Generate A Report</button>
+                <!-- IT / Super Admin only -- hidden by default, shown by
+                     companies.js once the signed-in profile is known to
+                     be in one of those workgroups. RLS enforces the real
+                     restriction regardless of this. -->
+                <button type="button" class="vendor-toolbar-menu-item hidden" id="coiNotificationsBtn">COI Notifications</button>
                 <div class="vendor-toolbar-menu-divider"></div>
                 <button type="button" class="vendor-toolbar-menu-item vendor-toolbar-menu-item--ghost" id="inviteBidBtn" disabled aria-disabled="true" title="Coming soon">
                     Generate A Invite Bid
@@ -705,6 +710,40 @@
                     <button type="button" class="auth-button auth-button--sm" id="manageTagsTourNextBtn">Next</button>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- COI Notifications Modal -- IT / Super Admin only. Lets the employee-
+     facing COI expiration reminder recipients be set for each of the
+     four phases (see sql/supabase-coi-notifications-setup.sql and
+     supabase/functions/send-coi-reminders for the sending side). -->
+<div class="popup-overlay hidden" id="coiNotificationsModalOverlay">
+    <div class="popup workbook-popup">
+
+        <h2>COI Notifications</h2>
+        <p class="auth-inline-copy">
+            Choose who gets an automatic email for each phase of a vendor's Certificate of Insurance
+            expiring. Everyone listed for a phase gets one combined daily email covering every vendor
+            due for it that day -- not a separate email per vendor.
+        </p>
+
+        <div id="coiNotificationPhases">
+            <!-- One section per phase, populated by companies.js:
+                 <p class="coi-notif-section-title">Label</p>
+                 <div class="coi-notif-chip-list"></div>
+                 <div class="coi-notif-add-row">
+                     <input type="email" placeholder="name@leewardgroup.com">
+                     <button type="button">+ Add</button>
+                 </div> -->
+        </div>
+
+        <p class="auth-message" id="coiNotificationsMessage"></p>
+
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="cancelCoiNotificationsBtn">Cancel</button>
+            <button type="button" class="auth-button" id="saveCoiNotificationsBtn">Save</button>
         </div>
     </div>
 </div>

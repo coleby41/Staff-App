@@ -2072,6 +2072,232 @@ async function buildCustomSpecialtyReportPdf(selections) {
 }
 
 /* ===========================
+   COI NOTIFICATIONS (IT / Super Admin only)
+   Settings for the employee-facing COI expiration email reminders --
+   who gets notified for each of the four phases. The actual daily
+   check/send happens server-side (see supabase/functions/send-
+   coi-reminders); this is just the recipient-list editor. Recipients are
+   plain typed email addresses, not staff accounts, since staff_users has
+   no real deliverable email column today (auth_email is a synthetic,
+   never-shown address used only for Supabase Auth login -- see
+   migrate-staff-to-auth.ts). Table: coi_notification_settings, RLS-gated
+   to has_coi_notification_access() (IT or Super Admin) -- see
+   sql/supabase-coi-notifications-setup.sql.
+=========================== */
+
+const COI_NOTIFICATION_TABLE = "coi_notification_settings";
+
+const COI_NOTIFICATION_PHASES = [
+    { key: "60_day", label: "60 Days Before Expiration" },
+    { key: "30_day", label: "30 Days Before Expiration" },
+    { key: "7_day_daily", label: "Expiring Within 7 Days (sent daily)" },
+    { key: "expired_daily", label: "COI Expired (sent daily)" },
+];
+
+// phase -> array of email strings, mutated in place while the modal is
+// open, only written back to Supabase on Save.
+let coiNotificationDraft = {};
+
+// Snapshot of what was actually loaded from Supabase when the modal opened
+// (or last saved successfully) -- compared against coiNotificationDraft on
+// Save so only the phase(s) someone actually edited get written. Without
+// this, Save always upserted all four phase rows every time (even the
+// three nobody touched), which -- because coi_notification_settings has an
+// "after update of recipient_emails" trigger that emails changed
+// recipients -- could fire the added/removed-recipient notice for more
+// rows than the person actually changed. Scoping the write to real changes
+// only is the fix, not the trigger's own diff logic.
+let coiNotificationOriginal = {};
+
+function isEmailLike(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+}
+
+// Mirrors isItOrSuperAdmin() in workgroups.js -- kept as its own small
+// copy here rather than a shared cross-page helper, matching how this
+// app's other per-page role checks (e.g. workgroups.js's own version)
+// are already written.
+async function currentProfileIsItOrSuperAdmin() {
+    let profile = window.currentSupabaseProfile;
+    if (!profile && window.supabaseInitialProfilePromise) {
+        try { profile = await window.supabaseInitialProfilePromise; } catch { profile = null; }
+    }
+    if (!profile || !window.isSupabaseUserInGroup) return false;
+    return window.isSupabaseUserInGroup(profile, "IT") || window.isSupabaseUserInGroup(profile, "Super Admin");
+}
+
+// Shows the "COI Notifications" menu item only for IT/Super Admin. This
+// is a UX nicety, not the real access control -- RLS on
+// coi_notification_settings is what actually enforces it, so someone
+// hand-showing the button in devtools still can't read or write the
+// table.
+async function initCoiNotificationsAccess() {
+    const allowed = await currentProfileIsItOrSuperAdmin();
+    const btn = document.getElementById("coiNotificationsBtn");
+    if (btn) btn.classList.toggle("hidden", !allowed);
+    return allowed;
+}
+
+function showCoiNotificationsMessage(text, isError) {
+    const el = document.getElementById("coiNotificationsMessage");
+    if (!el) return;
+    el.textContent = text || "";
+    el.className = `auth-message ${isError ? "error" : "success"}`;
+}
+
+function renderCoiNotificationSections() {
+    const container = document.getElementById("coiNotificationPhases");
+    if (!container) return;
+
+    container.innerHTML = COI_NOTIFICATION_PHASES.map(({ key, label }) => {
+        const emails = coiNotificationDraft[key] || [];
+        const chips = emails.length
+            ? emails.map((email) => `
+                <span class="coi-notif-chip" data-phase="${key}" data-email="${escapeHtmlCompanies(email)}">
+                    ${escapeHtmlCompanies(email)}
+                    <button type="button" class="coi-notif-chip-remove" data-action="remove-coi-recipient" data-phase="${key}" data-email="${escapeHtmlCompanies(email)}" aria-label="Remove ${escapeHtmlCompanies(email)}">✕</button>
+                </span>`).join("")
+            : `<span class="coi-notif-chip-empty">No one added yet</span>`;
+
+        return `
+            <p class="coi-notif-section-title">${escapeHtmlCompanies(label)}</p>
+            <div class="coi-notif-chip-list">${chips}</div>
+            <div class="coi-notif-add-row">
+                <input type="email" placeholder="name@leewardgroup.com" data-phase-input="${key}">
+                <button type="button" class="auth-button auth-button--secondary auth-button--sm" data-action="add-coi-recipient" data-phase="${key}">+ Add</button>
+            </div>`;
+    }).join("");
+}
+
+function addCoiNotificationRecipient(phase) {
+    const input = document.querySelector(`[data-phase-input="${phase}"]`);
+    if (!input) return;
+    const email = input.value.trim().toLowerCase();
+    if (!email) return;
+    if (!isEmailLike(email)) {
+        showCoiNotificationsMessage(`"${email}" doesn't look like a valid email address.`, true);
+        return;
+    }
+    const current = coiNotificationDraft[phase] || (coiNotificationDraft[phase] = []);
+    if (current.includes(email)) {
+        showCoiNotificationsMessage(`${email} is already on this list.`, true);
+        return;
+    }
+    current.push(email);
+    input.value = "";
+    showCoiNotificationsMessage("", false);
+    renderCoiNotificationSections();
+}
+
+function removeCoiNotificationRecipient(phase, email) {
+    coiNotificationDraft[phase] = (coiNotificationDraft[phase] || []).filter((e) => e !== email);
+    renderCoiNotificationSections();
+}
+
+async function openCoiNotificationsModal() {
+    const overlay = document.getElementById("coiNotificationsModalOverlay");
+    if (!overlay) return;
+
+    if (!(await currentProfileIsItOrSuperAdmin())) {
+        // Shouldn't normally be reachable (the button is hidden), but RLS
+        // is the real gate -- if someone gets here anyway the Supabase
+        // read below will just come back empty/denied.
+        return;
+    }
+
+    showCoiNotificationsMessage("Loading...", false);
+    overlay.classList.remove("hidden");
+
+    const { data, error } = await window.supabaseClient
+        .from(COI_NOTIFICATION_TABLE)
+        .select("phase, recipient_emails");
+
+    coiNotificationDraft = {};
+    coiNotificationOriginal = {};
+    for (const { key } of COI_NOTIFICATION_PHASES) {
+        coiNotificationDraft[key] = [];
+        coiNotificationOriginal[key] = [];
+    }
+    if (!error && data) {
+        for (const row of data) {
+            coiNotificationDraft[row.phase] = [...(row.recipient_emails || [])];
+            coiNotificationOriginal[row.phase] = [...(row.recipient_emails || [])];
+        }
+    }
+
+    renderCoiNotificationSections();
+    showCoiNotificationsMessage(error ? "Couldn't load current settings -- starting from an empty list." : "", Boolean(error));
+}
+
+function closeCoiNotificationsModal() {
+    const overlay = document.getElementById("coiNotificationsModalOverlay");
+    if (overlay) overlay.classList.add("hidden");
+}
+
+// Two arrays are "the same list" for save purposes regardless of the order
+// emails were added/removed in -- only membership matters.
+function coiRecipientListsMatch(a, b) {
+    const left = [...(a || [])].sort();
+    const right = [...(b || [])].sort();
+    if (left.length !== right.length) return false;
+    return left.every((email, i) => email === right[i]);
+}
+
+async function saveCoiNotificationSettings() {
+    const saveBtn = document.getElementById("saveCoiNotificationsBtn");
+    if (saveBtn) saveBtn.disabled = true;
+    showCoiNotificationsMessage("Saving...", false);
+
+    // Only write the phase(s) someone actually changed -- see the comment
+    // on coiNotificationOriginal above. Re-upserting every phase on every
+    // save was harmless for the data itself, but the recipient-change
+    // email trigger fires off of "recipient_emails was part of this row's
+    // update," so touching rows nobody actually edited risked notifying
+    // more people than the one real change warranted.
+    const changedPhases = COI_NOTIFICATION_PHASES.filter(
+        ({ key }) => !coiRecipientListsMatch(coiNotificationDraft[key], coiNotificationOriginal[key])
+    );
+
+    if (changedPhases.length === 0) {
+        if (saveBtn) saveBtn.disabled = false;
+        showCoiNotificationsMessage("Saved.", false);
+        setTimeout(closeCoiNotificationsModal, 700);
+        return;
+    }
+
+    const staffId = window.currentSupabaseProfile?.id || null;
+    const rows = changedPhases.map(({ key }) => ({
+        phase: key,
+        recipient_emails: coiNotificationDraft[key] || [],
+        updated_at: new Date().toISOString(),
+        updated_by: staffId,
+    }));
+
+    const { error } = await window.supabaseClient
+        .from(COI_NOTIFICATION_TABLE)
+        .upsert(rows, { onConflict: "phase" });
+
+    if (saveBtn) saveBtn.disabled = false;
+
+    if (error) {
+        console.error("Failed to save COI notification settings:", error);
+        showCoiNotificationsMessage("Something went wrong saving these settings. Please try again.", true);
+        return;
+    }
+
+    // Move the snapshot forward so a second Save in the same modal visit
+    // (e.g. add one more email, then Save again) only diffs against what's
+    // now actually in the database, not the state from when the modal
+    // first opened.
+    for (const { key } of changedPhases) {
+        coiNotificationOriginal[key] = [...(coiNotificationDraft[key] || [])];
+    }
+
+    showCoiNotificationsMessage("Saved.", false);
+    setTimeout(closeCoiNotificationsModal, 700);
+}
+
+/* ===========================
    INIT
 =========================== */
 
@@ -2123,6 +2349,40 @@ window.initCompaniesPage = async function () {
             const company = currentProfileCompany;
             closeVendorProfileModal();
             openCompanyModal(company);
+        });
+    }
+
+    // COI Notifications popup (IT / Super Admin only)
+    initCoiNotificationsAccess();
+
+    const coiNotificationsBtn = document.getElementById("coiNotificationsBtn");
+    if (coiNotificationsBtn) coiNotificationsBtn.addEventListener("click", openCoiNotificationsModal);
+
+    const cancelCoiNotificationsBtn = document.getElementById("cancelCoiNotificationsBtn");
+    if (cancelCoiNotificationsBtn) cancelCoiNotificationsBtn.addEventListener("click", closeCoiNotificationsModal);
+
+    const saveCoiNotificationsBtn = document.getElementById("saveCoiNotificationsBtn");
+    if (saveCoiNotificationsBtn) saveCoiNotificationsBtn.addEventListener("click", saveCoiNotificationSettings);
+
+    const coiNotificationsOverlay = document.getElementById("coiNotificationsModalOverlay");
+    if (coiNotificationsOverlay) {
+        coiNotificationsOverlay.addEventListener("click", (event) => {
+            if (event.target === coiNotificationsOverlay) closeCoiNotificationsModal();
+        });
+        // Delegated so it keeps working as renderCoiNotificationSections()
+        // rebuilds the add/remove buttons on every add/remove.
+        coiNotificationsOverlay.addEventListener("click", (event) => {
+            const addBtn = event.target.closest('[data-action="add-coi-recipient"]');
+            if (addBtn) { addCoiNotificationRecipient(addBtn.dataset.phase); return; }
+            const removeBtn = event.target.closest('[data-action="remove-coi-recipient"]');
+            if (removeBtn) removeCoiNotificationRecipient(removeBtn.dataset.phase, removeBtn.dataset.email);
+        });
+        coiNotificationsOverlay.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter") return;
+            const input = event.target.closest("[data-phase-input]");
+            if (!input) return;
+            event.preventDefault();
+            addCoiNotificationRecipient(input.dataset.phaseInput);
         });
     }
 
