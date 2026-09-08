@@ -33,6 +33,13 @@ let allCompanyTags = [];   // [{ id, company_id, tag_id }]
 
 let allCompanies = [];
 
+// All contacts for every vendor, loaded once up front (same "load
+// everything, filter in memory" pattern as allCompanyTags above) so the
+// vendor list's search box can match on a contact's name/phone/email
+// without a separate query per card. Keyed by company_id (string) ->
+// array of contact rows. See contactsForCompany() below.
+let allContactsByCompanyId = new Map();
+
 /* ===========================
    HELPERS
 =========================== */
@@ -307,6 +314,45 @@ function tagsForCompany(companyId) {
     return allTags.filter(tag => tagIds.has(String(tag.id)));
 }
 
+/* ===========================
+   VENDOR CONTACTS — load + lookup helpers
+   Used by the vendor list's search box (Coleby, 2026-09-08: "make sure on
+   vendor page that i can search ... persons that in that vendor ... and
+   phone number") so a contact's name/phone/email/title/role can find the
+   vendor card they're attached to, even though contacts themselves aren't
+   shown on the card. Not a new access boundary -- any signed-in staff
+   member could already see this by clicking "View Contact Info" on the
+   card; this just loads it a little earlier so it's searchable.
+=========================== */
+
+async function loadAllContacts() {
+
+    if (!window.supabaseClient) {
+        console.error("Supabase client not ready yet");
+        return;
+    }
+
+    const { data, error } = await window.supabaseClient
+        .from(CONTACTS_TABLE)
+        .select("*");
+
+    if (error) {
+        console.error("Failed to load vendor contacts:", error);
+        return;
+    }
+
+    allContactsByCompanyId = new Map();
+    (data || []).forEach(contact => {
+        const key = String(contact.company_id);
+        if (!allContactsByCompanyId.has(key)) allContactsByCompanyId.set(key, []);
+        allContactsByCompanyId.get(key).push(contact);
+    });
+}
+
+function contactsForCompany(companyId) {
+    return allContactsByCompanyId.get(String(companyId)) || [];
+}
+
 // Groups a flat list of tags by category, in category sort order. Returns
 // [{ category, tags }] — every category is included even if empty, so
 // callers (profile popup, tag picker) can show "None assigned" / render
@@ -416,6 +462,35 @@ async function loadCompanies() {
     renderCompanies(allCompanies);
 }
 
+// Builds a visually-hidden span carrying everything about this vendor
+// that the search box on the vendors page should be able to match but
+// that the card itself doesn't show in full -- the unmasked SSN/FID (the
+// card only ever shows the last 4 digits), every tag (the card only shows
+// the first two plus a "+N more" chip), and every contact person's name,
+// title, phone numbers, email, and role (contacts live in their own "View
+// Contact Info" popup, not on the card). Coleby, 2026-09-08: "make sure on
+// vendor page that i can search SSN / FID address and persons that in
+// that vendor name and phone number or anything else." Name/address are
+// already full-text on the card itself, so nothing needed here for those.
+// `.hidden` is `display:none !important` -- invisible, but its text still
+// counts toward card.textContent, which is exactly what the vendors page's
+// existing search box (initCompanyListControls() in vendors.html) already
+// matches against, so no change was needed there at all.
+function buildCardSearchDataHtml(company, companyTags, companyContacts) {
+    const parts = [
+        company["SSN/FID"] || "",
+        ...companyTags.map(tag => tag.name || ""),
+        ...companyContacts.flatMap(contact => [
+            contact.Name, contact.Title, contact.WorkPhone,
+            contact.MobilePhone, contact.Email, contact.Role
+        ])
+    ].filter(Boolean);
+
+    if (!parts.length) return "";
+
+    return `<span class="hidden company-card-search-data">${escapeHtmlCompanies(parts.join(" • "))}</span>`;
+}
+
 function renderCompanies(companies) {
 
     const grid = document.getElementById("companyGrid");
@@ -427,6 +502,7 @@ function renderCompanies(companies) {
 
         const address = formatAddress(company);
         const companyTags = tagsForCompany(company.id);
+        const companyContacts = contactsForCompany(company.id);
         const approved = isVendorApproved(company);
 
         const card = document.createElement("div");
@@ -480,6 +556,8 @@ function renderCompanies(companies) {
                 </div>`}
 
                 <a href="#" class="company-view-contacts-link" data-id="${company.id}" data-name="${escapeHtmlCompanies(company.Name || "")}">View Contact Info</a>
+
+                ${buildCardSearchDataHtml(company, companyTags, companyContacts)}
 
             </div>
         `;
@@ -1115,6 +1193,12 @@ async function confirmDelete() {
             closeContactFormModal();
             await refreshContactsList(companyId);
 
+            // Same reasoning as the save path above -- keep the vendor
+            // list's search index in sync with the contact that was just
+            // deleted.
+            await loadAllContacts();
+            renderCompanies(allCompanies);
+
         }
 
     } catch (error) {
@@ -1310,6 +1394,12 @@ async function handleContactFormSubmit(event) {
 
         closeContactFormModal();
         await refreshContactsList(companyId);
+
+        // Keep the vendor list's search index (see buildCardSearchDataHtml)
+        // current -- otherwise a contact just added/renamed wouldn't be
+        // findable from the search box until the page was reloaded.
+        await loadAllContacts();
+        renderCompanies(allCompanies);
 
     } catch (error) {
         console.error("Failed to save contact:", error);
@@ -2327,7 +2417,7 @@ async function saveCoiNotificationSettings() {
 
 window.initCompaniesPage = async function () {
 
-    await loadVendorTagData();
+    await Promise.all([loadVendorTagData(), loadAllContacts()]);
     loadCompanies();
 
     // Close any open W9/COI doc badge dropdown on an outside click, Escape,
