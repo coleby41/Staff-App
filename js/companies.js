@@ -2163,7 +2163,7 @@ function renderCoiNotificationSections() {
             <p class="coi-notif-section-title">${escapeHtmlCompanies(label)}</p>
             <div class="coi-notif-chip-list">${chips}</div>
             <div class="coi-notif-add-row">
-                <input type="email" placeholder="name@leewardgroup.com" data-phase-input="${key}">
+                <input type="email" placeholder="Input email" data-phase-input="${key}">
                 <button type="button" class="auth-button auth-button--secondary auth-button--sm" data-action="add-coi-recipient" data-phase="${key}">+ Add</button>
             </div>`;
     }).join("");
