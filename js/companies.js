@@ -352,8 +352,10 @@ function missingVendorRequirements(company) {
     // expired one is treated the same as missing entirely, same as
     // Coleby confirmed (2026-09-02): approval status should reflect a
     // COI that's actually still in force, not just "was uploaded once".
-    const coiStatus = getDocStatus(company, "coi");
-    if (!coiStatus.hasFile || coiStatus.state === "expired") missing.push("Valid COI");
+    if (!company.COIExempt) {
+        const coiStatus = getDocStatus(company, "coi");
+        if (!coiStatus.hasFile || coiStatus.state === "expired") missing.push("Valid COI");
+    }
 
     if (allTagCategories.length === 0) {
         missing.push("Tags");
@@ -471,10 +473,11 @@ function renderCompanies(companies) {
                     ${buildDocBadgeHtml(company, "w9", "W9")}
                 </div>
 
+                ${company.COIExempt ? "" : `
                 <div class="company-card-row company-card-row--coi">
                     <span class="company-card-label">COI</span>
                     ${buildDocBadgeHtml(company, "coi", "Certificate of Insurance")}
-                </div>
+                </div>`}
 
                 <a href="#" class="company-view-contacts-link" data-id="${company.id}" data-name="${escapeHtmlCompanies(company.Name || "")}">View Contact Info</a>
 
@@ -628,18 +631,24 @@ function openVendorProfileModal(company) {
 
     // COI -- same plain chip + "View" button as W9 above (deliberately not
     // the interactive dropdown badge used on the grid; see the comment
-    // above .doc-badge in styles.css for why).
-    const coiStatus = getDocStatus(company, "coi");
-    const coiStatusEl = document.getElementById("vendorProfileCoiStatus");
-    coiStatusEl.innerHTML = hasCoi
-        ? `<span class="chip ${coiStatus.state === "expired" ? "chip--danger" : coiStatus.state === "expiring" ? "chip--warning" : ""}">${escapeHtmlCompanies(coiStatus.label)}</span>
-           ${coiStatus.meta ? `<span class="company-card-muted">${escapeHtmlCompanies(coiStatus.meta)}</span>` : ""}
-           <button type="button" class="workbook-btn workbook-btn--preview" id="vendorProfileViewCoiBtn">View COI</button>`
-        : `<span class="chip chip--muted">Missing</span>`;
+    // above .doc-badge in styles.css for why). Exempt vendors don't show a
+    // COI section at all here, matching the card/list grid.
+    const coiSectionEl = document.getElementById("vendorProfileCoiSection");
+    if (coiSectionEl) coiSectionEl.style.display = company.COIExempt ? "none" : "";
 
-    const viewCoiBtn = document.getElementById("vendorProfileViewCoiBtn");
-    if (viewCoiBtn) {
-        viewCoiBtn.addEventListener("click", () => viewDocFile(COI_BUCKET, company.COIFilePath));
+    if (!company.COIExempt) {
+        const coiStatus = getDocStatus(company, "coi");
+        const coiStatusEl = document.getElementById("vendorProfileCoiStatus");
+        coiStatusEl.innerHTML = hasCoi
+            ? `<span class="chip ${coiStatus.state === "expired" ? "chip--danger" : coiStatus.state === "expiring" ? "chip--warning" : ""}">${escapeHtmlCompanies(coiStatus.label)}</span>
+               ${coiStatus.meta ? `<span class="company-card-muted">${escapeHtmlCompanies(coiStatus.meta)}</span>` : ""}
+               <button type="button" class="workbook-btn workbook-btn--preview" id="vendorProfileViewCoiBtn">View COI</button>`
+            : `<span class="chip chip--muted">Missing</span>`;
+
+        const viewCoiBtn = document.getElementById("vendorProfileViewCoiBtn");
+        if (viewCoiBtn) {
+            viewCoiBtn.addEventListener("click", () => viewDocFile(COI_BUCKET, company.COIFilePath));
+        }
     }
 
     const groups = groupTagsByCategory(tagsForCompany(company.id));
@@ -750,6 +759,18 @@ async function saveCompanyTags(companyId, selectedTagIds) {
    ADD / EDIT MODAL
 =========================== */
 
+// Checking "Exempt from COI requirement" hides the whole COI upload
+// section below it -- nothing to fill in for a vendor that doesn't need
+// one on file. Wired both on the checkbox's change event and on modal
+// open (see openCompanyModal), since opening the form for a vendor that's
+// already exempt needs the section hidden immediately, not just after a
+// click.
+function updateCoiSectionVisibility() {
+    const exempt = document.getElementById("companyCoiExemptInput")?.checked;
+    const section = document.getElementById("companyCoiSection");
+    if (section) section.style.display = exempt ? "none" : "";
+}
+
 function openCompanyModal(company) {
 
     const overlay = document.getElementById("companyModalOverlay");
@@ -771,6 +792,8 @@ function openCompanyModal(company) {
     document.getElementById("companyW9Input").value = "";
     document.getElementById("companyCoiInput").value = "";
     document.getElementById("companyCoiExpiresInput").value = company?.COIExpiresOn ?? "";
+    document.getElementById("companyCoiExemptInput").checked = Boolean(company?.COIExempt);
+    updateCoiSectionVisibility();
 
     const selectedTagIds = new Set(
         company?.id ? tagsForCompany(company.id).map(tag => String(tag.id)) : []
@@ -833,7 +856,8 @@ async function handleCompanyFormSubmit(event) {
             ? Number(document.getElementById("companyZipInput").value.trim())
             : null,
         "SSN/FID": document.getElementById("companySsnFidInput").value.trim() || null,
-        COIExpiresOn: document.getElementById("companyCoiExpiresInput").value || null
+        COIExpiresOn: document.getElementById("companyCoiExpiresInput").value || null,
+        COIExempt: document.getElementById("companyCoiExemptInput").checked
     };
 
     if (!payload.Name) {
@@ -2477,6 +2501,9 @@ window.initCompaniesPage = async function () {
 
     const form = document.getElementById("companyForm");
     if (form) form.addEventListener("submit", handleCompanyFormSubmit);
+
+    const coiExemptInput = document.getElementById("companyCoiExemptInput");
+    if (coiExemptInput) coiExemptInput.addEventListener("change", updateCoiSectionVisibility);
 
     const deleteBtn = document.getElementById("deleteCompanyBtn");
     if (deleteBtn) deleteBtn.addEventListener("click", openDeleteConfirm);

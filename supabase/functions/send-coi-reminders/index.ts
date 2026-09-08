@@ -82,6 +82,7 @@ interface CompanyRow {
   id: number;
   Name: string | null;
   COIExpiresOn: string; // date, not null (query filters for it)
+  COIExempt: boolean | null;
 }
 
 interface DueItem {
@@ -118,7 +119,7 @@ Deno.serve(async (_req: Request) => {
   // here (a "no COI at all" nag would be a different, separate feature).
   const { data: companies, error: companiesError } = await supabase
     .from("Companies")
-    .select('id, Name, "COIExpiresOn"')
+    .select('id, Name, "COIExpiresOn", "COIExempt"')
     .not("COIExpiresOn", "is", null)
     .not("COIFilePath", "is", null);
   if (companiesError) {
@@ -126,11 +127,14 @@ Deno.serve(async (_req: Request) => {
     return new Response(JSON.stringify({ ok: false, error: companiesError.message }), { status: 500 });
   }
 
-  // 3. Bucket each vendor into at most one phase for today.
+  // 3. Bucket each vendor into at most one phase for today. Exempt
+  // vendors are skipped entirely -- no point reminding anyone about a COI
+  // that isn't required for that vendor.
   const dueByPhase = new Map<Phase, DueItem[]>();
   for (const phase of PHASES) dueByPhase.set(phase, []);
 
   for (const company of (companies || []) as CompanyRow[]) {
+    if (company.COIExempt) continue;
     const daysUntil = daysBetween(today, company.COIExpiresOn);
     let phase: Phase | null = null;
     if (daysUntil > 30 && daysUntil <= 60) phase = "60_day";
