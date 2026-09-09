@@ -6178,7 +6178,8 @@ body.todo-panel-resizing .todo-panel-resize-handle::after {
   height: 8px;
   border-radius: var(--radius-sm);
   background: var(--border);
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, opacity 0.15s ease, filter 0.15s ease;
+  cursor: pointer;
 }
 
 .wizard-progress-dot.is-complete {
@@ -6187,6 +6188,23 @@ body.todo-panel-resizing .todo-panel-resize-handle::after {
 
 .wizard-progress-dot.is-current {
   background: var(--accent);
+}
+
+/* Clicking a pill jumps straight to that step; hovering one dims every
+   pill to its left as a preview (Coleby, 2026-09-08). See renderWizardStep()
+   in projects-page.js for the click/hover wiring -- these three rules are
+   purely the visual side of it. */
+.wizard-progress-dot:hover {
+  filter: brightness(1.15);
+}
+
+.wizard-progress-dot--dimmed {
+  opacity: 0.45;
+}
+
+.wizard-progress-dot:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* wizard-step-title/wizard-step-hint (the plain, ungrouped step heading)

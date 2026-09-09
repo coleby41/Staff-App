@@ -866,12 +866,54 @@ function renderWizardStep() {
 
     attachAddressAutocomplete();
 
-    // Progress dots
+    // Progress dots -- Coleby, 2026-09-08: "can we add where i hover over
+    // the pills at the top and go to that steps... when you hover over it
+    // the pills to the left are lightly grade out and then press it and go
+    // stright to that step." Each pill is now a real step-jump control:
+    // click to go straight there, hover to preview which pills sit to its
+    // left (dimmed). Free jump to any step (forward or back) mirrors the
+    // freedom the existing Skip button already allows -- no per-step
+    // required-field gate exists in this wizard to break by allowing it.
     const progressEl = document.getElementById("projectWizardProgress");
-    progressEl.innerHTML = WIZARD_STEPS.map((_, i) => {
+    progressEl.innerHTML = WIZARD_STEPS.map((wizardStep, i) => {
         const cls = i < state.stepIndex ? "is-complete" : (i === state.stepIndex ? "is-current" : "");
-        return `<div class="wizard-progress-dot ${cls}"></div>`;
+        return `<div
+            class="wizard-progress-dot ${cls}"
+            data-step-index="${i}"
+            role="button"
+            tabindex="0"
+            title="Step ${i + 1}: ${escapeHtmlProject(wizardStep.title)}"
+        ></div>`;
     }).join("");
+
+    progressEl.querySelectorAll(".wizard-progress-dot").forEach(dot => {
+        const targetIndex = Number(dot.dataset.stepIndex);
+
+        dot.addEventListener("click", () => wizardGoToStep(targetIndex));
+
+        dot.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            wizardGoToStep(targetIndex);
+        });
+
+        // Lightly dim every pill to the LEFT of the one being hovered, so
+        // hovering step 4's pill previews "you're about to jump past 1-3."
+        dot.addEventListener("mouseenter", () => {
+            progressEl.querySelectorAll(".wizard-progress-dot").forEach(other => {
+                other.classList.toggle(
+                    "wizard-progress-dot--dimmed",
+                    Number(other.dataset.stepIndex) < targetIndex
+                );
+            });
+        });
+
+        dot.addEventListener("mouseleave", () => {
+            progressEl.querySelectorAll(".wizard-progress-dot").forEach(other => {
+                other.classList.remove("wizard-progress-dot--dimmed");
+            });
+        });
+    });
 
     // Step 1: top-left link is "Cancel" (nothing to go back to yet).
     // Step 2+: it becomes "Go back" instead — Cancel only makes sense
@@ -955,6 +997,19 @@ function wizardGoBack() {
     if (!projectWizardState || projectWizardState.stepIndex === 0) return;
     collectCurrentStepInputs();
     projectWizardState.stepIndex--;
+    renderWizardStep();
+}
+
+// Jumps straight to any step by index -- wired to a click (or Enter/Space)
+// on that step's progress pill. Always collects whatever's currently typed
+// first, same as Back/Next, so nothing typed on the step you're leaving is
+// lost, whichever direction the jump goes.
+function wizardGoToStep(index) {
+    if (!projectWizardState) return;
+    if (index < 0 || index >= WIZARD_STEPS.length) return;
+    if (index === projectWizardState.stepIndex) return;
+    collectCurrentStepInputs();
+    projectWizardState.stepIndex = index;
     renderWizardStep();
 }
 
