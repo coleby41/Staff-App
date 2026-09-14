@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>The Leeward Group | Workgroups</title>
+    <title>Leeward Staff Portal | Account Activity</title>
 
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
@@ -115,8 +115,6 @@
 
                         </div>
 
-
-                    
                         <div class="notification-change-password-row">
                             <button type="button" class="notification-change-password-btn" id="changePasswordBtn">
                                 <span class="notification-change-password-btn-icon" aria-hidden="true"></span>
@@ -140,99 +138,188 @@
 
 </header>
 
+
+
 <aside class="sidebar" id="sidebar">
+
 
     <div class="sidebar-header">
         COMPANY WIDE
     </div>
 
+
+
     <nav class="sidebar-nav">
 
+
+
         <a href="/pages/dashboard.html" class="nav-item">
+
             <span class="home-nav-icon"></span>
+
             <span class="nav-text">
                 Dashboard
             </span>
+
         </a>
 
+
+
+
         <div class="nav-item-group" id="companyDocsNavGroup">
+
 
             <a href="#"
                class="nav-item nav-parent"
                onclick="toggleSubnav(event, this)">
+
+
                 <span class="docs-nav-icon"></span>
+
+
                 <span class="nav-text">
                     Company docs
                 </span>
+
+
                 <span class="nav-arrow"></span>
+
+
             </a>
+
+
+
 
             <div class="subnav">
 
+
+
+
+
+
                 <a href="/pages/excel-workbook.html" class="subnav-item">
+
                     <span class="nav-text">
                         Excel Workbook Templates
                     </span>
+
                 </a>
 
+
+
                 <a href="/pages/form-template.html" class="subnav-item">
+
                     <span class="nav-text">
                         Form Templates
                     </span>
+
                 </a>
+
+
+
             </div>
+
+
+
         </div>
 
+
+
+
+
        <a href="/pages/timesheet.html" class="nav-item">
+
             <span class="finance-nav-icon"></span>
+
             <span class="nav-text">
                 Staff Finance
             </span>
+
         </a>
 
         <a href="/pages/project-home.html" class="nav-item">
+
             <span class="projects-nav-icon"></span>
+
             <span class="nav-text">
                 Project Overview
             </span>
+
         </a>
+
+
 
         <a href="https://www.theleewardgroup.us/"
            class="nav-item"
            target="_blank">
+
+
             <span class="website-nav-icon"></span>
+
+
             <span class="nav-text">
                 Company site
             </span>
+
+
         </a>
 
+
+
+
+
         <a href="/pages/vendors.html" class="nav-item">
+
             <span class="companies-nav-icon"></span>
+
             <span class="nav-text">
                 Vendor Information
             </span>
+
         </a>
 
         <a href="/pages/incident-report.html" class="nav-item" id="incidentReportNavItem">
+
             <span class="docs-nav-icon"></span>
-            <span class="nav-text">Incident Report</span>
+
+            <span class="nav-text">
+                Incident Report
+            </span>
+
         </a>
 
-        <a href="/pages/account-activity.html" class="nav-item" id="accountActivityNavItem">
+        <a href="/pages/account-activity.html" class="nav-item active" id="accountActivityNavItem">
+
             <span class="finance-nav-icon"></span>
-            <span class="nav-text">Account Activity</span>
+
+            <span class="nav-text">
+                Account Activity
+            </span>
+
             <span class="nav-item-badge" id="accountActivityNavBadge"></span>
+
         </a>
+
 
         <a href="/pages/payroll-tools.html"
            class="nav-item"
            id="payrollToolsNavItem"
            style="display:none;">
+
+
             <span class="docs-nav-icon"></span>
+
+
             <span class="nav-text">
                 Payroll Tools
             </span>
+
+
         </a>
+
+
+
+
 
         <a href="/pages/manage-employees.html"
            class="nav-item"
@@ -248,314 +335,320 @@
              id="adminNavGroup"
              style="display:none;">
 
-            <a href="#"
+
+
+            <a href="/pages/admin-users.html"
                class="nav-item nav-parent"
                onclick="toggleSubnav(event, this)">
+
+
+
                 <span class="it-tools-nav-icon"></span>
+
+
                 <span class="nav-text">
                     IT Tools
                 </span>
+
+
                 <span class="nav-arrow"></span>
+
+
+
             </a>
 
-            <div class="subnav expanded">
+
+
+
+
+            <div class="subnav">
+
 
                 <a href="/pages/admin-users.html"
                    class="subnav-item">
+
+
                     <span class="nav-text">
                         Create account
                     </span>
+
+
                 </a>
+
+
+
 
                 <a href="/pages/staff-users.html"
                    class="subnav-item">
+
+
                     <span class="nav-text">
                         Staff users
                     </span>
+
+
                 </a>
 
+
                 <a href="/pages/workgroups.html"
-                   class="subnav-item active">
+                   class="subnav-item">
+
+
                     <span class="nav-text">
                         Workgroups
                     </span>
+
+
                 </a>
+
+
 
             </div>
 
+
+
         </div>
+
+
+
 
     </nav>
 
+
+
+
     <div class="sidebar-footer">
+
+
         <div class="footer-pill" id="sidebarGroupPill"></div>
+
+
         <div class="sidebar-brand">
             LeeWard Group
         </div>
+
+
         <div class="version">
             Version XF-800-BETA
         </div>
+
+
     </div>
+
+
 </aside>
 
 <main class="main-content">
 
-    <section class="hero-section">
-        <div>
-            <p class="eyebrow">IT Tools</p>
-            <h1>Workgroups</h1>
-            <p>See every workgroup, add new ones, and control which tabs each one can access.</p>
-        </div>
-    </section>
+    <h1>Account Activity</h1>
 
-    <div id="restrictedView" class="restricted-wrap" style="display:none;">
-        <h2>Restricted</h2>
-        <p>Only IT and Super Admin accounts can manage workgroups.</p>
+    <div class="aa-toolbar hidden" id="aaStaffPickerWrap">
+        <label class="auth-field aa-staff-picker-field">
+            Viewing
+            <select id="aaStaffPicker"></select>
+        </label>
+        <p class="aa-toolbar-hint">As Super Admin/IT, you can view any staff member's activity here.</p>
     </div>
 
-    <div id="workgroupsContent" style="display:none;">
-
-        <div id="workgroupsPageMessage" class="workbook-page-message" style="display:none;"></div>
-
-        <div class="card">
+    <!-- Two pie charts summarizing whoever's activity is currently being
+         viewed (the staff picker above, or just yourself) — see
+         renderActivityCharts() in js/account-activity.js. -->
+    <div class="aa-charts-row">
+        <div class="card aa-section aa-chart-card">
             <div class="card-header">
-                <h2 class="card-title">Workgroups</h2>
+                <h2 class="card-title">All Forms</h2>
             </div>
-
-            <div id="workgroupsList" class="workgroup-chip-list"></div>
-
-            <form id="addWorkgroupForm" class="form-add-field-row" style="margin-top:14px;">
-                <input type="text" id="newWorkgroupNameInput" placeholder="New workgroup name (e.g. Field)" style="flex:1; padding:10px 12px; border-radius:10px; border:1px solid var(--border);">
-                <button type="submit" class="auth-button auth-button--secondary" style="width:auto; padding:10px 18px; margin-top:0;">+ Add Workgroup</button>
-            </form>
+            <div class="aa-chart-body" id="aaAllFormsChart"></div>
         </div>
-
-        <div class="card" style="margin-top:20px;">
+        <div class="card aa-section aa-chart-card">
             <div class="card-header">
-                <h2 class="card-title">Tab Access</h2>
+                <h2 class="card-title">Incident Report Status</h2>
             </div>
-            <div id="permissionGridWrap" class="permission-grid-wrap"></div>
+            <div class="aa-chart-body" id="aaIrStatusChart"></div>
         </div>
+    </div>
 
+    <!-- Only ever shown while viewing your OWN activity — approving/
+         rejecting is something only the assigned person can do, not
+         something Super Admin/IT can do on someone else's behalf. -->
+    <div class="card aa-section hidden" id="aaNeedsApprovalSection">
+        <div class="card-header">
+            <h2 class="card-title">Needs Your Approval</h2>
+        </div>
+        <div id="aaNeedsApprovalList" class="aa-report-list"></div>
+        <p class="aa-empty-note hidden" id="aaNeedsApprovalEmpty">Nothing waiting on your approval right now.</p>
+    </div>
+
+    <!-- Reports assigned to you that you've already approved/rejected --
+         "Needs Your Approval" only ever shows pending ones, but you can
+         still delete a report you decided on from here (Coleby: "the
+         person that approves the forms needs to be able to delete the
+         form" — not just while it's still pending). Only ever shown while
+         viewing your own activity, same reasoning as the section above. -->
+    <div class="card aa-section hidden" id="aaDecidedSection">
+        <div class="card-header">
+            <h2 class="card-title">Reports You've Decided</h2>
+        </div>
+        <div id="aaDecidedList" class="aa-report-list"></div>
+        <p class="aa-empty-note hidden" id="aaDecidedEmpty">Nothing you've approved or rejected yet.</p>
+    </div>
+
+    <div class="card aa-section">
+        <div class="card-header">
+            <h2 class="card-title">Incident Reports</h2>
+            <a href="/pages/incident-report.html" class="chip">Submit a report</a>
+        </div>
+        <div id="aaMyReportsList" class="aa-report-list"></div>
+        <p class="aa-empty-note hidden" id="aaMyReportsEmpty">No incident reports submitted yet.</p>
+    </div>
+
+    <div class="card aa-section">
+        <div class="card-header">
+            <h2 class="card-title">Form Submissions</h2>
+        </div>
+        <div id="aaFormSubmissionsList" class="aa-report-list"></div>
+        <p class="aa-empty-note hidden" id="aaFormSubmissionsEmpty">No forms submitted yet.</p>
+        <p class="aa-show-all-wrap hidden" id="aaFormsShowAllWrap">
+            <button type="button" class="aa-see-more-link" id="aaFormsShowAllBtn">Show All</button>
+        </p>
     </div>
 
 </main>
 
 
-<!-- Delete Workgroup Confirmation Modal -->
-<div class="popup-overlay hidden" id="deleteWorkgroupConfirmOverlay">
-    <div class="popup popup--danger">
-        <div class="delete-confirm-header">
-            <span class="delete-confirm-icon" aria-hidden="true"></span>
-            <h2>Delete this workgroup?</h2>
+<!-- Reject — the currently assigned approver only (enforced server-side by
+     the incident_reports trigger regardless of what this popup shows). -->
+<div class="popup-overlay hidden" id="aaRejectOverlay">
+    <div class="popup">
+        <div class="modal-icon-header">
+            <span class="modal-icon modal-icon--reject" aria-hidden="true"></span>
+            <div>
+                <h2>Reject Incident Report</h2>
+                <p class="auth-inline-copy">Give a reason — the person who submitted this will see it.</p>
+            </div>
         </div>
 
-        <div class="delete-confirm-warning-box">
-            <p id="deleteWorkgroupConfirmText"></p>
-        </div>
-
-        <label class="auth-field delete-confirm-name-field">
-            <span>Type <strong id="deleteWorkgroupConfirmName"></strong> below to confirm</span>
-            <input type="text" id="deleteWorkgroupConfirmNameInput" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <label class="auth-field">
+            Reason
+            <textarea id="aaRejectReasonInput" placeholder="Why is this being rejected?"></textarea>
         </label>
 
-        <label class="delete-confirm-checkbox-row">
-            <input type="checkbox" id="deleteWorkgroupConfirmUnderstandCheckbox">
-            <span>I understand this action is permanent and cannot be undone.</span>
-        </label>
-
-        <p class="auth-message" id="deleteWorkgroupConfirmMessage"></p>
+        <p class="auth-message" id="aaRejectMessage" role="status"></p>
 
         <div class="popup-buttons">
-            <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteWorkgroupBtn">Cancel</button>
-            <button type="button" class="auth-button auth-button--red" id="confirmDeleteWorkgroupBtn" disabled>Delete</button>
+            <button type="button" class="auth-button auth-button--secondary" id="aaCancelRejectBtn">Cancel</button>
+            <button type="button" class="auth-button auth-button--red" id="aaConfirmRejectBtn">Reject Report</button>
         </div>
     </div>
 </div>
 
 
-<!-- Change Password modal — opened from the "Change Password" action in
-     the notification center dropdown (see /js/change-password.js). Same
-     corporate popup styling (.modal-icon-header/.popup) used by the
-     app's other non-destructive modals. -->
-<div class="popup-overlay hidden" id="changePasswordModalOverlay">
-    <div class="popup">
-        <div class="workbook-preview-header">
-            <div class="modal-icon-header" style="margin-bottom:0;">
-                <span class="modal-icon modal-icon--lock" aria-hidden="true"></span>
-                <div>
-                    <h2>Change Password</h2>
-                    <p class="auth-inline-copy">Enter your current password, then choose a new one.</p>
-                </div>
+<!-- "Show All" -- every form submitted by this staff member, opened from
+     the Form Submissions card once there are more than the 4 shown there
+     (see openFormsPopup() in js/account-activity.js). -->
+<div class="popup-overlay hidden" id="aaFormsOverlay">
+    <div class="popup popup--corporate" id="aaFormsPopup">
+        <div class="aa-files-popup-header">
+            <div>
+                <p class="aa-files-popup-eyebrow">The Leeward Group</p>
+                <h2 id="aaFormsPopupTitle">Form Submissions</h2>
+                <p class="aa-files-popup-subtitle" id="aaFormsPopupSubtitle"></p>
             </div>
-            <button type="button" class="menu-btn" id="closeChangePasswordBtn" aria-label="Close">✕</button>
+            <button type="button" class="file-preview-close-btn" id="aaFormsCloseBtn" aria-label="Close">✕</button>
         </div>
-
-        <form class="auth-form" id="changePasswordForm">
-            <label class="auth-field">
-                Current password
-                <input type="password" id="changePasswordCurrentInput" name="currentPassword" required autocomplete="current-password" placeholder="Enter your current password">
-            </label>
-
-            <label class="auth-field">
-                New password
-                <input type="password" id="changePasswordNewInput" name="newPassword" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters">
-            </label>
-
-            <label class="auth-field">
-                Confirm new password
-                <input type="password" id="changePasswordConfirmInput" name="confirmPassword" required minlength="8" autocomplete="new-password" placeholder="Re-enter your new password">
-            </label>
-
-            <p class="auth-message" id="changePasswordMessage" role="status"></p>
-
-            <div class="popup-buttons">
-                <button type="button" class="auth-button auth-button--secondary" id="cancelChangePasswordBtn">Cancel</button>
-                <button type="submit" class="auth-button" id="submitChangePasswordBtn">Update Password</button>
-            </div>
-        </form>
+        <div class="aa-files-popup-list" id="aaFormsPopupList"></div>
     </div>
 </div>
 
 
-<script src="/js/script.js"></script>
-<script src="/js/supabase-config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-config.js"></script>
 <script src="/js/supabase-auth.js"></script>
 <script src="/js/auth-guard.js"></script>
 <script src="/js/manager-nav.js"></script>
+<script src="/js/script.js"></script>
 <script src="/js/timeout.js"></script>
 <script src="/js/notifications.js"></script>
 <script src="/js/change-password.js"></script>
-<script src="/js/workgroups.js"></script>
 <script src="/js/nav-access.js"></script>
 <script src="/js/nav-approvals-badge.js"></script>
 
+<!-- pdf-lib merges the attachments; pdfmake builds the base Incident
+     Report page — same two libraries form-template.html already loads,
+     pinned to the same versions for consistency. -->
+<script src="https://cdn.jsdelivr.net/npm/pdfmake@0.3.10/build/pdfmake.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfmake@0.3.10/build/vfs_fonts.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+
+<script src="/js/incident-report-pdf.js"></script>
+<script src="/js/account-activity.js"></script>
 
 <script>
-
-
-/* ===========================
-   SIGN OUT
-=========================== */
-
-
-const signOutButton =
-    document.getElementById("signOutButton");
-
-
+const signOutButton = document.getElementById("signOutButton");
 if (signOutButton) {
-
-    signOutButton.addEventListener("click", function(event) {
-
+    signOutButton.addEventListener("click", function (event) {
         event.stopPropagation();
-
-
-        if (typeof window.signOutUser === "function") {
-
-            window.signOutUser();
-
-        } else {
-
-            console.error("signOutUser() is not available");
-
-        }
-
+        if (typeof window.signOutUser === "function") window.signOutUser();
+        else console.error("signOutUser() is not available");
     });
-
 }
 
-
-/* ===========================
-   ELEMENTS
-=========================== */
-
-
-const userNameElement =
-    document.getElementById("headerUserName");
-
-
-const brandInitials =
-    document.getElementById("brandInitials");
-
-
-/* ===========================
-   UPDATE STAFF NAME
-=========================== */
-
+const userNameElement = document.getElementById("headerUserName");
+const brandInitials = document.getElementById("brandInitials");
 
 function updateStaffName(profile) {
-
     if (!profile) return;
-
-    const name =
-        profile.full_name ||
-        profile.username ||
-        "Staff";
-
-    if (userNameElement) {
-        userNameElement.textContent = name;
-    }
-
+    const name = profile.full_name || profile.username || "Staff";
+    if (userNameElement) userNameElement.textContent = name;
     if (brandInitials) {
-
-        const words =
-            String(name)
-            .trim()
-            .split(/\s+/)
-            .filter(Boolean);
-
-        const initials =
-            words.length >= 2
+        const words = String(name).trim().split(/\s+/).filter(Boolean);
+        const initials = words.length >= 2
             ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
-            : words[0]?.substring(0,2).toUpperCase() || "ST";
-
+            : words[0]?.substring(0, 2).toUpperCase() || "ST";
         brandInitials.textContent = initials;
     }
-
-    const sidebarGroupPill =
-        document.getElementById("sidebarGroupPill");
-
+    const sidebarGroupPill = document.getElementById("sidebarGroupPill");
     if (sidebarGroupPill) {
-
-        const groups =
-            window.getSupabaseUserGroups
-            ? window.getSupabaseUserGroups(profile)
-            : [];
-
-        sidebarGroupPill.textContent =
-            groups.length
+        const groups = window.getSupabaseUserGroups ? window.getSupabaseUserGroups(profile) : [];
+        sidebarGroupPill.textContent = groups.length
             ? groups.map(g => g.charAt(0).toUpperCase() + g.slice(1)).join(", ")
             : "No Group";
     }
 }
 
+function updateNavAccess(profile) {
+    const shouldShowAdminNav = window.isSupabaseUserInGroup
+        ? (window.isSupabaseUserInGroup(profile, "IT") || window.isSupabaseUserInGroup(profile, "Super Admin"))
+        : false;
+    const adminNavGroup = document.getElementById("adminNavGroup");
+    if (adminNavGroup) adminNavGroup.style.display = shouldShowAdminNav ? "block" : "none";
 
-const storedProfile =
-    localStorage.getItem("staffProfile");
+    const payrollToolsNavItem = document.getElementById("payrollToolsNavItem");
+    const shouldShowPayrollTools = window.isSupabaseUserInGroup
+        ? (window.isSupabaseUserInGroup(profile, "Office") || window.isSupabaseUserInGroup(profile, "Accounting") || window.isSupabaseUserInGroup(profile, "Super Admin"))
+        : false;
+    if (payrollToolsNavItem) payrollToolsNavItem.style.display = shouldShowPayrollTools ? "flex" : "none";
+}
 
+const storedProfile = localStorage.getItem("staffProfile");
 if (storedProfile) {
     try {
         const parsedProfile = JSON.parse(storedProfile);
         updateStaffName(parsedProfile);
-    } catch(error) {
+        updateNavAccess(parsedProfile);
+    } catch (error) {
         console.warn("Unable to parse stored profile:", error);
     }
 }
 
-window.addEventListener("DOMContentLoaded", function() {
+window.addEventListener("DOMContentLoaded", function () {
     const profile = window.currentSupabaseProfile || null;
     if (profile) {
         updateStaffName(profile);
+        updateNavAccess(profile);
     }
-    // Nav item visibility (including the adminNavGroup wrapper) is handled
-    // by nav-access.js. This page's own IT/Super-Admin gate is handled by
-    // workgroups.js's enforceWorkgroupsAccess(), independent of that system.
 });
-
-
 </script>
-
 
 </body>
 

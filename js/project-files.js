@@ -43,6 +43,153 @@
     let filesCurrentPage = 1;        // pagination over the currently-selected folder's file list — same component/behavior as project-home.html's project list pagination
     let filesPageSize = 10;
 
+    /* ---------- file list column layout (resize + reorder) ----------
+       Coleby: "In the project file let me able to adjust the columns" —
+       both dragging a column's right edge to resize it, and dragging a
+       column heading to reorder it. The Actions ("⋯") column stays pinned
+       last — it's not a data column, so there's nothing to resize/reorder
+       about it. Saved to localStorage (per-browser, like everything else
+       client-side in this app) so the layout sticks across visits. */
+    const PF_COLUMNS_STORAGE_KEY = "projectFilesColumnLayoutV1";
+    const PF_COLUMN_DEFS = {
+        name:     { label: "Name",      minWidth: 200, defaultWidth: 260 },
+        kind:     { label: "Kind",      minWidth: 80,  defaultWidth: 170 },
+        addedBy:  { label: "Added By",  minWidth: 80,  defaultWidth: 150 },
+        uploaded: { label: "Uploaded",  minWidth: 80,  defaultWidth: 170 },
+    };
+    const PF_DEFAULT_COLUMN_ORDER = ["name", "kind", "addedBy", "uploaded"];
+
+    function loadColumnLayout() {
+        let saved = null;
+        try { saved = JSON.parse(localStorage.getItem(PF_COLUMNS_STORAGE_KEY) || "null"); } catch { saved = null; }
+
+        const widths = {};
+        Object.keys(PF_COLUMN_DEFS).forEach(key => {
+            const savedWidth = saved?.widths?.[key];
+            widths[key] = (typeof savedWidth === "number" && savedWidth >= PF_COLUMN_DEFS[key].minWidth)
+                ? savedWidth
+                : PF_COLUMN_DEFS[key].defaultWidth;
+        });
+
+        // Defensive against a stale/corrupt saved order (missing a key,
+        // or one that no longer exists) — falls back to the default order
+        // rather than rendering a broken/incomplete header.
+        let order = Array.isArray(saved?.order) ? saved.order.filter(k => PF_COLUMN_DEFS[k]) : [];
+        PF_DEFAULT_COLUMN_ORDER.forEach(k => { if (!order.includes(k)) order.push(k); });
+
+        return { order, widths };
+    }
+
+    let columnLayout = loadColumnLayout();
+
+    function saveColumnLayout() {
+        try { localStorage.setItem(PF_COLUMNS_STORAGE_KEY, JSON.stringify(columnLayout)); } catch { /* best-effort */ }
+    }
+
+    // Builds the grid-template-columns string shared by the header row and
+    // every file row, in the CURRENT column order, so a reorder or resize
+    // only ever has to touch this one string (applyColumnLayout() below
+    // writes it onto both).
+    function columnGridTemplate() {
+        return columnLayout.order.map(key =>
+            key === "name" ? `minmax(${columnLayout.widths.name}px, 1fr)` : `${columnLayout.widths[key]}px`
+        ).join(" ") + " 40px";
+    }
+
+    // Below 860px the stylesheet collapses the list to just Name + Actions
+    // (see the @media block in styles.css) — an inline style always wins
+    // over a stylesheet rule regardless of a matching @media query, so this
+    // has to step aside down there and let that rule apply, rather than
+    // pinning the desktop column widths onto a phone-width screen.
+    function applyColumnLayout() {
+        const isNarrow = window.matchMedia("(max-width: 860px)").matches;
+        const template = isNarrow ? "" : columnGridTemplate();
+        const header = document.querySelector(".all-files-list-header");
+        if (header) header.style.gridTemplateColumns = template;
+        document.querySelectorAll(".all-files-file-row").forEach(row => { row.style.gridTemplateColumns = template; });
+    }
+
+    // Keeps the layout correct if the window is resized across the 860px
+    // breakpoint without an intervening re-render (pagination, upload,
+    // etc.) — cheap to just recompute on every resize since this only
+    // touches a couple of style properties, no DOM rebuild.
+    window.addEventListener("resize", () => {
+        if (document.querySelector(".all-files-list-header")) applyColumnLayout();
+    });
+
+    // Column reordering (drag a header cell onto another) + resizing (drag
+    // its right-edge handle) — reattached every render since renderMainPanel()
+    // rebuilds the header from scratch each time. A reorder commits
+    // immediately (saves + re-renders on drop); a resize updates the grid
+    // template live while dragging and only saves once the drag ends, so a
+    // mid-drag resize doesn't spam localStorage with every pixel of motion.
+    function wireColumnHeaderInteractions(listEl) {
+        const header = listEl.querySelector(".all-files-list-header");
+        if (!header) return;
+
+        let dragKey = null;
+        header.querySelectorAll(".all-files-list-header-cell").forEach(cell => {
+            cell.addEventListener("dragstart", (event) => {
+                dragKey = cell.dataset.col;
+                if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+                cell.classList.add("is-dragging");
+            });
+            cell.addEventListener("dragend", () => {
+                cell.classList.remove("is-dragging");
+                dragKey = null;
+            });
+            cell.addEventListener("dragover", (event) => {
+                if (!dragKey || dragKey === cell.dataset.col) return;
+                event.preventDefault();
+                if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+            });
+            cell.addEventListener("drop", (event) => {
+                event.preventDefault();
+                const targetKey = cell.dataset.col;
+                if (!dragKey || dragKey === targetKey) return;
+
+                const order = columnLayout.order.slice();
+                const fromIndex = order.indexOf(dragKey);
+                const toIndex = order.indexOf(targetKey);
+                if (fromIndex === -1 || toIndex === -1) return;
+                order.splice(fromIndex, 1);
+                order.splice(toIndex, 0, dragKey);
+                columnLayout.order = order;
+                saveColumnLayout();
+                renderMainPanel();
+            });
+        });
+
+        header.querySelectorAll(".pf-col-resize-handle").forEach(handle => {
+            // Not draggable itself — it lives inside a draggable header
+            // cell, so without this a resize-drag would also fire that
+            // cell's own reorder dragstart.
+            handle.addEventListener("dragstart", (event) => event.preventDefault());
+
+            handle.addEventListener("mousedown", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const key = handle.dataset.resizeCol;
+                const startX = event.clientX;
+                const startWidth = columnLayout.widths[key];
+                const minWidth = PF_COLUMN_DEFS[key].minWidth;
+
+                function onMove(moveEvent) {
+                    const delta = moveEvent.clientX - startX;
+                    columnLayout.widths[key] = Math.max(minWidth, Math.round(startWidth + delta));
+                    applyColumnLayout();
+                }
+                function onUp() {
+                    document.removeEventListener("mousemove", onMove);
+                    document.removeEventListener("mouseup", onUp);
+                    saveColumnLayout();
+                }
+                document.addEventListener("mousemove", onMove);
+                document.addEventListener("mouseup", onUp);
+            });
+        });
+    }
+
     /* ---------- helpers ---------- */
 
     function escapeHtmlFiles(str) {
@@ -336,13 +483,13 @@
         // consolidated behind a single "⋯" menu instead of one button per
         // action, same "overflow menu" shape used elsewhere in the app
         // (.project-edit-icon on project cards).
-        const rowsHtml = pageFiles.map(file => {
-            const isFormFiled = file.source === "form_submission";
-            const canManage = canDeleteFile(file); // same "uploader or leadership" policy gates both rename and delete
-            const meta = getFileTypeMeta(file.file_name);
-
-            return `
-                <div class="all-files-file-row" data-file-id="${file.id}">
+        // One cell-builder per data column key, so the header and every row
+        // can be assembled in whatever order columnLayout.order currently
+        // says (see the column-layout block above) instead of a fixed
+        // Name/Kind/Added By/Uploaded sequence.
+        function fileCellHtml(key, file, meta, isFormFiled) {
+            if (key === "name") {
+                return `
                     <div class="all-files-file-name-cell">
                         <span class="file-type-icon file-type-icon--${meta.type}"></span>
                         <div class="all-files-file-name-text">
@@ -354,9 +501,23 @@
                             ` : ""}
                         </div>
                     </div>
-                    <div class="all-files-file-kind-cell">${escapeHtmlFiles(meta.kind)}</div>
-                    <div class="all-files-file-added-by-cell">${escapeHtmlFiles(file.uploaded_by_name || "Staff")}</div>
-                    <div class="all-files-file-date-cell">${escapeHtmlFiles(formatFileDate(file.created_at))}</div>
+                `;
+            }
+            if (key === "kind") return `<div class="all-files-file-kind-cell">${escapeHtmlFiles(meta.kind)}</div>`;
+            if (key === "addedBy") return `<div class="all-files-file-added-by-cell">${escapeHtmlFiles(file.uploaded_by_name || "Staff")}</div>`;
+            return `<div class="all-files-file-date-cell">${escapeHtmlFiles(formatFileDate(file.created_at))}</div>`; // "uploaded"
+        }
+
+        const rowsHtml = pageFiles.map(file => {
+            const isFormFiled = file.source === "form_submission";
+            const canManage = canDeleteFile(file); // same "uploader or leadership" policy gates both rename and delete
+            const meta = getFileTypeMeta(file.file_name);
+
+            const dataCellsHtml = columnLayout.order.map(key => fileCellHtml(key, file, meta, isFormFiled)).join("");
+
+            return `
+                <div class="all-files-file-row" data-file-id="${file.id}">
+                    ${dataCellsHtml}
                     <div class="all-files-file-actions-cell">
                         <button type="button" class="all-files-file-menu-btn" data-action="menu" aria-label="File actions" aria-haspopup="true" aria-expanded="false">
                             <span class="all-files-file-menu-icon"></span>
@@ -376,18 +537,25 @@
             `;
         }).join("");
 
+        const headerCellsHtml = columnLayout.order.map(key => `
+            <span class="all-files-list-header-cell" draggable="true" data-col="${key}">
+                ${escapeHtmlFiles(PF_COLUMN_DEFS[key].label)}
+                <span class="pf-col-resize-handle" data-resize-col="${key}"></span>
+            </span>
+        `).join("");
+
         listEl.innerHTML = `
             <div class="all-files-list">
                 <div class="all-files-list-header">
-                    <span>Name</span>
-                    <span>Kind</span>
-                    <span>Added By</span>
-                    <span>Uploaded</span>
+                    ${headerCellsHtml}
                     <span></span>
                 </div>
                 ${rowsHtml}
             </div>
         `;
+
+        applyColumnLayout();
+        wireColumnHeaderInteractions(listEl);
 
         listEl.querySelectorAll(".all-files-file-row").forEach(row => {
             const file = files.find(f => String(f.id) === row.dataset.fileId);

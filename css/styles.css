@@ -322,6 +322,52 @@ button { font: inherit; }
     0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
+/* Sidebar "needs your approval" count -- sits on Account Activity's own
+   nav-item (see #accountActivityNavBadge, toggled by
+   js/nav-approvals-badge.js). Same red-pill language as .notification-count
+   on the bell, just inline instead of absolutely pinned to a button corner
+   since .nav-item is already a flex row -- margin-left: auto pushes it to
+   the link's right edge without any extra positioning. Hidden by default;
+   the script only ever shows it when the count is > 0. */
+.nav-item-badge {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: auto;
+  padding: 0 5px;
+  border-radius: var(--radius-sm);
+  background: var(--danger);
+  color: white;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Collapsed sidebar has no room (and no .nav-text) for a numbered pill next
+   to an icon-only link, so it shrinks to a plain dot in the icon's corner
+   instead of disappearing outright -- still catches the eye, just doesn't
+   need to say how many. */
+body.sidebar-collapsed #accountActivityNavItem {
+  position: relative;
+}
+
+body.sidebar-collapsed .nav-item-badge {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  min-width: 0;
+  width: 9px;
+  height: 9px;
+  margin-left: 0;
+  padding: 0;
+  font-size: 0;
+  border-radius: 50%;
+  border: 2px solid var(--sidebar-bg, var(--accent-strong));
+}
+
 .home-nav-icon,
 .website-nav-icon,
 .projectors-nav-icon,
@@ -4573,6 +4619,37 @@ button { font: inherit; }
   color: var(--text);
   font-size: 0.92rem;
   line-height: 1.5;
+}
+
+.vendor-profile-notes-input {
+  width: 100%;
+  margin-top: 6px;
+  min-height: 90px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #abb4bc;
+  background: #122b3d;
+  color: white;
+  font-family: inherit;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  resize: vertical;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.vendor-profile-notes-input::placeholder {
+  color: var(--text-soft);
+}
+
+.vendor-profile-notes-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.vendor-profile-notes-actions .auth-message {
+  margin: 0;
 }
 
 .vendor-profile-tag-groups {
@@ -10219,6 +10296,31 @@ body.week-cal-dragging {
     0 2px 6px rgba(10, 24, 36, 0.1);
 }
 
+/* Draggable/resizable header cells (Name/Kind/Added By/Uploaded) — see
+   wireColumnHeaderInteractions() in js/project-files.js. Each cell is a
+   drag source for reordering; the little handle at its right edge is a
+   separate drag target for resizing, positioned relative to the cell. */
+.all-files-list-header-cell {
+  position: relative;
+  display: block;
+  cursor: grab;
+  padding-right: 10px;
+  user-select: none;
+}
+
+.all-files-list-header-cell.is-dragging {
+  opacity: 0.4;
+}
+
+.pf-col-resize-handle {
+  position: absolute;
+  top: -10px;
+  right: -6px;
+  bottom: -10px;
+  width: 12px;
+  cursor: col-resize;
+}
+
 .all-files-file-name-cell {
   display: flex;
   align-items: center;
@@ -10373,9 +10475,15 @@ body.week-cal-dragging {
     grid-template-columns: minmax(160px, 1fr) 40px;
   }
 
-  .all-files-list-header span:nth-child(2),
-  .all-files-list-header span:nth-child(3),
-  .all-files-list-header span:nth-child(4),
+  /* Attribute selectors, not nth-child -- Kind/Added By/Uploaded can now be
+     dragged into any order (see .all-files-list-header-cell above), so
+     "hide position 2/3/4" would hide the wrong labels once someone
+     reorders them. The row cells were already matched by their own fixed
+     class regardless of position; this just brings the header labels in
+     line with that. */
+  .all-files-list-header-cell[data-col="kind"],
+  .all-files-list-header-cell[data-col="addedBy"],
+  .all-files-list-header-cell[data-col="uploaded"],
   .all-files-file-kind-cell,
   .all-files-file-added-by-cell,
   .all-files-file-date-cell {
@@ -10393,6 +10501,88 @@ body.week-cal-dragging {
   max-height: 88vh;
   display: flex;
   flex-direction: column;
+}
+
+/* "See more" files popup -- Coleby asked for this one to read "very
+   corporate": a solid letterhead-navy header (same --accent-strong as the
+   rest of the app's branded surfaces) instead of the plain white header
+   every other popup uses, over a clean bordered file list. */
+.popup--corporate {
+  width: min(92vw, 560px);
+  max-height: 82vh;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.aa-files-popup-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px 26px;
+  background: var(--accent-strong);
+  flex-shrink: 0;
+}
+
+.aa-files-popup-eyebrow {
+  margin: 0 0 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.aa-files-popup-header h2 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 1.1rem;
+}
+
+.aa-files-popup-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.aa-files-popup-header .file-preview-close-btn {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.aa-files-popup-header .file-preview-close-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+}
+
+.aa-files-popup-list {
+  padding: 8px 24px 22px;
+  overflow-y: auto;
+}
+
+.aa-files-popup-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+.aa-files-popup-row:last-child {
+  border-bottom: none;
+}
+
+.aa-files-popup-row-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
 }
 
 .file-preview-header {
@@ -11854,4 +12044,533 @@ body.week-cal-dragging {
   border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 0.85rem;
+}
+
+/* ===========================================================
+   INCIDENT REPORT (pages/incident-report.html) + ACCOUNT ACTIVITY
+   (pages/account-activity.html)
+
+   Reuses the app's existing tokens/components throughout (.card, .chip,
+   .auth-field, .auth-button, .popup, .modal-icon-header, the 3D button
+   treatment) rather than inventing a parallel visual language — the blue
+   section bars are the one new pattern, and they deliberately match the
+   report-blue (#1E76BD) already used by every PDF this app generates
+   (see js/companies.js's REPORT_RULE_COLOR / js/incident-report-pdf.js's
+   IR_REPORT_RULE_COLOR), so the on-screen form and its generated PDF read
+   as the same document.
+=========================================================== */
+
+/* Selector deliberately includes .hero-section so it outranks the generic
+   .hero-section p { max-width: 700px; } rule above (a class+element
+   selector is more specific than a single class, regardless of source
+   order) -- otherwise that 700px cap silently wins and the copy never
+   reaches the edge of the banner. */
+.hero-section .ir-hero-copy {
+  margin: 10px 0 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  max-width: none;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.ir-form-card {
+  width: 100%;
+}
+
+.ir-date-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+  margin-bottom: 18px;
+  width: fit-content;
+}
+
+.ir-date-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-soft);
+}
+
+.ir-date-value {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* No longer separately-bordered boxes -- Coleby: "do not seperrate it with
+   cards just make it one form" -- these are just the field-group layout
+   containers now, flowing together inside .ir-form-card's single outer
+   card. .ir-attachments-box below deliberately keeps its own border/card
+   treatment ("keep the atched files card"). */
+.ir-field-grid,
+.ir-field-stack {
+  margin: 22px 0 4px;
+}
+
+.ir-date-row + .ir-field-grid,
+.ir-date-row + .ir-field-stack {
+  margin-top: 0;
+}
+
+.ir-field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 18px;
+}
+
+@media (max-width: 560px) {
+  .ir-field-grid { grid-template-columns: 1fr; }
+}
+
+.ir-field-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ir-field-hint {
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--text-soft);
+}
+
+.ir-attachments-box {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin: 18px 0 0;
+  background: var(--bg);
+}
+
+.ir-attachments-box > .auth-inline-copy {
+  margin: 0 0 12px;
+}
+
+.ir-attach-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  border: 1px dashed var(--accent);
+}
+
+.ir-attach-icon {
+  width: 14px;
+  height: 14px;
+  position: relative;
+}
+
+.ir-attach-icon::before,
+.ir-attach-icon::after {
+  content: "";
+  position: absolute;
+  background: var(--accent);
+}
+
+.ir-attach-icon::before { top: 6px; left: 0; width: 14px; height: 2px; }
+.ir-attach-icon::after { top: 0; left: 6px; width: 2px; height: 14px; }
+
+.ir-attachments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.ir-attachment-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.ir-attachment-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  border-radius: 4px;
+  background: var(--accent-soft);
+}
+
+.ir-attachment-icon--image { background: var(--success-soft); }
+
+.ir-attachment-name {
+  flex: 1 1 auto;
+  font-size: 0.88rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ir-submit-btn {
+  width: 100%;
+  margin-top: 22px;
+  padding: 14px 16px;
+  font-size: 1rem;
+}
+
+/* Super Admin / IT only — the one-time "Default Approver" card above the
+   form (see the ir-approver-card comment in pages/incident-report.html). */
+.ir-approver-card {
+  margin-bottom: 20px;
+}
+
+.ir-approver-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ir-approver-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-soft);
+  margin: 0 0 2px;
+}
+
+.ir-approver-value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.ir-approver-hint {
+  margin: 12px 0 0;
+}
+
+.ir-no-approver-banner {
+  margin: 0 0 20px;
+  padding: 12px 16px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  background: var(--danger-soft, rgba(220, 53, 69, 0.08));
+}
+
+/* Small muted chip next to a project's name wherever it's displayed with
+   its Project Code (see js/projects-page.js's card render). */
+.project-code-chip {
+  margin-left: 8px;
+  vertical-align: middle;
+  font-size: 0.68rem;
+  padding: 3px 8px;
+}
+
+
+/* ---------- Account Activity ---------- */
+
+.aa-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.aa-staff-picker-field {
+  min-width: 240px;
+}
+
+.aa-toolbar-hint {
+  margin: 0 0 12px;
+  font-size: 0.82rem;
+  color: var(--text-soft);
+}
+
+.aa-section {
+  margin-bottom: 20px;
+}
+
+.aa-report-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.aa-report-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+  flex-wrap: wrap;
+}
+
+.aa-report-row-main {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.aa-report-row-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.aa-report-project {
+  font-weight: 700;
+  font-size: 0.98rem;
+  color: var(--text);
+}
+
+.aa-report-detail {
+  margin: 0 0 4px;
+  font-size: 0.85rem;
+  color: var(--text-soft);
+}
+
+.aa-report-reason {
+  margin: 0 0 4px;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.aa-report-rejection {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: var(--danger);
+}
+
+.aa-report-approver {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-soft);
+}
+
+/* Status timeline on a report's own card -- "Form Was Submitted ->
+   Form Was Rejected -> Form Was Resubmitted -> Form Was Approved", per
+   Coleby's mockup. Wraps to multiple lines on a narrow card rather than
+   scrolling, since a report can pick up several steps over its life. */
+.aa-timeline {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 4px 2px;
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+
+.aa-timeline-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  min-width: 84px;
+  max-width: 130px;
+}
+
+.aa-timeline-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--text-soft);
+  margin-bottom: 4px;
+}
+
+.aa-timeline-step--active .aa-timeline-dot {
+  background: var(--warning);
+}
+
+.aa-timeline-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.aa-timeline-step--active .aa-timeline-label {
+  color: var(--warning);
+}
+
+.aa-timeline-sub {
+  font-size: 0.68rem;
+  color: var(--text-soft);
+  margin-top: 2px;
+  line-height: 1.2;
+}
+
+.aa-timeline-arrow {
+  color: var(--text-soft);
+  font-size: 0.8rem;
+  align-self: center;
+  margin: 0 2px;
+  padding-top: 3px;
+}
+
+.aa-see-more-link {
+  background: none;
+  border: none;
+  padding: 4px 2px;
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.aa-see-more-link:hover {
+  color: var(--accent-strong);
+}
+
+/* Wraps the "Show All" trigger below a capped section list (e.g. Form
+   Submissions -- see AA_FORMS_SHOWN in js/account-activity.js). */
+.aa-show-all-wrap {
+  margin: 10px 2px 0;
+}
+
+.aa-report-row-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.aa-report-row-actions .auth-button,
+.aa-report-row-actions .workbook-btn {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.aa-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.aa-status--pending { background: var(--warning-soft); color: var(--warning); }
+.aa-status--approved { background: var(--success-soft); color: var(--success); }
+.aa-status--rejected { background: var(--danger-soft); color: var(--danger); }
+
+/* Two pie-chart cards at the top of Account Activity (see
+   renderActivityCharts() in js/account-activity.js) -- plain CSS
+   conic-gradient circles, no charting library needed for two small
+   summary charts. */
+.aa-charts-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.aa-chart-card {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.aa-chart-body {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: nowrap;
+  padding-top: 6px;
+}
+
+/* Only stack the legend under the pie on a genuinely phone-width card --
+   otherwise the legend always sits beside the chart (Coleby: "make sure
+   that the key is beside the pie charts"). */
+@media (max-width: 420px) {
+  .aa-chart-body {
+    flex-wrap: wrap;
+  }
+}
+
+.aa-chart-pie {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.aa-chart-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.aa-chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text);
+  min-width: 0;
+}
+
+.aa-chart-legend-item strong {
+  color: var(--text-soft);
+  font-weight: 700;
+}
+
+.aa-chart-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.aa-empty-note {
+  margin: 4px 0 0;
+  font-size: 0.88rem;
+  color: var(--text-soft);
+  font-style: italic;
+}
+
+.modal-icon--reject {
+  background: var(--danger-soft);
+}
+
+.modal-icon--reject::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 22px;
+  height: 22px;
+  background-color: var(--danger);
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'/%3E%3C/svg%3E");
+  mask-size: contain;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-position: center;
 }

@@ -103,7 +103,12 @@ window.ProjectFields = (function () {
                 { key: "inspections", label: "Inspections" },
                 { key: "safety", label: "Safety" },
                 { key: "quality_control", label: "Quality Control" },
-                { key: "progress_reports", label: "Progress Reports" }
+                { key: "progress_reports", label: "Progress Reports" },
+                // New: where an approved Incident Report's merged PDF gets
+                // filed (pages/incident-report.html / account-activity.js).
+                // Created lazily — nothing special needs to happen here,
+                // this just makes it a valid, browsable folder from day one.
+                { key: "incident_report", label: "Incident Report" }
             ]
         },
         {
@@ -280,7 +285,14 @@ window.ProjectFields = (function () {
             hint: "This becomes the project's display name across the portal.",
             page: "/pages/projects.html",
             fields: [
-                { name: "name", label: "Project / job name", type: "text", placeholder: "e.g. Wilmington Riverfront Renovation" }
+                { name: "name", label: "Project / job name", type: "text", placeholder: "e.g. Wilmington Riverfront Renovation" },
+                // Short per-project code (e.g. "TP") used to build this
+                // project's Incident Report numbers: IR-TP-001, IR-TP-002...
+                // See sql/supabase-incident-reports-setup.sql. `uppercase`
+                // is an existing field-renderer option (already used by
+                // site_state below) — reused here rather than adding a new
+                // one, so "tp" typed in still saves as "TP".
+                { name: "project_code", label: "Project Code", type: "text", maxlength: 12, uppercase: true, placeholder: "e.g. TP" }
             ]
         },
         {

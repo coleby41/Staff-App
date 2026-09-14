@@ -729,6 +729,11 @@ function openVendorProfileModal(company) {
         }
     }
 
+    const notesInput = document.getElementById("vendorProfileNotesInput");
+    if (notesInput) notesInput.value = company.Notes ?? "";
+    const notesMessageEl = document.getElementById("vendorProfileNotesMessage");
+    if (notesMessageEl) { notesMessageEl.textContent = ""; notesMessageEl.className = "auth-message"; }
+
     const groups = groupTagsByCategory(tagsForCompany(company.id));
     const tagGroupsEl = document.getElementById("vendorProfileTagGroups");
     tagGroupsEl.innerHTML = groups.map(({ category, tags }) => `
@@ -751,6 +756,41 @@ function closeVendorProfileModal() {
     document.getElementById("vendorProfileModalOverlay").classList.add("hidden");
     document.body.classList.remove("popup-active");
     currentProfileCompany = null;
+}
+
+// Notes is the one field on the Vendor Profile popup that's actually
+// editable right there, saved on its own (not bundled with the rest of the
+// Add/Edit Vendor form) -- Coleby specifically wanted it edited from the
+// read-only popup, not the edit form.
+async function saveVendorNotes() {
+    if (!currentProfileCompany) return;
+
+    const input = document.getElementById("vendorProfileNotesInput");
+    const messageEl = document.getElementById("vendorProfileNotesMessage");
+    const saveBtn = document.getElementById("vendorProfileSaveNotesBtn");
+    const notes = input ? input.value.trim() || null : null;
+
+    if (saveBtn) saveBtn.disabled = true;
+    if (messageEl) { messageEl.textContent = "Saving…"; messageEl.className = "auth-message"; }
+
+    try {
+        const { error } = await window.supabaseClient
+            .from(COMPANIES_TABLE)
+            .update({ Notes: notes })
+            .eq("id", currentProfileCompany.id);
+        if (error) throw error;
+
+        currentProfileCompany.Notes = notes;
+        const cached = allCompanies.find(c => String(c.id) === String(currentProfileCompany.id));
+        if (cached) cached.Notes = notes;
+
+        if (messageEl) { messageEl.textContent = "Notes saved."; messageEl.className = "auth-message success"; }
+    } catch (error) {
+        console.error("Failed to save vendor notes:", error);
+        if (messageEl) { messageEl.textContent = "Something went wrong saving this. Please try again."; messageEl.className = "auth-message error"; }
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
+    }
 }
 
 /* ===========================
@@ -2465,6 +2505,9 @@ window.initCompaniesPage = async function () {
             openCompanyModal(company);
         });
     }
+
+    const vendorProfileSaveNotesBtn = document.getElementById("vendorProfileSaveNotesBtn");
+    if (vendorProfileSaveNotesBtn) vendorProfileSaveNotesBtn.addEventListener("click", saveVendorNotes);
 
     // COI Notifications popup (IT / Super Admin only)
     initCoiNotificationsAccess();

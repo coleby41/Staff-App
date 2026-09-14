@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Leeward Staff Portal | Incident Report</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+</head>
+
+<body>
+
+<header class="header">
+
+    <div class="header-left">
+
+        <div class="brand-mark">
+
+            <div class="brand-mark__icon" id="brandInitials">
+                ST
+            </div>
+
+            <div>
+                <div class="brand-title">
+                    The Leeward Group
+                </div>
+
+                <div class="brand-subtitle">
+                    Staff Portal
+                </div>
+            </div>
+
+        </div>
+
+
+        <button class="menu-btn" id="menuBtn" aria-label="Toggle navigation">
+            ☰
+        </button>
+
+    </div>
+
+
+
+    <div class="header-right">
+
+        <div class="header-user-area">
+
+            <div class="header-user-pill" id="headerUserPill">
+
+
+                <span id="headerUserName">
+                    Staff
+                </span>
+
+
+
+                <div class="notification-wrapper">
+
+
+                    <button
+                        class="notification-bell"
+                        id="notificationBell"
+                        aria-label="Notifications">
+
+                        <span class="notification-bell-icon"></span>
+
+                        <span class="notification-count">
+                            3
+                        </span>
+
+                    </button>
+
+
+
+
+                    <div class="notification-dropdown" id="notificationDropdown">
+
+
+                        <div class="notification-header">
+                        <span>Notifications</span>
+                        <button class="mark-read-btn">Mark as read</button>
+                        </div>
+
+
+                        <div id="notificationList"></div>
+
+                        <div id="notificationEmpty" class="notification-item" style="display:none;">
+                            <p>No notifications yet.</p>
+                        </div>
+
+
+                        <div class="notification-footer">
+
+                            <a
+                                class="report-bug-btn"
+                                href="https://tally.so/r/QKyGj8"
+                                target="_blank"
+                                rel="noopener">
+
+                                Report bug
+
+                            </a>
+
+                            <button
+                                class="auth-button auth-button--secondary header-signout"
+                                id="signOutButton"
+                                type="button">
+
+                                Sign out
+
+                            </button>
+
+                        </div>
+
+                        <div class="notification-change-password-row">
+                            <button type="button" class="notification-change-password-btn" id="changePasswordBtn">
+                                <span class="notification-change-password-btn-icon" aria-hidden="true"></span>
+                                Change Password
+                            </button>
+                        </div>
+</div>
+
+
+                </div>
+
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+
+</header>
+
+
+
+<aside class="sidebar" id="sidebar">
+
+
+    <div class="sidebar-header">
+        COMPANY WIDE
+    </div>
+
+
+
+    <nav class="sidebar-nav">
+
+
+
+        <a href="/pages/dashboard.html" class="nav-item">
+
+            <span class="home-nav-icon"></span>
+
+            <span class="nav-text">
+                Dashboard
+            </span>
+
+        </a>
+
+
+
+
+        <div class="nav-item-group" id="companyDocsNavGroup">
+
+
+            <a href="#"
+               class="nav-item nav-parent"
+               onclick="toggleSubnav(event, this)">
+
+
+                <span class="docs-nav-icon"></span>
+
+
+                <span class="nav-text">
+                    Company docs
+                </span>
+
+
+                <span class="nav-arrow"></span>
+
+
+            </a>
+
+
+
+
+            <div class="subnav">
+
+
+
+
+
+
+                <a href="/pages/excel-workbook.html" class="subnav-item">
+
+                    <span class="nav-text">
+                        Excel Workbook Templates
+                    </span>
+
+                </a>
+
+
+
+                <a href="/pages/form-template.html" class="subnav-item">
+
+                    <span class="nav-text">
+                        Form Templates
+                    </span>
+
+                </a>
+
+
+
+            </div>
+
+
+
+        </div>
+
+
+
+
+
+       <a href="/pages/timesheet.html" class="nav-item">
+
+            <span class="finance-nav-icon"></span>
+
+            <span class="nav-text">
+                Staff Finance
+            </span>
+
+        </a>
+
+        <a href="/pages/project-home.html" class="nav-item">
+
+            <span class="projects-nav-icon"></span>
+
+            <span class="nav-text">
+                Project Overview
+            </span>
+
+        </a>
+
+
+
+        <a href="https://www.theleewardgroup.us/"
+           class="nav-item"
+           target="_blank">
+
+
+            <span class="website-nav-icon"></span>
+
+
+            <span class="nav-text">
+                Company site
+            </span>
+
+
+        </a>
+
+
+
+
+
+        <a href="/pages/vendors.html" class="nav-item">
+
+            <span class="companies-nav-icon"></span>
+
+            <span class="nav-text">
+                Vendor Information
+            </span>
+
+        </a>
+
+        <a href="/pages/incident-report.html" class="nav-item active" id="incidentReportNavItem">
+
+            <span class="docs-nav-icon"></span>
+
+            <span class="nav-text">
+                Incident Report
+            </span>
+
+        </a>
+
+        <a href="/pages/account-activity.html" class="nav-item" id="accountActivityNavItem">
+
+            <span class="finance-nav-icon"></span>
+
+            <span class="nav-text">
+                Account Activity
+            </span>
+
+            <span class="nav-item-badge" id="accountActivityNavBadge"></span>
+
+        </a>
+
+
+        <a href="/pages/payroll-tools.html"
+           class="nav-item"
+           id="payrollToolsNavItem"
+           style="display:none;">
+
+
+            <span class="docs-nav-icon"></span>
+
+
+            <span class="nav-text">
+                Payroll Tools
+            </span>
+
+
+        </a>
+
+
+
+
+
+        <a href="/pages/manage-employees.html"
+           class="nav-item"
+           id="manageEmployeesNavItem"
+           style="display:none;">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">
+                Manage Employees
+            </span>
+        </a>
+
+        <div class="nav-item-group"
+             id="adminNavGroup"
+             style="display:none;">
+
+
+
+            <a href="/pages/admin-users.html"
+               class="nav-item nav-parent"
+               onclick="toggleSubnav(event, this)">
+
+
+
+                <span class="it-tools-nav-icon"></span>
+
+
+                <span class="nav-text">
+                    IT Tools
+                </span>
+
+
+                <span class="nav-arrow"></span>
+
+
+
+            </a>
+
+
+
+
+
+            <div class="subnav">
+
+
+                <a href="/pages/admin-users.html"
+                   class="subnav-item">
+
+
+                    <span class="nav-text">
+                        Create account
+                    </span>
+
+
+                </a>
+
+
+
+
+                <a href="/pages/staff-users.html"
+                   class="subnav-item">
+
+
+                    <span class="nav-text">
+                        Staff users
+                    </span>
+
+
+                </a>
+
+
+                <a href="/pages/workgroups.html"
+                   class="subnav-item">
+
+
+                    <span class="nav-text">
+                        Workgroups
+                    </span>
+
+
+                </a>
+
+
+
+            </div>
+
+
+
+        </div>
+
+
+
+
+    </nav>
+
+
+
+
+    <div class="sidebar-footer">
+
+
+        <div class="footer-pill" id="sidebarGroupPill"></div>
+
+
+        <div class="sidebar-brand">
+            LeeWard Group
+        </div>
+
+
+        <div class="version">
+            Version XF-800-BETA
+        </div>
+
+
+    </div>
+
+
+</aside>
+
+<main class="main-content">
+
+    <section class="hero-section hero-section--construction">
+        <div>
+            <p class="eyebrow">Leeward Construction</p>
+            <h1>Incident Report</h1>
+            <p class="ir-hero-copy">
+                This form captures the location and cost of a problem, who reported it and why, and who's responsible for causing it. You MUST attach photos or invoices as proof. When you submit it, it will be reviewed by the default approver. Once the approver approves it, the report and attachments will be combined into a single PDF and the final report will be filed in its respected folder in the project files. From there the form will be turned into a VPO or BC upon approval by the default approver.
+            </p>
+        </div>
+    </section>
+
+    <!-- Super Admin / IT only — the ONE default approver every incident
+         report routes to automatically at submission. Set once, changed
+         only when it needs to change; there is no per-report assignment. -->
+    <div class="card ir-approver-card hidden" id="irApproverCard">
+        <div class="ir-approver-row">
+            <div>
+                <p class="ir-approver-label">Default Approver</p>
+                <p class="ir-approver-value" id="irApproverValue">Not set</p>
+            </div>
+            <button type="button" class="workbook-btn" id="irSetApproverBtn">Set Approver</button>
+        </div>
+        <p class="auth-inline-copy ir-approver-hint">Only Super Admin and IT can see this. Whoever is set here
+            approves every incident report submitted from now on — set it once and you're done.</p>
+    </div>
+
+    <!-- Shown to non-admins only, only while no default approver has been
+         set yet (submission is blocked at the database level in that case
+         anyway — this just explains why). -->
+    <p class="auth-message error ir-no-approver-banner hidden" id="irNoApproverBanner">
+        No approver is set up for incident reports yet. Ask a Super Admin or IT staff member to set one before you
+        can submit.
+    </p>
+
+    <!-- Shown only when this page was opened to fix and resubmit a
+         rejected report (pages/account-activity.html's "Edit & Resubmit"
+         button links here with ?edit=<id>) — see loadReportForEdit() in
+         js/incident-report.js. -->
+    <p class="auth-message ir-edit-banner hidden" id="irEditBanner"></p>
+
+    <div class="card ir-form-card">
+
+        <form id="incidentReportForm" novalidate>
+
+            <div class="ir-date-row">
+                <span class="ir-date-label">Date</span>
+                <span class="ir-date-value" id="irDateDisplay">—</span>
+            </div>
+
+            <div class="ir-field-grid">
+                <label class="auth-field">
+                    Project Name
+                    <select id="irProjectSelect" required>
+                        <option value="">Select a project…</option>
+                    </select>
+                </label>
+
+                <label class="auth-field">
+                    Price
+                    <input type="text" id="irPriceInput" inputmode="decimal" placeholder="$0.00" required>
+                </label>
+
+                <label class="auth-field">
+                    Building(s)
+                    <input type="text" id="irBuildingsInput" placeholder="Please state all building numbers" required>
+                    <span class="ir-field-hint">Do not put "multiple buildings" — list each one.</span>
+                </label>
+
+                <label class="auth-field">
+                    Unit Number(s)
+                    <input type="text" id="irUnitNumbersInput" placeholder="Please state all unit numbers" required>
+                    <span class="ir-field-hint">Do not put "multiple units" — list each one.</span>
+                </label>
+            </div>
+
+            <div class="ir-field-stack">
+                <label class="auth-field">
+                    Person Making the Report
+                    <input type="text" id="irPersonInput" placeholder="Please state YOUR full name" required>
+                </label>
+
+                <label class="auth-field">
+                    Reason for Report
+                    <textarea id="irReasonTextarea" placeholder="What happened?" required></textarea>
+                </label>
+            </div>
+
+            <div class="ir-field-stack">
+                <label class="auth-field">
+                    Who Caused the Issue
+                    <input type="text" id="irWhoCausedInput" placeholder="Please state the legal name of the vendor" required>
+                </label>
+            </div>
+
+            <div class="ir-attachments-box">
+                <p class="auth-inline-copy">Attach any supporting PDFs or photos — they'll be combined with this
+                    form into one file once your report is approved. At least one attachment is required.</p>
+
+                <label class="ir-attach-btn" for="irAttachmentsInput">
+                    <span class="ir-attach-icon" aria-hidden="true"></span>
+                    Add PDF or photo
+                </label>
+                <input type="file" id="irAttachmentsInput" accept="application/pdf,image/jpeg,image/png" multiple class="hidden">
+
+                <div id="irAttachmentsList" class="ir-attachments-list"></div>
+            </div>
+
+            <p class="auth-message" id="irFormMessage" role="status"></p>
+
+            <button type="submit" class="auth-button ir-submit-btn" id="irSubmitBtn">Submit Incident Report</button>
+
+        </form>
+
+    </div>
+
+</main>
+
+<!-- Set Approver — Super Admin / IT only. Sets the ONE default approver
+     for every incident report, one time; there's no per-report version of
+     this popup. -->
+<div class="popup-overlay hidden" id="irSetApproverOverlay">
+    <div class="popup">
+        <div class="modal-icon-header">
+            <span class="modal-icon" aria-hidden="true"></span>
+            <div>
+                <h2>Set Default Approver</h2>
+                <p class="auth-inline-copy">Only Super Admin and IT can see or use this. Set this once — every
+                    incident report submitted from now on routes straight to whoever you pick here. A report already
+                    in progress keeps whoever it was submitted with.</p>
+            </div>
+        </div>
+
+        <label class="auth-field">
+            Approver
+            <select id="irSetApproverSelect"></select>
+        </label>
+
+        <p class="auth-message" id="irSetApproverMessage" role="status"></p>
+
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="irCancelSetApproverBtn">Cancel</button>
+            <button type="button" class="auth-button" id="irSaveSetApproverBtn">Save</button>
+        </div>
+    </div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="/js/supabase-auth.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script src="/js/manager-nav.js"></script>
+<script src="/js/script.js"></script>
+<script src="/js/timeout.js"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/change-password.js"></script>
+<script src="/js/nav-access.js"></script>
+<script src="/js/nav-approvals-badge.js"></script>
+<script src="/js/incident-report.js"></script>
+
+<script>
+const signOutButton = document.getElementById("signOutButton");
+if (signOutButton) {
+    signOutButton.addEventListener("click", function (event) {
+        event.stopPropagation();
+        if (typeof window.signOutUser === "function") window.signOutUser();
+        else console.error("signOutUser() is not available");
+    });
+}
+
+const userNameElement = document.getElementById("headerUserName");
+const brandInitials = document.getElementById("brandInitials");
+
+function updateStaffName(profile) {
+    if (!profile) return;
+    const name = profile.full_name || profile.username || "Staff";
+    if (userNameElement) userNameElement.textContent = name;
+    if (brandInitials) {
+        const words = String(name).trim().split(/\s+/).filter(Boolean);
+        const initials = words.length >= 2
+            ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
+            : words[0]?.substring(0, 2).toUpperCase() || "ST";
+        brandInitials.textContent = initials;
+    }
+    const sidebarGroupPill = document.getElementById("sidebarGroupPill");
+    if (sidebarGroupPill) {
+        const groups = window.getSupabaseUserGroups ? window.getSupabaseUserGroups(profile) : [];
+        sidebarGroupPill.textContent = groups.length
+            ? groups.map(g => g.charAt(0).toUpperCase() + g.slice(1)).join(", ")
+            : "No Group";
+    }
+}
+
+function updateNavAccess(profile) {
+    const shouldShowAdminNav = window.isSupabaseUserInGroup
+        ? (window.isSupabaseUserInGroup(profile, "IT") || window.isSupabaseUserInGroup(profile, "Super Admin"))
+        : false;
+    const adminNavGroup = document.getElementById("adminNavGroup");
+    if (adminNavGroup) adminNavGroup.style.display = shouldShowAdminNav ? "block" : "none";
+
+    const payrollToolsNavItem = document.getElementById("payrollToolsNavItem");
+    const shouldShowPayrollTools = window.isSupabaseUserInGroup
+        ? (window.isSupabaseUserInGroup(profile, "Office") || window.isSupabaseUserInGroup(profile, "Accounting") || window.isSupabaseUserInGroup(profile, "Super Admin"))
+        : false;
+    if (payrollToolsNavItem) payrollToolsNavItem.style.display = shouldShowPayrollTools ? "flex" : "none";
+}
+
+const storedProfile = localStorage.getItem("staffProfile");
+if (storedProfile) {
+    try {
+        const parsedProfile = JSON.parse(storedProfile);
+        updateStaffName(parsedProfile);
+        updateNavAccess(parsedProfile);
+    } catch (error) {
+        console.warn("Unable to parse stored profile:", error);
+    }
+}
+
+window.addEventListener("DOMContentLoaded", function () {
+    const profile = window.currentSupabaseProfile || null;
+    if (profile) {
+        updateStaffName(profile);
+        updateNavAccess(profile);
+    }
+});
+</script>
+
+</body>
+
+</html>

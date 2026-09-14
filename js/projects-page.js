@@ -484,7 +484,10 @@ function renderProjectCards(projects) {
                 </button>
 
                 <div class="project-card-header">
-                    <h3 class="company-card-name">${escapeHtmlProject(project.name || "Untitled project")}</h3>
+                    <h3 class="company-card-name">
+                        ${escapeHtmlProject(project.name || "Untitled project")}
+                        ${project.project_code ? `<span class="chip chip--muted project-code-chip">${escapeHtmlProject(project.project_code)}</span>` : ""}
+                    </h3>
                     <button type="button" class="chip chip--dot ${statusMeta.chip} project-status-badge" data-id="${project.id}" title="Update status">
                         ${escapeHtmlProject(statusMeta.label)}
                     </button>
