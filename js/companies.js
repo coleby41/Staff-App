@@ -2509,6 +2509,18 @@ window.initCompaniesPage = async function () {
     const vendorProfileSaveNotesBtn = document.getElementById("vendorProfileSaveNotesBtn");
     if (vendorProfileSaveNotesBtn) vendorProfileSaveNotesBtn.addEventListener("click", saveVendorNotes);
 
+    // Enter saves the note (matches "done typing" expectations elsewhere in
+    // the app); Shift+Enter still inserts a newline like a normal textarea.
+    const vendorProfileNotesInput = document.getElementById("vendorProfileNotesInput");
+    if (vendorProfileNotesInput) {
+        vendorProfileNotesInput.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                saveVendorNotes();
+            }
+        });
+    }
+
     // COI Notifications popup (IT / Super Admin only)
     initCoiNotificationsAccess();
 
