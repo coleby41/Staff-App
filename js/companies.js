@@ -767,10 +767,9 @@ async function saveVendorNotes() {
 
     const input = document.getElementById("vendorProfileNotesInput");
     const messageEl = document.getElementById("vendorProfileNotesMessage");
-    const saveBtn = document.getElementById("vendorProfileSaveNotesBtn");
     const notes = input ? input.value.trim() || null : null;
 
-    if (saveBtn) saveBtn.disabled = true;
+    if (input) input.disabled = true;
     if (messageEl) { messageEl.textContent = "Saving…"; messageEl.className = "auth-message"; }
 
     try {
@@ -2506,11 +2505,9 @@ window.initCompaniesPage = async function () {
         });
     }
 
-    const vendorProfileSaveNotesBtn = document.getElementById("vendorProfileSaveNotesBtn");
-    if (vendorProfileSaveNotesBtn) vendorProfileSaveNotesBtn.addEventListener("click", saveVendorNotes);
-
     // Enter saves the note (matches "done typing" expectations elsewhere in
     // the app); Shift+Enter still inserts a newline like a normal textarea.
+    // This is now the only way to save since there's no Save button.
     const vendorProfileNotesInput = document.getElementById("vendorProfileNotesInput");
     if (vendorProfileNotesInput) {
         vendorProfileNotesInput.addEventListener("keydown", (event) => {
