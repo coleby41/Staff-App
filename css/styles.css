@@ -1290,8 +1290,15 @@ body.sidebar-collapsed .nav-item-badge {
 .auth-page {
   min-height: 100vh;
   display: grid;
-  place-items: center;
-  padding: 24px;
+  /* "safe center" instead of plain "center": when the stacked banners +
+     card are taller than the viewport, plain center-alignment overflows
+     equally off BOTH edges and makes the container's own padding
+     unreachable even while scrolled all the way down (a well-known
+     grid/flexbox centering quirk). "safe" falls back to start-alignment
+     once content overflows, so the bottom padding below actually renders
+     instead of the card butting right up against the window edge. */
+  place-items: safe center;
+  padding: 24px 24px 48px;
   background: linear-gradient(135deg, #042f4e 0%, #075288 45%, #5396c6 100%);
   /* 2026-08-20: the base `body { overflow: hidden }` rule above assumes the
      dashboard layout, where .main-content is its own scrolling region — but
@@ -1309,13 +1316,16 @@ body.sidebar-collapsed .nav-item-badge {
 }
 
 /* Login pages only (pages/login.html, index.html) — swaps the bold navy
-   diagonal gradient above for a calmer, neutral gray-blue canvas. Coleby
-   asked for a "corporate login" look; admin-users.html and staff-users.html
-   also use .auth-page for their own unrelated forms, so this is layered on
-   as its own class (added alongside .auth-page on the login pages' <body>)
-   rather than changing the shared .auth-page background itself. */
+   diagonal gradient above for the same flat gray the rest of the app uses
+   (--bg). A flat single color instead of a gradient so the background reads
+   as one consistent color behind the maintenance/status banners and the
+   card, rather than two visibly different shades. admin-users.html and
+   staff-users.html also use .auth-page for their own unrelated forms, so
+   this is layered on as its own class (added alongside .auth-page on the
+   login pages' <body>) rather than changing the shared .auth-page
+   background itself. */
 .auth-page--login {
-  background: linear-gradient(180deg, #eef2f6 0%, #e2e8ef 100%);
+  background: var(--bg);
 }
 
 /* Shown only when Supabase itself is reporting an incident (see
@@ -1338,6 +1348,23 @@ body.sidebar-collapsed .nav-item-badge {
   color: inherit;
   font-weight: 600;
   text-decoration: underline;
+}
+
+/* Scheduled maintenance notice (see index.html / pages/login.html) — same
+   shape as .supabase-status-banner above, but red/--danger since this is a
+   known, planned outage rather than a live degraded-status check. */
+.maintenance-banner {
+  width: min(1100px, 100%);
+  margin-bottom: 16px;
+  padding: 14px 20px;
+  background: var(--danger-soft);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+  font-weight: 600;
 }
 
 .auth-shell {
