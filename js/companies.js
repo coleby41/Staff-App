@@ -730,7 +730,13 @@ function openVendorProfileModal(company) {
     }
 
     const notesInput = document.getElementById("vendorProfileNotesInput");
-    if (notesInput) notesInput.value = company.Notes ?? "";
+    if (notesInput) {
+        notesInput.value = company.Notes ?? "";
+        // Guard against a previous vendor's save still being in flight (e.g.
+        // switched vendors right after hitting Enter, before the Supabase
+        // update round-trip finished) leaving this shared textarea disabled.
+        notesInput.disabled = false;
+    }
     const notesMessageEl = document.getElementById("vendorProfileNotesMessage");
     if (notesMessageEl) { notesMessageEl.textContent = ""; notesMessageEl.className = "auth-message"; }
 
