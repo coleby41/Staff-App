@@ -55,6 +55,110 @@
         return d.innerHTML;
     }
 
+    /* ---------- Reason for Report rich text editor ----------
+       A lightweight contenteditable + document.execCommand toolbar --
+       no editor library pulled in, matching this app's no-build-step/
+       no-framework approach everywhere else. reason_for_report now stores
+       HTML (was plain text before); js/incident-report-pdf.js converts it
+       back into formatted pdfmake content when building the filed PDF. */
+
+    function irReasonToEditableHtml(value) {
+        if (!value) return "";
+        // A report saved before this editor existed has a plain string in
+        // reason_for_report -- wrap it as a paragraph (escaping + carrying
+        // over line breaks) so it opens back up as normal editable text
+        // instead of literal "<" / ">" characters. Anything that already
+        // looks like HTML (saved by this editor) is used as-is.
+        if (/<[a-z][\s\S]*>/i.test(value)) return value;
+        return `<p>${irEscapeHtml(value).replace(/\n/g, "<br>")}</p>`;
+    }
+
+    function irReasonPlainText(html) {
+        if (!html) return "";
+        const d = document.createElement("div");
+        d.innerHTML = html;
+        return (d.textContent || "").trim();
+    }
+
+    function updateReasonPlaceholderState() {
+        const body = document.getElementById("irReasonBody");
+        if (!body) return;
+        body.classList.toggle("ir-richtext-body--empty", irReasonPlainText(body.innerHTML) === "");
+    }
+
+    function syncReasonToolbarState() {
+        const toolbar = document.getElementById("irReasonToolbar");
+        if (!toolbar) return;
+        ["bold", "italic", "underline"].forEach(cmd => {
+            const btn = toolbar.querySelector(`[data-ir-cmd="${cmd}"]`);
+            if (!btn) return;
+            let active = false;
+            try { active = document.queryCommandState(cmd); } catch (err) { active = false; }
+            btn.classList.toggle("is-active", active);
+        });
+        const select = document.getElementById("irReasonBlockSelect");
+        if (select) {
+            let blockTag = "p";
+            try {
+                const value = (document.queryCommandValue("formatBlock") || "").toLowerCase();
+                if (value === "h1" || value === "h2" || value === "h3") blockTag = value;
+            } catch (err) { /* ignore -- leave select on Paragraph */ }
+            select.value = blockTag;
+        }
+    }
+
+    function initReasonEditor() {
+        const body = document.getElementById("irReasonBody");
+        const toolbar = document.getElementById("irReasonToolbar");
+        const select = document.getElementById("irReasonBlockSelect");
+        if (!body || !toolbar) return;
+
+        // Without this, some browsers wrap formatting in inline `style`
+        // attributes (styleWithCSS) instead of semantic <b>/<i>/<u> tags --
+        // keeping it off means both this editor and the PDF converter in
+        // js/incident-report-pdf.js only ever have to look for one shape.
+        try { document.execCommand("styleWithCSS", false, false); } catch (err) { /* older Safari ignores this fine */ }
+
+        updateReasonPlaceholderState();
+
+        toolbar.querySelectorAll("[data-ir-cmd]").forEach(btn => {
+            // mousedown + preventDefault keeps the editor's current
+            // selection alive through the click -- a plain click would
+            // blur the contenteditable first and drop whatever was
+            // selected before the command ever ran.
+            btn.addEventListener("mousedown", (event) => event.preventDefault());
+            btn.addEventListener("click", () => {
+                const cmd = btn.getAttribute("data-ir-cmd");
+                body.focus();
+                if (cmd === "createLink") {
+                    const url = window.prompt("Link URL:", "https://");
+                    if (!url) return;
+                    document.execCommand("createLink", false, url);
+                } else if (cmd === "blockquote") {
+                    document.execCommand("formatBlock", false, "blockquote");
+                } else {
+                    document.execCommand(cmd, false, null);
+                }
+                updateReasonPlaceholderState();
+                syncReasonToolbarState();
+            });
+        });
+
+        if (select) {
+            select.addEventListener("mousedown", (event) => event.stopPropagation());
+            select.addEventListener("change", () => {
+                body.focus();
+                document.execCommand("formatBlock", false, select.value);
+                syncReasonToolbarState();
+            });
+        }
+
+        body.addEventListener("input", updateReasonPlaceholderState);
+        body.addEventListener("keyup", syncReasonToolbarState);
+        body.addEventListener("mouseup", syncReasonToolbarState);
+        body.addEventListener("focus", syncReasonToolbarState);
+    }
+
     function getIrStaffProfile() {
         return window.currentSupabaseProfile
             || (() => { try { return JSON.parse(localStorage.getItem("staffProfile") || "null"); } catch { return null; } })();
@@ -342,8 +446,11 @@
         if (unitNumbersInput) unitNumbersInput.value = report.unit_numbers || "";
         const personInput = document.getElementById("irPersonInput");
         if (personInput) personInput.value = report.person_making_report || "";
-        const reasonTextarea = document.getElementById("irReasonTextarea");
-        if (reasonTextarea) reasonTextarea.value = report.reason_for_report || "";
+        const reasonBody = document.getElementById("irReasonBody");
+        if (reasonBody) {
+            reasonBody.innerHTML = irReasonToEditableHtml(report.reason_for_report);
+            updateReasonPlaceholderState();
+        }
         const whoCausedInput = document.getElementById("irWhoCausedInput");
         if (whoCausedInput) whoCausedInput.value = report.who_caused_issue || "";
 
@@ -404,7 +511,8 @@
         const buildings = document.getElementById("irBuildingsInput").value.trim();
         const unitNumbers = document.getElementById("irUnitNumbersInput").value.trim();
         const person = document.getElementById("irPersonInput").value.trim();
-        const reason = document.getElementById("irReasonTextarea").value.trim();
+        const reasonBody = document.getElementById("irReasonBody");
+        const reason = reasonBody ? reasonBody.innerHTML.trim() : "";
         const whoCaused = document.getElementById("irWhoCausedInput").value.trim();
 
         if (!projectId) { setMessage("Please select a project.", "error"); return; }
@@ -412,7 +520,7 @@
         if (!buildings) { setMessage("Please enter the building(s).", "error"); return; }
         if (!unitNumbers) { setMessage("Please enter the unit number(s).", "error"); return; }
         if (!person) { setMessage("Please enter who's making this report.", "error"); return; }
-        if (!reason) { setMessage("Please enter a reason for this report.", "error"); return; }
+        if (!irReasonPlainText(reason)) { setMessage("Please enter a reason for this report.", "error"); return; }
         if (!whoCaused) { setMessage("Please enter who caused the issue.", "error"); return; }
         if (!pendingAttachments.length) { setMessage("Please attach at least one supporting PDF or photo.", "error"); return; }
 
@@ -496,6 +604,11 @@
 
             setMessage("Incident report submitted. Track its status on your Account Activity page.", "success");
             document.getElementById("incidentReportForm").reset();
+            // A native form reset doesn't touch a contenteditable div (it's
+            // not a form-associated control), so the rich text editor has
+            // to be cleared by hand or the old reason would stick around
+            // for the next report.
+            if (reasonBody) { reasonBody.innerHTML = ""; updateReasonPlaceholderState(); }
             pendingAttachments = [];
             renderAttachmentsList();
             renderTodayDate();
@@ -533,6 +646,7 @@
         renderTodayDate();
         initCurrencyInput();
         initAttachmentPicker();
+        initReasonEditor();
         initApproverSettingUi();
 
         await Promise.all([loadIrProjects(), loadIrStaff(), loadApproverSetting()]);

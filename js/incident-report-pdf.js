@@ -98,6 +98,90 @@
         return { text: value || "—", fontSize: 10.5, margin: [0, 2, 0, 2] };
     }
 
+    // "Reason for Report" is authored with the rich text editor on
+    // pages/incident-report.html (js/incident-report.js's initReasonEditor())
+    // and stored in reason_for_report as HTML, not plain text -- these
+    // convert that HTML into pdfmake's own text/stack format so bold,
+    // italics, underline, headings, lists, links, and quotes actually show
+    // up formatted in the filed PDF instead of printing raw markup.
+    const IR_REASON_INLINE_STYLE = {
+        b: { bold: true }, strong: { bold: true },
+        i: { italics: true }, em: { italics: true },
+        u: { decoration: "underline" },
+    };
+
+    function irReasonInlineToPdf(node, style) {
+        style = style || {};
+        const runs = [];
+        node.childNodes.forEach((child) => {
+            if (child.nodeType === Node.TEXT_NODE) {
+                if (child.textContent) runs.push(Object.assign({ text: child.textContent }, style));
+                return;
+            }
+            if (child.nodeType !== Node.ELEMENT_NODE) return;
+            const tag = child.tagName.toLowerCase();
+            if (tag === "br") { runs.push({ text: "\n" }); return; }
+            if (tag === "a") {
+                const href = child.getAttribute("href") || "";
+                const linkStyle = Object.assign({}, style, { decoration: "underline", color: IR_REPORT_RULE_COLOR });
+                const linkRuns = irReasonInlineToPdf(child, linkStyle);
+                if (href) linkRuns.forEach((run) => { run.link = href; });
+                runs.push(...linkRuns);
+                return;
+            }
+            const extra = IR_REASON_INLINE_STYLE[tag];
+            runs.push(...irReasonInlineToPdf(child, extra ? Object.assign({}, style, extra) : style));
+        });
+        return runs;
+    }
+
+    function irReasonHtmlToPdfStack(html) {
+        const raw = (html || "").trim();
+        if (!raw) return [{ text: "—", fontSize: 10.5 }];
+        // Legacy reports saved before this editor existed have a plain
+        // string with no tags at all -- render it exactly as before.
+        if (!/<[a-z][\s\S]*>/i.test(raw)) return [{ text: raw, fontSize: 10.5, lineHeight: 1.25 }];
+
+        let root;
+        try {
+            root = new DOMParser().parseFromString(`<div>${raw}</div>`, "text/html").body.firstChild;
+        } catch (err) {
+            root = null;
+        }
+        if (!root) return [{ text: raw, fontSize: 10.5, lineHeight: 1.25 }];
+
+        const blockBuilders = {
+            h1: (el) => ({ text: irReasonInlineToPdf(el), bold: true, fontSize: 14, margin: [0, 4, 0, 4] }),
+            h2: (el) => ({ text: irReasonInlineToPdf(el), bold: true, fontSize: 12.5, margin: [0, 3, 0, 3] }),
+            h3: (el) => ({ text: irReasonInlineToPdf(el), bold: true, fontSize: 11, margin: [0, 2, 0, 3] }),
+            p: (el) => ({ text: irReasonInlineToPdf(el), fontSize: 10.5, lineHeight: 1.25, margin: [0, 0, 0, 6] }),
+            div: (el) => ({ text: irReasonInlineToPdf(el), fontSize: 10.5, lineHeight: 1.25, margin: [0, 0, 0, 4] }),
+            blockquote: (el) => ({ text: irReasonInlineToPdf(el), italics: true, fontSize: 10.5, color: IR_REPORT_META_COLOR, margin: [10, 2, 0, 6] }),
+            ul: (el) => ({
+                ul: Array.from(el.children).filter((li) => li.tagName === "LI").map((li) => ({ text: irReasonInlineToPdf(li) })),
+                fontSize: 10.5, margin: [0, 0, 0, 6],
+            }),
+            ol: (el) => ({
+                ol: Array.from(el.children).filter((li) => li.tagName === "LI").map((li) => ({ text: irReasonInlineToPdf(li) })),
+                fontSize: 10.5, margin: [0, 0, 0, 6],
+            }),
+        };
+
+        const stack = [];
+        root.childNodes.forEach((node) => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                const text = node.textContent.trim();
+                if (text) stack.push({ text, fontSize: 10.5, lineHeight: 1.25, margin: [0, 0, 0, 6] });
+                return;
+            }
+            if (node.nodeType !== Node.ELEMENT_NODE) return;
+            const builder = blockBuilders[node.tagName.toLowerCase()];
+            stack.push(builder ? builder(node) : { text: irReasonInlineToPdf(node), fontSize: 10.5, lineHeight: 1.25, margin: [0, 0, 0, 6] });
+        });
+
+        return stack.length ? stack : [{ text: "—", fontSize: 10.5 }];
+    }
+
     function formatIncidentReportDate(dateStr) {
         if (!dateStr) return "—";
         // dateStr is a plain "YYYY-MM-DD" from the incident_reports.report_date
@@ -177,7 +261,7 @@
                             [irLabelCell("Person Making the Report:")],
                             [irValueCell(report.person_making_report)],
                             [irLabelCell("Reason for Report:")],
-                            [{ text: report.reason_for_report || "—", fontSize: 10.5, margin: [0, 2, 0, 8], lineHeight: 1.25 }],
+                            [{ stack: irReasonHtmlToPdfStack(report.reason_for_report), margin: [0, 2, 0, 8] }],
                         ],
                     },
                     layout: { hLineWidth: () => 0.75, vLineWidth: () => 0.75, hLineColor: () => "#c7ccd1", vLineColor: () => "#c7ccd1" },

@@ -24,6 +24,7 @@ const PROJECTS_TABLE = window.ProjectFields.PROJECTS_TABLE;
 const PROJECTS_READ_VIEW = window.ProjectFields.PROJECTS_READ_VIEW;
 const PROJECT_DOCS_BUCKET = window.ProjectFields.PROJECT_DOCS_BUCKET;
 const WIZARD_STEPS = window.ProjectFields.WIZARD_STEPS;
+const storagePathFromPublicUrl = window.ProjectFields.storagePathFromPublicUrl;
 
 let allProjects = [];
 let projectWizardState = null; // { id, stepIndex, values: {...}, pendingFiles: {} }

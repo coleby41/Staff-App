@@ -520,10 +520,44 @@
                     <input type="text" id="irPersonInput" placeholder="Please state YOUR full name" required>
                 </label>
 
-                <label class="auth-field">
-                    Reason for Report
-                    <textarea id="irReasonTextarea" placeholder="What happened?" required></textarea>
-                </label>
+                <div class="auth-field ir-richtext-field">
+                    <span>Reason for Report</span>
+                    <div class="ir-richtext-editor">
+                        <div class="ir-richtext-toolbar" id="irReasonToolbar" role="toolbar" aria-label="Reason for Report formatting">
+                            <select class="ir-richtext-select" id="irReasonBlockSelect" aria-label="Text style">
+                                <option value="p">Paragraph</option>
+                                <option value="h1">Heading 1</option>
+                                <option value="h2">Heading 2</option>
+                                <option value="h3">Heading 3</option>
+                            </select>
+                            <span class="ir-richtext-divider"></span>
+                            <button type="button" class="ir-richtext-btn ir-richtext-btn--letter" data-ir-cmd="bold" title="Bold" aria-label="Bold">B</button>
+                            <button type="button" class="ir-richtext-btn ir-richtext-btn--letter ir-richtext-btn--italic" data-ir-cmd="italic" title="Italic" aria-label="Italic">I</button>
+                            <button type="button" class="ir-richtext-btn ir-richtext-btn--letter ir-richtext-btn--underline" data-ir-cmd="underline" title="Underline" aria-label="Underline">U</button>
+                            <span class="ir-richtext-divider"></span>
+                            <button type="button" class="ir-richtext-btn" data-ir-cmd="createLink" title="Link" aria-label="Insert link">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                            </button>
+                            <button type="button" class="ir-richtext-btn" data-ir-cmd="insertUnorderedList" title="Bullet list" aria-label="Bullet list">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                            </button>
+                            <button type="button" class="ir-richtext-btn" data-ir-cmd="insertOrderedList" title="Numbered list" aria-label="Numbered list">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="10" y1="6" x2="21" y2="6"></line><line x1="10" y1="12" x2="21" y2="12"></line><line x1="10" y1="18" x2="21" y2="18"></line><path d="M4 6h1v4"></path><path d="M4.5 10.5h1.5"></path><path d="M4 18h2.5c1 0 1-1 0-1.5S4 15.5 4 15c0-.5.6-.9 1.4-.9s1.1.4 1.1.9"></path></svg>
+                            </button>
+                            <span class="ir-richtext-divider"></span>
+                            <button type="button" class="ir-richtext-btn" data-ir-cmd="blockquote" title="Quote" aria-label="Quote">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 15h3l1-3V8H6v4h3z"></path><path d="M15 15h3l1-3V8h-5v4h3z"></path></svg>
+                            </button>
+                            <button type="button" class="ir-richtext-btn" data-ir-cmd="undo" title="Undo" aria-label="Undo">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"></path><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"></path></svg>
+                            </button>
+                            <button type="button" class="ir-richtext-btn" data-ir-cmd="redo" title="Redo" aria-label="Redo">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14l5-5-5-5"></path><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5v0A5.5 5.5 0 0 0 9.5 20H13"></path></svg>
+                            </button>
+                        </div>
+                        <div class="ir-richtext-body" id="irReasonBody" contenteditable="true" data-placeholder="What happened?" role="textbox" aria-multiline="true" aria-required="true"></div>
+                    </div>
+                </div>
             </div>
 
             <div class="ir-field-stack">
