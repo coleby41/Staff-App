@@ -211,6 +211,7 @@ create table if not exists public.incident_reports (
   unit_numbers text,
   person_making_report text,
   reason_for_report text,
+  change_in_scope text,
   who_caused_issue text,
 
   -- Raw (pre-merge) attachments kept in the incident-report-attachments
@@ -245,6 +246,11 @@ create table if not exists public.incident_reports (
   ir_number text,                 -- e.g. "IR-TP-001" — set only on approval
   project_file_id uuid references public.project_files(id) on delete set null
 );
+
+-- "Change In Scope" was added to the form/PDF after this table may already
+-- have been created by an earlier run of this file — add it defensively so
+-- re-running this script picks it up without a separate migration file.
+alter table public.incident_reports add column if not exists change_in_scope text;
 
 create index if not exists incident_reports_project_id_idx on public.incident_reports (project_id);
 create index if not exists incident_reports_submitted_by_idx on public.incident_reports (submitted_by);

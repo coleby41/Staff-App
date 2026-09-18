@@ -98,90 +98,6 @@
         return { text: value || "—", fontSize: 10.5, margin: [0, 2, 0, 2] };
     }
 
-    // "Reason for Report" is authored with the rich text editor on
-    // pages/incident-report.html (js/incident-report.js's initReasonEditor())
-    // and stored in reason_for_report as HTML, not plain text -- these
-    // convert that HTML into pdfmake's own text/stack format so bold,
-    // italics, underline, headings, lists, links, and quotes actually show
-    // up formatted in the filed PDF instead of printing raw markup.
-    const IR_REASON_INLINE_STYLE = {
-        b: { bold: true }, strong: { bold: true },
-        i: { italics: true }, em: { italics: true },
-        u: { decoration: "underline" },
-    };
-
-    function irReasonInlineToPdf(node, style) {
-        style = style || {};
-        const runs = [];
-        node.childNodes.forEach((child) => {
-            if (child.nodeType === Node.TEXT_NODE) {
-                if (child.textContent) runs.push(Object.assign({ text: child.textContent }, style));
-                return;
-            }
-            if (child.nodeType !== Node.ELEMENT_NODE) return;
-            const tag = child.tagName.toLowerCase();
-            if (tag === "br") { runs.push({ text: "\n" }); return; }
-            if (tag === "a") {
-                const href = child.getAttribute("href") || "";
-                const linkStyle = Object.assign({}, style, { decoration: "underline", color: IR_REPORT_RULE_COLOR });
-                const linkRuns = irReasonInlineToPdf(child, linkStyle);
-                if (href) linkRuns.forEach((run) => { run.link = href; });
-                runs.push(...linkRuns);
-                return;
-            }
-            const extra = IR_REASON_INLINE_STYLE[tag];
-            runs.push(...irReasonInlineToPdf(child, extra ? Object.assign({}, style, extra) : style));
-        });
-        return runs;
-    }
-
-    function irReasonHtmlToPdfStack(html) {
-        const raw = (html || "").trim();
-        if (!raw) return [{ text: "—", fontSize: 10.5 }];
-        // Legacy reports saved before this editor existed have a plain
-        // string with no tags at all -- render it exactly as before.
-        if (!/<[a-z][\s\S]*>/i.test(raw)) return [{ text: raw, fontSize: 10.5, lineHeight: 1.25 }];
-
-        let root;
-        try {
-            root = new DOMParser().parseFromString(`<div>${raw}</div>`, "text/html").body.firstChild;
-        } catch (err) {
-            root = null;
-        }
-        if (!root) return [{ text: raw, fontSize: 10.5, lineHeight: 1.25 }];
-
-        const blockBuilders = {
-            h1: (el) => ({ text: irReasonInlineToPdf(el), bold: true, fontSize: 14, margin: [0, 4, 0, 4] }),
-            h2: (el) => ({ text: irReasonInlineToPdf(el), bold: true, fontSize: 12.5, margin: [0, 3, 0, 3] }),
-            h3: (el) => ({ text: irReasonInlineToPdf(el), bold: true, fontSize: 11, margin: [0, 2, 0, 3] }),
-            p: (el) => ({ text: irReasonInlineToPdf(el), fontSize: 10.5, lineHeight: 1.25, margin: [0, 0, 0, 6] }),
-            div: (el) => ({ text: irReasonInlineToPdf(el), fontSize: 10.5, lineHeight: 1.25, margin: [0, 0, 0, 4] }),
-            blockquote: (el) => ({ text: irReasonInlineToPdf(el), italics: true, fontSize: 10.5, color: IR_REPORT_META_COLOR, margin: [10, 2, 0, 6] }),
-            ul: (el) => ({
-                ul: Array.from(el.children).filter((li) => li.tagName === "LI").map((li) => ({ text: irReasonInlineToPdf(li) })),
-                fontSize: 10.5, margin: [0, 0, 0, 6],
-            }),
-            ol: (el) => ({
-                ol: Array.from(el.children).filter((li) => li.tagName === "LI").map((li) => ({ text: irReasonInlineToPdf(li) })),
-                fontSize: 10.5, margin: [0, 0, 0, 6],
-            }),
-        };
-
-        const stack = [];
-        root.childNodes.forEach((node) => {
-            if (node.nodeType === Node.TEXT_NODE) {
-                const text = node.textContent.trim();
-                if (text) stack.push({ text, fontSize: 10.5, lineHeight: 1.25, margin: [0, 0, 0, 6] });
-                return;
-            }
-            if (node.nodeType !== Node.ELEMENT_NODE) return;
-            const builder = blockBuilders[node.tagName.toLowerCase()];
-            stack.push(builder ? builder(node) : { text: irReasonInlineToPdf(node), fontSize: 10.5, lineHeight: 1.25, margin: [0, 0, 0, 6] });
-        });
-
-        return stack.length ? stack : [{ text: "—", fontSize: 10.5 }];
-    }
-
     function formatIncidentReportDate(dateStr) {
         if (!dateStr) return "—";
         // dateStr is a plain "YYYY-MM-DD" from the incident_reports.report_date
@@ -198,6 +114,106 @@
         const num = Number(value);
         if (Number.isNaN(num)) return "—";
         return num.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // Converts the rich-text HTML saved by the "Reason for Report" /
+    // "Change In Scope" editors (contenteditable fields on
+    // pages/incident-report.html, see js/incident-report.js) into a pdfmake
+    // content stack -- so Bold/Italic/Underline/headings/lists/links/quotes
+    // the reporter applied on-screen still show up formatted in the filed
+    // PDF instead of as raw HTML tags. Falls back to a single plain-text
+    // line for legacy rows saved before the rich-text editor existed
+    // (detected by the absence of a "<" character).
+    const IR_RICHTEXT_BASE_TEXT = { fontSize: 10.5, margin: [0, 0, 0, 8], lineHeight: 1.25 };
+
+    function irRichTextInlineToPdf(node, marks) {
+        marks = marks || {};
+        if (node.nodeType === Node.TEXT_NODE) {
+            const text = node.textContent;
+            if (!text) return [];
+            const run = { text };
+            if (marks.bold) run.bold = true;
+            if (marks.italics) run.italics = true;
+            if (marks.decoration) run.decoration = marks.decoration;
+            if (marks.link) { run.link = marks.link; run.color = IR_REPORT_RULE_COLOR; run.decoration = "underline"; }
+            return [run];
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) return [];
+        const tag = node.tagName.toLowerCase();
+        if (tag === "br") return [{ text: "\n" }];
+        const nextMarks = Object.assign({}, marks);
+        if (tag === "b" || tag === "strong") nextMarks.bold = true;
+        if (tag === "i" || tag === "em") nextMarks.italics = true;
+        if (tag === "u") nextMarks.decoration = "underline";
+        if (tag === "a") nextMarks.link = node.getAttribute("href") || "";
+        let out = [];
+        node.childNodes.forEach((child) => { out = out.concat(irRichTextInlineToPdf(child, nextMarks)); });
+        return out;
+    }
+
+    function irRichTextBlockToPdf(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            const text = node.textContent.trim();
+            return text ? [Object.assign({ text }, IR_RICHTEXT_BASE_TEXT)] : [];
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) return [];
+        const tag = node.tagName.toLowerCase();
+
+        if (tag === "ul" || tag === "ol") {
+            const items = Array.from(node.children)
+                .filter((li) => li.tagName.toLowerCase() === "li")
+                .map((li) => ({ text: irRichTextInlineToPdf(li) }))
+                .filter((item) => item.text.length);
+            if (!items.length) return [];
+            const listBlock = tag === "ul" ? { ul: items } : { ol: items };
+            return [Object.assign(listBlock, { fontSize: 10.5, margin: [0, 0, 0, 8] })];
+        }
+        if (tag === "blockquote") {
+            let inner = [];
+            node.childNodes.forEach((child) => { inner = inner.concat(irRichTextBlockToPdf(child)); });
+            return inner.length ? [{ stack: inner, italics: true, color: "#4b5563", margin: [10, 0, 0, 8] }] : [];
+        }
+        if (tag === "h1" || tag === "h2" || tag === "h3") {
+            const size = tag === "h1" ? 14.5 : (tag === "h2" ? 13 : 11.5);
+            const inline = irRichTextInlineToPdf(node);
+            return inline.length ? [{ text: inline, bold: true, fontSize: size, margin: [0, 2, 0, 6] }] : [];
+        }
+        if (tag === "p" || tag === "div" || tag === "li") {
+            const inline = irRichTextInlineToPdf(node);
+            return inline.length ? [Object.assign({ text: inline }, IR_RICHTEXT_BASE_TEXT)] : [];
+        }
+        // Unrecognized wrapper -- recurse into its children rather than
+        // silently dropping whatever content it holds.
+        let out = [];
+        node.childNodes.forEach((child) => { out = out.concat(irRichTextBlockToPdf(child)); });
+        return out;
+    }
+
+    // Plain-text rendering of the same rich-text HTML, for spots that just
+    // need a short preview (e.g. the report card on account-activity.html) --
+    // not something that needs pdfmake's inline/list structure.
+    function irRichTextToPlainText(html) {
+        if (!html) return "";
+        if (!html.includes("<")) return html;
+        // Insert a space at block/line boundaries before reading textContent,
+        // otherwise adjacent blocks ("<p>A</p><p>B</p>") read back as one
+        // run-together word ("AB") instead of "A B".
+        const spaced = html.replace(/<\/(p|div|li|h1|h2|h3|blockquote)>|<br\s*\/?>/gi, " $&");
+        const container = document.createElement("div");
+        container.innerHTML = spaced;
+        return (container.textContent || "").replace(/\s+/g, " ").trim();
+    }
+
+    function irRichTextHtmlToPdfStack(html, emptyText) {
+        if (!html) return [Object.assign({ text: emptyText || "—" }, IR_RICHTEXT_BASE_TEXT)];
+        if (!html.includes("<")) return [Object.assign({ text: html }, IR_RICHTEXT_BASE_TEXT)];
+
+        const container = document.createElement("div");
+        container.innerHTML = html;
+        let stack = [];
+        container.childNodes.forEach((node) => { stack = stack.concat(irRichTextBlockToPdf(node)); });
+        if (!stack.length) return [Object.assign({ text: emptyText || "—" }, IR_RICHTEXT_BASE_TEXT)];
+        return stack;
     }
 
     // Builds the base Incident Report page as a pdf-lib-ready Uint8Array
@@ -261,7 +277,9 @@
                             [irLabelCell("Person Making the Report:")],
                             [irValueCell(report.person_making_report)],
                             [irLabelCell("Reason for Report:")],
-                            [{ stack: irReasonHtmlToPdfStack(report.reason_for_report), margin: [0, 2, 0, 8] }],
+                            [{ stack: irRichTextHtmlToPdfStack(report.reason_for_report, "—"), margin: [0, 2, 0, 0] }],
+                            [irLabelCell("Change In Scope:")],
+                            [{ stack: irRichTextHtmlToPdfStack(report.change_in_scope, "—"), margin: [0, 2, 0, 0] }],
                         ],
                     },
                     layout: { hLineWidth: () => 0.75, vLineWidth: () => 0.75, hLineColor: () => "#c7ccd1", vLineColor: () => "#c7ccd1" },
@@ -366,5 +384,6 @@
         buildIncidentReportBasePdfBytes,
         formatIncidentReportCurrency,
         formatIncidentReportDate,
+        richTextToPlainText: irRichTextToPlainText,
     };
 })();

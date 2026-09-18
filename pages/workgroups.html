@@ -304,7 +304,7 @@
         <div>
             <p class="eyebrow">IT Tools</p>
             <h1>Workgroups</h1>
-            <p>See every workgroup, add new ones, and control which tabs each one can access.</p>
+            <p>See every workgroup, add new ones, and control exactly what each one can see and do — right down to individual actions, not just whole tabs. You can also right-click any sidebar tab on any page for a shortcut straight to that page's permissions, and use Preview below to see the app exactly as a given workgroup would.</p>
         </div>
     </section>
 
@@ -322,7 +322,7 @@
                 <h2 class="card-title">Workgroups</h2>
             </div>
 
-            <div id="workgroupsList" class="workgroup-chip-list"></div>
+            <div id="workgroupsList" class="workgroup-list"></div>
 
             <form id="addWorkgroupForm" class="form-add-field-row" style="margin-top:14px;">
                 <input type="text" id="newWorkgroupNameInput" placeholder="New workgroup name (e.g. Field)" style="flex:1; padding:10px 12px; border-radius:10px; border:1px solid var(--border);">
@@ -332,9 +332,10 @@
 
         <div class="card" style="margin-top:20px;">
             <div class="card-header">
-                <h2 class="card-title">Tab Access</h2>
+                <h2 class="card-title">Permissions</h2>
             </div>
-            <div id="permissionGridWrap" class="permission-grid-wrap"></div>
+            <p class="auth-inline-copy">Select a workgroup above to see and edit everything it can do, grouped by page.</p>
+            <div id="permissionPanelWrap" class="permission-panel-wrap"></div>
         </div>
 
     </div>
@@ -427,6 +428,8 @@
 <script src="/js/timeout.js"></script>
 <script src="/js/notifications.js"></script>
 <script src="/js/change-password.js"></script>
+<script src="/js/permissions.js"></script>
+<script src="/js/permission-editor.js"></script>
 <script src="/js/workgroups.js"></script>
 <script src="/js/nav-access.js"></script>
 <script src="/js/nav-approvals-badge.js"></script>

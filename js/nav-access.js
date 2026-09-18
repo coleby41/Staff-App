@@ -1,59 +1,65 @@
 /* ===========================
    NAV ACCESS (shared, every page)
 
-   Reads the workgroups / workgroup_nav_access tables (see
-   supabase-workgroups-setup.sql) and, based on the signed-in staff member's
-   workgroup(s), shows/hides the sidebar tabs they don't have access to, and
-   gates the current page's own content the same way. This replaces the
-   ~10 separate hand-copied "updateNavAccess()" functions that used to live
-   inline in every page with one real, editable source of truth.
+   Reads the permissions / workgroup_permissions tables (see
+   sql/supabase-permissions-system-setup.sql, via js/permissions.js) and,
+   based on the signed-in staff member's workgroup(s), shows/hides the
+   sidebar tabs they don't have access to, and gates the current page's own
+   content the same way.
 
-   IMPORTANT — fails open on purpose: if workgroups/workgroup_nav_access
-   don't exist yet (the SQL hasn't been run), this script does nothing at
-   all and leaves every page's existing hardcoded checks exactly as they
-   were. Nothing changes for anyone until the migration has actually run.
-   Once it has, this becomes the authoritative source.
+   2026-09-18: rewritten to read the new granular permissions system instead
+   of the old workgroup_nav_access table -- "tab access" is no longer its
+   own separate concept, it's just whichever general.view_* permission
+   corresponds to that tab, managed in the exact same place (and the exact
+   same right-click-the-tab popup, see js/permission-editor.js) as every
+   other permission on that page. workgroup_nav_access itself is left alone
+   in the database (not dropped) in case anything else still reads it, but
+   nothing in the app queries it anymore as of this change.
 
-   "Super Admin" always has full access, regardless of what's configured in
-   workgroup_nav_access — this is a hardcoded bypass, not editable from the
-   Workgroups page, so it's not possible to accidentally lock every admin
-   out of the app.
+   IMPORTANT -- fails open on purpose, same as before: if permissions/
+   workgroup_permissions don't exist yet (the SQL hasn't been run), every
+   check answers true (see js/permissions.js's own fail-open behavior) and
+   nothing changes for anyone until the migration has actually run.
 
-   "Manage Employees" is additive: this script grants it exactly as before
-   (workgroup access, if configured) but ALSO keeps granting it to anyone
-   whose staff_users.role is 'Manager', matching the existing
-   manager-nav.js behavior, since that's a per-person attribute rather than
-   a workgroup one.
+   "Super Admin" always has full access, and "Manager" (staff_users.role)
+   always additionally gets Manage Employees -- both handled inside
+   Permissions.hasPermission() now, not duplicated here.
+
+   RIGHT-CLICK TO EDIT: anyone with general.manage_workgroups gets a
+   right-click (contextmenu) handler on every visible nav link, opening a
+   small popup (js/permission-editor.js) scoped to that one page's
+   permissions -- the same underlying grant/revoke as the full Workgroups
+   screen, just without leaving the page you're looking at. Disabled while
+   previewing another workgroup (see PREVIEW MODE below), since that's a
+   look-only mode.
+
+   PREVIEW MODE: when js/permissions.js reports a preview workgroup is
+   active (set from the Workgroups screen's "Preview" button), this script
+   renders every tab exactly as that workgroup would see it and shows a
+   dismissible banner at the top of the page so it's never ambiguous that
+   you're looking at someone else's view, not your own.
 =========================== */
 
 const NAV_ITEMS = [
-    { key: "dashboard", selector: 'a[href="/pages/dashboard.html"]' },
-    { key: "excel_workbook", selector: 'a[href="/pages/excel-workbook.html"]' },
-    { key: "form_templates", selector: 'a[href="/pages/form-template.html"]' },
-    { key: "personal_finance", selector: 'a[href="/pages/timesheet.html"]' },
-    { key: "vendor_contacts", selector: 'a[href="/pages/vendors.html"]' },
-    { key: "payroll_tools", selector: 'a[href="/pages/payroll-tools.html"]' },
-    { key: "manage_employees", selector: 'a[href="/pages/manage-employees.html"]' },
-    { key: "create_account", selector: '.subnav a[href="/pages/admin-users.html"]' },
-    { key: "staff_users", selector: 'a[href="/pages/staff-users.html"]' },
-    { key: "workgroups", selector: 'a[href="/pages/workgroups.html"]' },
-    { key: "project_overview", selector: 'a[href="/pages/project-home.html"]' }
+    { key: "dashboard", selector: 'a[href="/pages/dashboard.html"]', permission: "general.view_dashboard", pageLabel: "Dashboard" },
+    { key: "excel_workbook", selector: 'a[href="/pages/excel-workbook.html"]', permission: "general.view_excel_workbook_templates", pageLabel: "Excel Workbook Templates" },
+    { key: "form_templates", selector: 'a[href="/pages/form-template.html"]', permission: "general.view_form_templates", pageLabel: "Form Templates" },
+    { key: "personal_finance", selector: 'a[href="/pages/timesheet.html"]', permission: "general.view_personal_finance", pageLabel: "Personal Finance (Timesheet)" },
+    { key: "vendor_contacts", selector: 'a[href="/pages/vendors.html"]', permission: "general.view_vendor_contacts", pageLabel: "Vendor Contacts" },
+    { key: "payroll_tools", selector: 'a[href="/pages/payroll-tools.html"]', permission: "general.view_payroll_tools", pageLabel: "Payroll Tools" },
+    { key: "manage_employees", selector: 'a[href="/pages/manage-employees.html"]', permission: "general.view_manage_employees", pageLabel: "Manage Employees" },
+    { key: "create_account", selector: '.subnav a[href="/pages/admin-users.html"]', permission: "general.create_staff_account", pageLabel: "Create Account" },
+    { key: "staff_users", selector: 'a[href="/pages/staff-users.html"]', permission: "general.view_staff_users", pageLabel: "Staff Users" },
+    { key: "workgroups", selector: 'a[href="/pages/workgroups.html"]', permission: "general.manage_workgroups", pageLabel: "Workgroups" },
+    { key: "project_overview", selector: 'a[href="/pages/project-home.html"]', permission: "general.view_project_overview", pageLabel: "Project Overview" }
 ];
 
-// Bare, extensionless page name -> the nav key that page represents, so
-// this script can gate the CURRENT page's own content too, not just hide
+// Bare, extensionless page name -> the NAV_ITEMS entry that page represents,
+// so this script can gate the CURRENT page's own content too, not just hide
 // sidebar links to it. Keyed on a normalized basename (see
-// navAccessCurrentFileName() below) rather than a root-relative path —
-// window.location.pathname.split("/").pop() only ever returns a bare
-// filename, and once cleanUrls (vercel.json) strips ".html" on the
-// deployed site it's not even that, so comparing it against
-// "/pages/dashboard.html" could never match. That silently made this
-// function's own `key` always undefined, which meant applyCurrentPageGate()
-// always hit its `if (!key) return;` and never actually gated a restricted
-// page's content by workgroup access, on any page, ever (found while
-// investigating login.html's auth-guard.js redirect-loop bug below — same
-// bare-filename-vs-root-relative-path mismatch, different file).
-const PATH_TO_KEY = {
+// navAccessCurrentFileName() below) rather than a root-relative path -- see
+// the long-standing comment history on this in git blame if curious why.
+const PATH_TO_NAV_KEY = {
     "dashboard": "dashboard",
     "excel-workbook": "excel_workbook",
     "form-template": "form_templates",
@@ -68,71 +74,23 @@ const PATH_TO_KEY = {
 };
 
 // A few pages already have their own "restricted view" markup (built before
-// this system existed) — reuse those instead of redirecting away, since
+// this system existed) -- reuse those instead of redirecting away, since
 // that's a nicer experience than a jarring bounce to the dashboard.
 const PAGE_CONTENT_GATES = {
     payroll_tools: { contentId: "payrollToolsContent", restrictedId: "restrictedView" },
     manage_employees: { contentId: "manageEmployeesContent", restrictedId: "restrictedView" }
 };
 
-function navAccessGetProfile() {
-    if (window.currentSupabaseProfile) return window.currentSupabaseProfile;
-    try { return JSON.parse(localStorage.getItem("staffProfile") || "null"); }
-    catch { return null; }
-}
-
-function navAccessIsSuperAdmin(profile) {
-    return window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, "Super Admin") : false;
-}
-
-function navAccessIsManagerRole(profile) {
-    return String(profile?.role || "").trim().toLowerCase() === "manager";
-}
-
 function navAccessCurrentFileName() {
     const lastSegment = decodeURIComponent(window.location.pathname.split("/").pop() || "");
     return lastSegment.replace(/\.html$/i, "");
 }
 
-async function loadWorkgroupAccessMap() {
-    const [{ data: groups, error: groupsError }, { data: rows, error: rowsError }] = await Promise.all([
-        window.supabaseClient.from("workgroups").select("id, name"),
-        window.supabaseClient.from("workgroup_nav_access").select("workgroup_id, nav_key")
-    ]);
-
-    if (groupsError || rowsError) {
-        throw groupsError || rowsError;
-    }
-
-    const idToName = new Map((groups || []).map(g => [g.id, String(g.name || "").trim().toLowerCase()]));
-    const map = new Map(); // lowercase workgroup name -> Set<nav_key>
-
-    (rows || []).forEach(row => {
-        const name = idToName.get(row.workgroup_id);
-        if (!name) return;
-        if (!map.has(name)) map.set(name, new Set());
-        map.get(name).add(row.nav_key);
-    });
-
-    return map;
-}
-
-function computeAccessibleKeys(profile, accessMap) {
+function computeAccessibleKeys() {
     const keys = new Set();
-
-    if (navAccessIsSuperAdmin(profile)) {
-        NAV_ITEMS.forEach(item => keys.add(item.key));
-        return keys;
-    }
-
-    const groups = window.getSupabaseUserGroups ? window.getSupabaseUserGroups(profile) : [];
-    groups.forEach(g => {
-        const set = accessMap.get(g);
-        if (set) set.forEach(k => keys.add(k));
+    NAV_ITEMS.forEach(item => {
+        if (window.Permissions.hasPermission(item.permission)) keys.add(item.key);
     });
-
-    if (navAccessIsManagerRole(profile)) keys.add("manage_employees");
-
     return keys;
 }
 
@@ -156,7 +114,7 @@ function applyGroupWrapperVisibility(groupId) {
 }
 
 function applyCurrentPageGate(keys) {
-    const key = PATH_TO_KEY[navAccessCurrentFileName()];
+    const key = PATH_TO_NAV_KEY[navAccessCurrentFileName()];
     if (!key) return;
 
     const hasAccess = keys.has(key);
@@ -170,7 +128,7 @@ function applyCurrentPageGate(keys) {
         return;
     }
 
-    // No restricted-view markup on this page — the only sensible fallback
+    // No restricted-view markup on this page -- the only sensible fallback
     // is to send them somewhere they do have access. Guard against ever
     // redirecting away from dashboard.html itself (it's granted to every
     // seeded workgroup, so this should never actually trigger).
@@ -179,26 +137,60 @@ function applyCurrentPageGate(keys) {
     }
 }
 
-async function initNavAccess() {
-    if (!window.supabaseClient) return;
+/* ---------- right-click to edit (see js/permission-editor.js) ---------- */
 
-    let accessMap;
-    try {
-        accessMap = await loadWorkgroupAccessMap();
-    } catch (error) {
-        // Fail open: tables probably don't exist yet (SQL not run). Leave
-        // every page's existing hardcoded checks in charge, untouched.
-        console.warn("nav-access: workgroups/workgroup_nav_access not available yet, leaving existing access checks in place.", error);
+function wireRightClickEditors() {
+    // Disabled entirely while previewing another workgroup -- preview is a
+    // look-only mode, editing belongs to your own real access.
+    if (window.Permissions.isPermissionPreviewActive()) return;
+    if (!window.Permissions.hasPermission("general.manage_workgroups")) return;
+    if (!window.PermissionEditor) return;
+
+    NAV_ITEMS.forEach(item => {
+        document.querySelectorAll(item.selector).forEach(el => {
+            el.addEventListener("contextmenu", function (event) {
+                event.preventDefault();
+                window.PermissionEditor.open(item.pageLabel, event.clientX, event.clientY);
+            });
+        });
+    });
+}
+
+/* ---------- preview-mode banner ---------- */
+
+function renderPreviewBanner() {
+    const preview = window.Permissions.getPermissionPreview();
+    const existing = document.getElementById("permissionPreviewBanner");
+    if (!preview) {
+        if (existing) existing.remove();
         return;
     }
+    if (existing) return; // already showing
 
-    const profile = navAccessGetProfile();
-    const keys = computeAccessibleKeys(profile, accessMap);
+    const banner = document.createElement("div");
+    banner.id = "permissionPreviewBanner";
+    banner.className = "permission-preview-banner";
+    banner.innerHTML = `
+        <span>Previewing as <strong>${(preview.name || "").replace(/</g, "&lt;")}</strong> — this is what that workgroup sees, not your own access.</span>
+        <button type="button" id="exitPermissionPreviewBtn">Exit Preview</button>
+    `;
+    document.body.prepend(banner);
+    document.getElementById("exitPermissionPreviewBtn")?.addEventListener("click", () => window.Permissions.exitPermissionPreview());
+}
+
+async function initNavAccess() {
+    if (!window.supabaseClient || !window.Permissions) return;
+
+    await window.Permissions.initPermissions();
+
+    const keys = computeAccessibleKeys();
 
     applyNavItemVisibility(keys);
     applyGroupWrapperVisibility("companyDocsNavGroup");
     applyGroupWrapperVisibility("adminNavGroup");
     applyCurrentPageGate(keys);
+    renderPreviewBanner();
+    wireRightClickEditors();
 
     window.NavAccessKeys = keys;
 }
@@ -208,7 +200,7 @@ async function initNavAccess() {
 function pollAndInitNavAccess(attempts) {
     attempts = attempts || 0;
     const clientReady = !!window.supabaseClient;
-    const profileReady = !!navAccessGetProfile();
+    const profileReady = !!(window.currentSupabaseProfile || localStorage.getItem("staffProfile"));
 
     if (clientReady && (profileReady || attempts >= 25)) {
         initNavAccess();

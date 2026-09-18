@@ -1,32 +1,30 @@
 /* ===========================
-   WORKGROUPS ADMIN PAGE
-   Requires: window.supabaseClient (supabase-auth.js)
+   WORKGROUPS (ROLES & PERMISSIONS) ADMIN PAGE
+   Requires: window.supabaseClient (supabase-auth.js), window.Permissions (permissions.js)
 
-   Lets IT / Super Admin see every workgroup, add new ones, and edit which
-   sidebar tabs each workgroup can see — this is the data nav-access.js
-   (loaded on every other page) reads to decide what to show/hide.
+   Lets IT / Super Admin see every workgroup, add new ones, and edit every
+   individual permission each workgroup has -- not just whole sidebar tabs
+   anymore (2026-09-18 rewrite). Reads/writes the same permissions /
+   workgroup_permissions tables as the per-page right-click editor
+   (js/permission-editor.js); this screen is just the full, browse-everything
+   view of the same data, plus workgroup add/delete and "Preview" (see
+   below).
 
    Access to THIS page is a hardcoded IT/Super-Admin-only check, not itself
-   governed by the workgroup_nav_access table it manages — otherwise editing
-   your own way out of this page would be possible.
+   governed by the permissions table it manages -- otherwise editing your
+   own way out of this page would be possible.
+
+   PREVIEW: clicking "Preview" on a workgroup puts the browser into preview
+   mode (js/permissions.js) and sends you to the dashboard as that
+   workgroup would see it -- real tabs shown/hidden, real page content
+   gated, exactly like actually being a member of it. A banner (rendered by
+   nav-access.js on every page) makes it obvious you're previewing and
+   offers a one-click way back.
 =========================== */
 
-const GOVERNABLE_TABS = [
-    { key: "dashboard", label: "Dashboard" },
-    { key: "excel_workbook", label: "Excel Workbook Templates" },
-    { key: "form_templates", label: "Form Templates" },
-    { key: "personal_finance", label: "Staff Finance" },
-    { key: "project_overview", label: "Project Overview" },
-    { key: "vendor_contacts", label: "Vendor Information" },
-    { key: "payroll_tools", label: "Payroll Tools" },
-    { key: "manage_employees", label: "Manage Employees *" },
-    { key: "create_account", label: "Create Account" },
-    { key: "staff_users", label: "Staff Users" },
-    { key: "workgroups", label: "Workgroups" }
-];
-
-let workgroupRecords = [];              // [{ id, name }]
-let workgroupAccessById = new Map();    // workgroup_id -> Set<nav_key>
+let workgroupRecords = [];      // [{ id, name }]
+let selectedWorkgroupId = null;
+let permissionsCatalogByCategory = null; // Map<category, [{key,label,description,governed_by,page_label}]>
 
 function wgEscapeHtml(str) {
     const d = document.createElement("div");
@@ -74,35 +72,47 @@ function enforceWorkgroupsAccess() {
 
 /* ---------- loading ---------- */
 
+function groupPermissionsByCategory() {
+    const map = new Map();
+    window.Permissions.getPermissionsCatalog().forEach(p => {
+        if (!map.has(p.category)) map.set(p.category, []);
+        map.get(p.category).push(p);
+    });
+    permissionsCatalogByCategory = map;
+}
+
 async function loadWorkgroupsData() {
     if (!window.supabaseClient) {
         console.error("Supabase client not ready yet");
         return;
     }
 
-    const [{ data: groups, error: groupsError }, { data: rows, error: rowsError }] = await Promise.all([
-        window.supabaseClient.from("workgroups").select("*").order("name", { ascending: true }),
-        window.supabaseClient.from("workgroup_nav_access").select("workgroup_id, nav_key")
-    ]);
+    const { data: groups, error: groupsError } = await window.supabaseClient
+        .from("workgroups").select("*").order("name", { ascending: true });
 
-    if (groupsError || rowsError) {
-        console.error("Failed to load workgroups:", groupsError || rowsError);
+    if (groupsError) {
+        console.error("Failed to load workgroups:", groupsError);
         showWorkgroupsMessage("Couldn't load workgroups. Have you run supabase-workgroups-setup.sql yet?", "error");
         return;
     }
 
     workgroupRecords = groups || [];
-    workgroupAccessById = new Map();
-    (rows || []).forEach(row => {
-        if (!workgroupAccessById.has(row.workgroup_id)) workgroupAccessById.set(row.workgroup_id, new Set());
-        workgroupAccessById.get(row.workgroup_id).add(row.nav_key);
-    });
+
+    try {
+        await window.Permissions.initPermissions();
+        groupPermissionsByCategory();
+    } catch (error) {
+        console.error("Failed to load permissions catalog:", error);
+        showWorkgroupsMessage("Couldn't load the permission catalog. Have you run supabase-permissions-system-setup.sql yet?", "error");
+        return;
+    }
 
     renderWorkgroupsList();
-    renderPermissionGrid();
+    if (!selectedWorkgroupId && workgroupRecords.length) selectedWorkgroupId = workgroupRecords[0].id;
+    renderPermissionPanel();
 }
 
-/* ---------- workgroups list (add/remove) ---------- */
+/* ---------- workgroups list (add/remove/select) ---------- */
 
 function renderWorkgroupsList() {
     const list = document.getElementById("workgroupsList");
@@ -114,12 +124,22 @@ function renderWorkgroupsList() {
     }
 
     list.innerHTML = workgroupRecords.map(wg => `
-        <span class="chip chip--tag workgroup-chip" data-id="${wg.id}">
-            ${wgEscapeHtml(wg.name)}
+        <div class="workgroup-list-row ${wg.id === selectedWorkgroupId ? "is-selected" : ""}" data-id="${wg.id}">
+            <button type="button" class="workgroup-list-row-name" data-action="select-workgroup" data-id="${wg.id}">${wgEscapeHtml(wg.name)}</button>
+            <button type="button" class="workbook-btn workbook-btn--preview workgroup-preview-btn" data-action="preview-workgroup" data-id="${wg.id}" title="See the app as this workgroup would see it">Preview</button>
             ${isSuperAdminWorkgroupName(wg.name) ? "" : `<button type="button" class="workgroup-chip-remove" data-action="delete-workgroup" data-id="${wg.id}" aria-label="Delete ${wgEscapeHtml(wg.name)}">✕</button>`}
-        </span>
+        </div>
     `).join("");
 
+    list.querySelectorAll('[data-action="select-workgroup"]').forEach(btn => {
+        btn.addEventListener("click", () => { selectedWorkgroupId = btn.dataset.id; renderWorkgroupsList(); renderPermissionPanel(); });
+    });
+    list.querySelectorAll('[data-action="preview-workgroup"]').forEach(btn => {
+        btn.addEventListener("click", () => {
+            const wg = workgroupRecords.find(w => w.id === btn.dataset.id);
+            if (wg) window.Permissions.startPermissionPreview(wg.id, wg.name);
+        });
+    });
     list.querySelectorAll('[data-action="delete-workgroup"]').forEach(btn => {
         btn.addEventListener("click", () => openDeleteWorkgroupConfirm(btn.dataset.id));
     });
@@ -145,11 +165,11 @@ async function handleAddWorkgroup(event) {
 
     workgroupRecords.push(data);
     workgroupRecords.sort((a, b) => a.name.localeCompare(b.name));
-    workgroupAccessById.set(data.id, new Set());
+    selectedWorkgroupId = data.id;
     if (input) input.value = "";
 
     renderWorkgroupsList();
-    renderPermissionGrid();
+    renderPermissionPanel();
     showWorkgroupsMessage(`"${name}" was added.`, "success");
 }
 
@@ -210,79 +230,96 @@ async function confirmDeleteWorkgroup() {
     }
 
     workgroupRecords = workgroupRecords.filter(w => w.id !== id);
-    workgroupAccessById.delete(id);
+    if (selectedWorkgroupId === id) selectedWorkgroupId = workgroupRecords[0]?.id || null;
     closeDeleteWorkgroupConfirm();
     renderWorkgroupsList();
-    renderPermissionGrid();
+    renderPermissionPanel();
     showWorkgroupsMessage("Workgroup deleted.", "success");
 }
 
-/* ---------- permission grid ---------- */
+/* ---------- selected workgroup's permission panel ---------- */
 
-function renderPermissionGrid() {
-    const wrap = document.getElementById("permissionGridWrap");
+function renderPermissionPanel() {
+    const wrap = document.getElementById("permissionPanelWrap");
     if (!wrap) return;
 
-    if (!workgroupRecords.length) {
+    const wg = workgroupRecords.find(w => w.id === selectedWorkgroupId);
+    if (!wg) {
         wrap.innerHTML = "";
         return;
     }
 
-    const headerCells = GOVERNABLE_TABS.map(t => `<th>${wgEscapeHtml(t.label)}</th>`).join("");
+    const isSuperAdmin = isSuperAdminWorkgroupName(wg.name);
+    const categories = Array.from(permissionsCatalogByCategory.keys());
 
-    const bodyRows = workgroupRecords.map(wg => {
-        const isSuperAdmin = isSuperAdminWorkgroupName(wg.name);
-        const access = workgroupAccessById.get(wg.id) || new Set();
-
-        const cells = GOVERNABLE_TABS.map(t => {
-            if (isSuperAdmin) {
-                return `<td><input type="checkbox" checked disabled title="Super Admin always has full access"></td>`;
-            }
-            const checked = access.has(t.key) ? "checked" : "";
-            return `<td><input type="checkbox" data-workgroup-id="${wg.id}" data-nav-key="${t.key}" ${checked}></td>`;
-        }).join("");
-
-        return `<tr><td class="permission-grid-workgroup-name">${wgEscapeHtml(wg.name)}</td>${cells}</tr>`;
+    const categoriesHtml = categories.map(category => {
+        const rows = permissionsCatalogByCategory.get(category).map(p => permissionPanelRowHtml(p, wg, isSuperAdmin)).join("");
+        return `
+            <div class="permission-panel-category">
+                <h4>${wgEscapeHtml(category)}</h4>
+                ${rows}
+            </div>
+        `;
     }).join("");
 
     wrap.innerHTML = `
-        <table class="access-table permission-grid">
-            <thead><tr><th>Workgroup</th>${headerCells}</tr></thead>
-            <tbody>${bodyRows}</tbody>
-        </table>
-        <p class="auth-inline-copy" style="margin-top:10px;">
-            * Manage Employees is also automatically granted to anyone whose role is set to Manager, regardless of workgroup.
-            Super Admin always has full access and can't be edited here.
-        </p>
+        <div class="permission-panel-header">
+            <h3>${wgEscapeHtml(wg.name)}</h3>
+            ${isSuperAdmin ? `<p class="auth-inline-copy">Super Admin always has every permission and can't be edited here.</p>` : ""}
+        </div>
+        ${categoriesHtml}
     `;
 
-    wrap.querySelectorAll('input[type="checkbox"][data-workgroup-id]').forEach(cb => {
-        cb.addEventListener("change", () => togglePermission(cb.dataset.workgroupId, cb.dataset.navKey, cb.checked, cb));
-    });
+    if (!isSuperAdmin) {
+        wrap.querySelectorAll('input[type="checkbox"][data-permission-key]').forEach(cb => {
+            cb.addEventListener("change", () => toggleWorkgroupPermission(cb));
+        });
+    }
 }
 
-async function togglePermission(workgroupId, navKey, shouldGrant, checkboxEl) {
+function permissionPanelRowHtml(permission, wg, isSuperAdmin) {
+    if (permission.governed_by === "project_role") {
+        return `
+            <div class="permission-panel-row permission-panel-row--note">
+                <div class="permission-panel-row-label">
+                    <div class="permission-panel-row-name">${wgEscapeHtml(permission.label)}</div>
+                    <div class="permission-panel-row-desc">${wgEscapeHtml(permission.description || "")}</div>
+                </div>
+                <div class="permission-panel-row-note">Set per-project (Project Members)</div>
+            </div>
+        `;
+    }
+
+    const granted = window.Permissions.workgroupsWithPermission(permission.key);
+    const checked = isSuperAdmin || granted.has(wg.name.trim().toLowerCase());
+
+    return `
+        <div class="permission-panel-row">
+            <div class="permission-panel-row-label">
+                <div class="permission-panel-row-name">${wgEscapeHtml(permission.label)}</div>
+                <div class="permission-panel-row-desc">${wgEscapeHtml(permission.description || "")}</div>
+            </div>
+            <label class="permission-panel-toggle">
+                <input type="checkbox" data-workgroup-id="${wg.id}" data-workgroup-name="${wgEscapeHtml(wg.name)}" data-permission-key="${permission.key}" ${checked ? "checked" : ""} ${isSuperAdmin ? "disabled" : ""}>
+                <span class="permission-panel-toggle-track"></span>
+            </label>
+        </div>
+    `;
+}
+
+async function toggleWorkgroupPermission(checkboxEl) {
     checkboxEl.disabled = true;
+    const workgroupId = checkboxEl.dataset.workgroupId;
+    const workgroupName = checkboxEl.dataset.workgroupName;
+    const permissionKey = checkboxEl.dataset.permissionKey;
+    const shouldGrant = checkboxEl.checked;
 
     try {
-        if (shouldGrant) {
-            const { error } = await window.supabaseClient
-                .from("workgroup_nav_access")
-                .upsert({ workgroup_id: workgroupId, nav_key: navKey }, { onConflict: "workgroup_id,nav_key", ignoreDuplicates: true });
-            if (error) throw error;
-            if (!workgroupAccessById.has(workgroupId)) workgroupAccessById.set(workgroupId, new Set());
-            workgroupAccessById.get(workgroupId).add(navKey);
-        } else {
-            const { error } = await window.supabaseClient
-                .from("workgroup_nav_access")
-                .delete()
-                .eq("workgroup_id", workgroupId)
-                .eq("nav_key", navKey);
-            if (error) throw error;
-            workgroupAccessById.get(workgroupId)?.delete(navKey);
-        }
+        if (shouldGrant) await window.Permissions.grantPermission(workgroupId, permissionKey);
+        else await window.Permissions.revokePermission(workgroupId, permissionKey);
+        window.Permissions.applyPermissionChangeToCache(workgroupName, permissionKey, shouldGrant);
     } catch (error) {
-        console.error("Failed to update access:", error);
+        console.error("Failed to update permission:", error);
         checkboxEl.checked = !shouldGrant; // revert the checkbox on failure
         showWorkgroupsMessage("Couldn't save that change. Please try again.", "error");
     } finally {

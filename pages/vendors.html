@@ -663,16 +663,20 @@
                 <div id="vendorProfileCoiStatus"></div>
             </div>
 
-            <div class="vendor-profile-section">
-                <span class="company-card-label">Notes</span>
-                <textarea class="vendor-profile-notes-input" id="vendorProfileNotesInput" placeholder="Add notes about this vendor..." rows="3"></textarea>
-                <div class="vendor-profile-notes-actions">
-                    <p class="auth-message" id="vendorProfileNotesMessage"></p>
-                </div>
-            </div>
-
             <div id="vendorProfileTagGroups" class="vendor-profile-tag-groups">
                 <!-- One block per category, populated by companies.js -->
+            </div>
+
+            <!-- Free-text notes, visible only here (not on the card grid, not
+                 in the Add/Edit Vendor form -- see saveVendorNotes() in
+                 companies.js). Enter saves, Shift+Enter inserts a newline. -->
+            <div class="vendor-profile-section">
+                <span class="company-card-label">Notes</span>
+                <textarea id="vendorProfileNotesInput" class="vendor-profile-notes-input" placeholder="Add notes about this vendor…"></textarea>
+                <div class="vendor-profile-notes-actions">
+                    <button type="button" class="workbook-btn" id="vendorProfileSaveNotesBtn">Save Notes</button>
+                    <p class="auth-message" id="vendorProfileNotesMessage" role="status"></p>
+                </div>
             </div>
 
             <div class="popup-buttons">

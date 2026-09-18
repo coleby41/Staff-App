@@ -729,17 +729,6 @@ function openVendorProfileModal(company) {
         }
     }
 
-    const notesInput = document.getElementById("vendorProfileNotesInput");
-    if (notesInput) {
-        notesInput.value = company.Notes ?? "";
-        // Guard against a previous vendor's save still being in flight (e.g.
-        // switched vendors right after hitting Enter, before the Supabase
-        // update round-trip finished) leaving this shared textarea disabled.
-        notesInput.disabled = false;
-    }
-    const notesMessageEl = document.getElementById("vendorProfileNotesMessage");
-    if (notesMessageEl) { notesMessageEl.textContent = ""; notesMessageEl.className = "auth-message"; }
-
     const groups = groupTagsByCategory(tagsForCompany(company.id));
     const tagGroupsEl = document.getElementById("vendorProfileTagGroups");
     tagGroupsEl.innerHTML = groups.map(({ category, tags }) => `
@@ -754,48 +743,58 @@ function openVendorProfileModal(company) {
         </div>
     `).join("");
 
+    const notesInput = document.getElementById("vendorProfileNotesInput");
+    if (notesInput) notesInput.value = company.Notes || "";
+    const notesMessageEl = document.getElementById("vendorProfileNotesMessage");
+    if (notesMessageEl) { notesMessageEl.textContent = ""; notesMessageEl.className = "auth-message"; }
+
     overlay.classList.remove("hidden");
     document.body.classList.add("popup-active");
+}
+
+// Saves the free-text Notes field for whichever vendor is currently open in
+// the profile popup. Reachable via the "Save Notes" button or by pressing
+// Enter in the textarea (Shift+Enter inserts a newline instead -- see the
+// keydown listener wired in initCompanyEventListeners()). Editable by
+// anyone who can already open a vendor's profile, same access as every
+// other vendor field -- no separate masking/RLS on Companies.Notes.
+async function saveVendorNotes() {
+    if (!currentProfileCompany) return;
+
+    const textarea = document.getElementById("vendorProfileNotesInput");
+    const messageEl = document.getElementById("vendorProfileNotesMessage");
+    const btn = document.getElementById("vendorProfileSaveNotesBtn");
+    const notes = (textarea?.value || "").trim();
+
+    if (btn) btn.disabled = true;
+    if (messageEl) { messageEl.textContent = "Saving…"; messageEl.className = "auth-message"; }
+
+    const { error } = await window.supabaseClient
+        .from(COMPANIES_TABLE)
+        .update({ Notes: notes || null })
+        .eq("id", currentProfileCompany.id);
+
+    if (btn) btn.disabled = false;
+
+    if (error) {
+        console.error("Failed to save vendor notes:", error);
+        if (messageEl) { messageEl.textContent = "Couldn't save notes. Try again."; messageEl.className = "auth-message error"; }
+        return;
+    }
+
+    currentProfileCompany.Notes = notes || null;
+    // Keep the in-memory list in sync too, so reopening this (or another)
+    // vendor's profile without a refetch still reflects the saved value.
+    const cached = allCompanies.find(c => String(c.id) === String(currentProfileCompany.id));
+    if (cached) cached.Notes = notes || null;
+
+    if (messageEl) { messageEl.textContent = "Saved."; messageEl.className = "auth-message success"; }
 }
 
 function closeVendorProfileModal() {
     document.getElementById("vendorProfileModalOverlay").classList.add("hidden");
     document.body.classList.remove("popup-active");
     currentProfileCompany = null;
-}
-
-// Notes is the one field on the Vendor Profile popup that's actually
-// editable right there, saved on its own (not bundled with the rest of the
-// Add/Edit Vendor form) -- Coleby specifically wanted it edited from the
-// read-only popup, not the edit form.
-async function saveVendorNotes() {
-    if (!currentProfileCompany) return;
-
-    const input = document.getElementById("vendorProfileNotesInput");
-    const messageEl = document.getElementById("vendorProfileNotesMessage");
-    const notes = input ? input.value.trim() || null : null;
-
-    if (input) input.disabled = true;
-    if (messageEl) { messageEl.textContent = "Saving…"; messageEl.className = "auth-message"; }
-
-    try {
-        const { error } = await window.supabaseClient
-            .from(COMPANIES_TABLE)
-            .update({ Notes: notes })
-            .eq("id", currentProfileCompany.id);
-        if (error) throw error;
-
-        currentProfileCompany.Notes = notes;
-        const cached = allCompanies.find(c => String(c.id) === String(currentProfileCompany.id));
-        if (cached) cached.Notes = notes;
-
-        if (messageEl) { messageEl.textContent = "Notes saved."; messageEl.className = "auth-message success"; }
-    } catch (error) {
-        console.error("Failed to save vendor notes:", error);
-        if (messageEl) { messageEl.textContent = "Something went wrong saving this. Please try again."; messageEl.className = "auth-message error"; }
-    } finally {
-        if (saveBtn) saveBtn.disabled = false;
-    }
 }
 
 /* ===========================
@@ -2511,11 +2510,13 @@ window.initCompaniesPage = async function () {
         });
     }
 
-    // Enter saves the note (matches "done typing" expectations elsewhere in
-    // the app); Shift+Enter still inserts a newline like a normal textarea.
-    // This is now the only way to save since there's no Save button.
+    const vendorProfileSaveNotesBtn = document.getElementById("vendorProfileSaveNotesBtn");
+    if (vendorProfileSaveNotesBtn) vendorProfileSaveNotesBtn.addEventListener("click", saveVendorNotes);
+
     const vendorProfileNotesInput = document.getElementById("vendorProfileNotesInput");
     if (vendorProfileNotesInput) {
+        // Enter alone saves (matches a chat-style quick-entry box); Shift+Enter
+        // still inserts a normal newline for a multi-line note.
         vendorProfileNotesInput.addEventListener("keydown", (event) => {
             if (event.key === "Enter" && !event.shiftKey) {
                 event.preventDefault();

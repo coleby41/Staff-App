@@ -267,7 +267,14 @@
         lines.push(`<p class="aa-report-detail">${detailBits.join(" &middot; ")}</p>`);
 
         if (report.reason_for_report) {
-            lines.push(`<p class="aa-report-reason">${aaEscapeHtml(truncate(report.reason_for_report, 140))}</p>`);
+            // reason_for_report may hold rich-text HTML from the "Reason for
+            // Report" editor (pages/incident-report.html) -- strip it down
+            // to plain text before truncating for this preview line, so
+            // formatting doesn't show up as literal tags.
+            const reasonPreview = window.IncidentReportPdf.richTextToPlainText(report.reason_for_report);
+            if (reasonPreview) {
+                lines.push(`<p class="aa-report-reason">${aaEscapeHtml(truncate(reasonPreview, 140))}</p>`);
+            }
         }
 
         if (report.status === "rejected" && report.decision_reason) {
