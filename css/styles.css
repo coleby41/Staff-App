@@ -1313,9 +1313,10 @@ body.sidebar-collapsed .nav-item-badge {
    asked for a "corporate login" look; admin-users.html and staff-users.html
    also use .auth-page for their own unrelated forms, so this is layered on
    as its own class (added alongside .auth-page on the login pages' <body>)
-   rather than changing the shared .auth-page background itself. */
+   rather than changing the shared .auth-page background itself. Flat single
+   color, not a gradient — per Coleby, 2026-09-21. */
 .auth-page--login {
-  background: linear-gradient(180deg, #eef2f6 0%, #e2e8ef 100%);
+  background: #eef2f6;
 }
 
 /* The static, planned-downtime notice on the two login pages
