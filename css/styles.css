@@ -6137,16 +6137,51 @@ body.todo-panel-resizing .todo-panel-resize-handle::after {
   text-align: center;
 }
 
-.workgroup-chip-list {
+/* 2026-09-18: workgroups.html moved from a fixed "Tab Access" grid + plain
+   name chips to a full per-workgroup permission panel (js/workgroups.js) and
+   a browsable, selectable list of workgroups. The old .workgroup-chip-list /
+   .permission-grid rules this replaced are gone; .workgroup-chip-remove is
+   kept (still used, as the small "✕ delete" control on each row). */
+
+.workgroup-list {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.workgroup-chip {
-  display: inline-flex;
+.workgroup-list-row {
+  display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.workgroup-list-row.is-selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.workgroup-list-row-name {
+  flex: 1;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.workgroup-list-row.is-selected .workgroup-list-row-name {
+  color: var(--accent-strong);
+}
+
+.workgroup-preview-btn {
+  flex: 0 0 auto;
 }
 
 .workgroup-chip-remove {
@@ -6154,34 +6189,308 @@ body.todo-panel-resizing .todo-panel-resize-handle::after {
   background: none;
   color: inherit;
   cursor: pointer;
-  font-size: 0.75rem;
-  opacity: 0.7;
-  padding: 0;
+  font-size: 0.85rem;
+  opacity: 0.55;
+  padding: 4px;
   line-height: 1;
+  flex: 0 0 auto;
 }
 
 .workgroup-chip-remove:hover {
   opacity: 1;
+  color: var(--danger, #c0392b);
 }
 
-.permission-grid-wrap {
-  overflow-x: auto;
+/* ---------- per-workgroup permission panel ---------- */
+
+.permission-panel-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 8px;
 }
 
-.permission-grid th,
-.permission-grid td {
+.permission-panel-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.permission-panel-header h3 {
+  margin: 0;
+}
+
+.permission-panel-category {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  background: var(--surface);
+}
+
+.permission-panel-category h4 {
+  margin: 0 0 8px 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+}
+
+.permission-panel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.permission-panel-category h4 + .permission-panel-row,
+.permission-panel-category h4 + .permission-panel-row--note {
+  border-top: none;
+}
+
+.permission-panel-row--note {
+  border-top: 1px solid var(--border);
+}
+
+.permission-panel-row-label {
+  min-width: 0;
+}
+
+.permission-panel-row-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.permission-panel-row-desc {
+  font-size: 0.8rem;
+  color: var(--text-soft);
+  margin-top: 2px;
+}
+
+.permission-panel-row-note {
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--text-soft);
   white-space: nowrap;
 }
 
-.permission-grid-workgroup-name {
-  font-weight: 700;
+/* Toggle switch (checkbox visually rendered as a switch) -- same interaction
+   as .form-toggle-row's checkbox elsewhere in this file, styled as a track
+   + thumb instead of a plain checkbox since this list can run long and a
+   switch scans faster at a glance than a column of checkboxes. */
+.permission-panel-toggle {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 22px;
+  flex: 0 0 auto;
+  cursor: pointer;
 }
 
-.permission-grid input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
+.permission-panel-toggle input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+
+.permission-panel-toggle-track {
+  position: absolute;
+  inset: 0;
+  background: var(--border);
+  border-radius: 999px;
+  transition: background 0.15s ease;
+}
+
+.permission-panel-toggle-track::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 1px 3px rgba(10, 24, 36, 0.25);
+  transition: transform 0.15s ease;
+}
+
+.permission-panel-toggle input[type="checkbox"]:checked + .permission-panel-toggle-track {
+  background: var(--accent);
+}
+
+.permission-panel-toggle input[type="checkbox"]:checked + .permission-panel-toggle-track::before {
+  transform: translateX(16px);
+}
+
+.permission-panel-toggle input[type="checkbox"]:disabled + .permission-panel-toggle-track {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ---------- right-click-a-tab permission editor popup (js/permission-editor.js) ---------- */
+
+.permission-editor-popup {
+  position: fixed;
+  z-index: 1000;
+  width: min(90vw, 420px);
+  max-height: 70vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  padding: 14px 16px 16px;
+}
+
+.permission-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.permission-editor-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.permission-editor-close {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--text-soft);
+  padding: 2px 4px;
+  line-height: 1;
+}
+
+.permission-editor-close:hover {
+  color: var(--text);
+}
+
+.permission-editor-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.permission-editor-row {
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.permission-editor-body > .permission-editor-row:first-child,
+.permission-editor-body > .permission-editor-row--note:first-child {
+  border-top: none;
+}
+
+.permission-editor-row--note {
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.permission-editor-row-name {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.permission-editor-row-desc {
+  font-size: 0.78rem;
+  color: var(--text-soft);
+  margin-top: 2px;
+}
+
+.permission-editor-row-note {
+  font-size: 0.76rem;
+  font-style: italic;
+  color: var(--text-soft);
+  margin-top: 4px;
+}
+
+.permission-editor-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.permission-editor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  font-size: 0.75rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.permission-editor-chip input[type="checkbox"] {
+  width: 13px;
+  height: 13px;
   accent-color: var(--accent);
   cursor: pointer;
+  margin: 0;
+}
+
+.permission-editor-chip.is-checked {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.permission-editor-chip.is-locked {
+  opacity: 0.75;
+  cursor: default;
+}
+
+/* ---------- "Preview as workgroup" banner (js/nav-access.js, every page) ---------- */
+
+.permission-preview-banner {
+  position: sticky;
+  top: 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  background: var(--accent-strong);
+  color: #fff;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.permission-preview-banner strong {
+  font-weight: 800;
+}
+
+.permission-preview-banner button {
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.permission-preview-banner button:hover {
+  background: rgba(255, 255, 255, 0.24);
 }
 
 /* ===========================
