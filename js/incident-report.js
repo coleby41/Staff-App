@@ -42,6 +42,10 @@
     let isAdmin = false;
     let currentApproverSetting = null; // { default_approver_id, default_approver_name }
 
+    function incidentReportsCan(permissionKey) {
+        return window.Permissions ? window.Permissions.hasPermission(permissionKey) : true;
+    }
+
     // Set once loadReportForEdit() finds a valid rejected report to edit —
     // switches handleSubmit() from inserting a new report to updating this
     // one in place and resubmitting it (see pages/account-activity.html's
@@ -344,7 +348,7 @@
         if (setBtn) setBtn.textContent = hasApprover ? "Change Approver" : "Set Approver";
 
         if (banner) banner.classList.toggle("hidden", hasApprover || isAdmin);
-        if (submitBtn) submitBtn.disabled = !hasApprover;
+        if (submitBtn) submitBtn.disabled = !hasApprover || !incidentReportsCan("incident_reports.submit");
     }
 
     function openSetApproverPopup() {
@@ -372,6 +376,12 @@
         const select = document.getElementById("irSetApproverSelect");
         const messageEl = document.getElementById("irSetApproverMessage");
         const saveBtn = document.getElementById("irSaveSetApproverBtn");
+
+        if (!incidentReportsCan("incident_reports.set_default_approver")) {
+            if (messageEl) { messageEl.textContent = "You don't have permission to do this."; messageEl.className = "auth-message error"; }
+            return;
+        }
+
         const approverId = select?.value;
         if (!approverId) return;
 
@@ -444,7 +454,7 @@
             if (messageEl) { messageEl.textContent = "Couldn't load that report to edit. Please try again from Account Activity."; messageEl.className = "auth-message error"; }
             return;
         }
-        if (report.status !== "rejected" || String(report.submitted_by) !== String(staffId)) {
+        if (report.status !== "rejected" || String(report.submitted_by) !== String(staffId) || !incidentReportsCan("incident_reports.edit_own")) {
             if (messageEl) { messageEl.textContent = "That report isn't available to edit right now."; messageEl.className = "auth-message error"; }
             return;
         }
@@ -518,6 +528,14 @@
         event.preventDefault();
         const messageEl = document.getElementById("irFormMessage");
         const setMessage = (text, cls) => { if (messageEl) { messageEl.textContent = text; messageEl.className = `auth-message ${cls || ""}`.trim(); } };
+
+        // editingReportId means this is really a resubmit of a rejected
+        // report -- that's gated by incident_reports.edit_own instead (see
+        // loadReportForEdit, which already refused to load it here otherwise).
+        if (!editingReportId && !incidentReportsCan("incident_reports.submit")) {
+            setMessage("You don't have permission to do this.", "error");
+            return;
+        }
 
         const projectId = document.getElementById("irProjectSelect").value;
         const priceRaw = document.getElementById("irPriceInput").value;
@@ -654,8 +672,10 @@
         }
         if (!clientReady) return;
 
-        isAdmin = !!(window.isSupabaseUserInGroup && profile &&
-            (window.isSupabaseUserInGroup(profile, "IT") || window.isSupabaseUserInGroup(profile, "Super Admin")));
+        if (window.Permissions) {
+            try { await window.Permissions.initPermissions(); } catch { /* incidentReportsCan() fails open regardless */ }
+        }
+        isAdmin = incidentReportsCan("incident_reports.set_default_approver");
 
         renderTodayDate();
         initCurrencyInput();

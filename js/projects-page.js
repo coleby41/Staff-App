@@ -29,6 +29,18 @@ const storagePathFromPublicUrl = window.ProjectFields.storagePathFromPublicUrl;
 let allProjects = [];
 let projectWizardState = null; // { id, stepIndex, values: {...}, pendingFiles: {} }
 
+function projectsCan(permissionKey) {
+    return window.Permissions ? window.Permissions.hasPermission(permissionKey) : true;
+}
+
+async function applyProjectPermissionsToUI() {
+    if (window.Permissions) {
+        try { await window.Permissions.initPermissions(); } catch { /* hasPermission() fails open regardless */ }
+    }
+    const addBtn = document.getElementById("addProjectBtn");
+    if (addBtn) addBtn.classList.toggle("hidden", !projectsCan("projects.create"));
+}
+
 /* ===========================
    STATUS / TRACKING (added for the redesigned stats header, badges,
    card+list toggle, tabs, and pagination — see
@@ -478,7 +490,7 @@ function renderProjectCards(projects) {
 
                 <button
                     type="button"
-                    class="company-edit-btn project-edit-btn"
+                    class="company-edit-btn project-edit-btn ${projectsCan("projects.edit") ? "" : "hidden"}"
                     data-id="${project.id}"
                     aria-label="Edit project">
                     <span class="project-edit-icon"></span>
@@ -664,6 +676,11 @@ function initProjectTabs() {
 =========================== */
 
 function openProjectQuickEdit(project) {
+    // Silent no-op for the same reason as openProjectWizard above -- the
+    // status badge that triggers this is also a plain status display, so
+    // it isn't hidden outright for users without projects.edit.
+    if (!projectsCan("projects.edit")) return;
+
     projectQuickEditId = project.id;
 
     document.getElementById("projectQuickEditName").textContent = project.name || "Untitled project";
@@ -691,6 +708,12 @@ async function saveProjectQuickEdit() {
 
     const saveBtn = document.getElementById("projectQuickEditSaveBtn");
     const messageEl = document.getElementById("projectQuickEditMessage");
+
+    if (!projectsCan("projects.edit")) {
+        if (messageEl) { messageEl.textContent = "You don't have permission to do this."; messageEl.className = "auth-message error"; }
+        return;
+    }
+
     if (saveBtn) saveBtn.disabled = true;
     if (messageEl) { messageEl.textContent = "Saving…"; messageEl.className = "auth-message"; }
 
@@ -925,7 +948,7 @@ function renderWizardStep() {
     document.getElementById("projectWizardCancelBtn").style.display = isFirst ? "" : "none";
     document.getElementById("projectWizardBackBtn").style.display = isFirst ? "none" : "";
     document.getElementById("projectWizardNextBtn").textContent = isLast ? "Finish" : "Next";
-    document.getElementById("deleteProjectBtn").style.display = state.id ? "block" : "none";
+    document.getElementById("deleteProjectBtn").style.display = (state.id && projectsCan("projects.delete")) ? "block" : "none";
 
     setWizardMessage("", "");
 }
@@ -962,6 +985,12 @@ function collectCurrentStepInputs() {
 =========================== */
 
 function openProjectWizard(project) {
+    // Defense in depth -- the entry points (addProjectBtn, each card's edit
+    // button) are already hidden when the relevant permission is missing,
+    // so this silently no-ops rather than trying to show an error against a
+    // modal that isn't open yet.
+    if (!projectsCan(project ? "projects.edit" : "projects.create")) return;
+
     const values = {};
     WIZARD_STEPS.forEach(step => {
         step.fields.forEach(field => {
@@ -1086,6 +1115,12 @@ async function saveProjectFromWizard(successMessage) {
 
     const nextBtn = document.getElementById("projectWizardNextBtn");
     const saveLaterBtn = document.getElementById("projectWizardSaveLaterBtn");
+
+    if (!projectsCan(state.id ? "projects.edit" : "projects.create")) {
+        setWizardMessage("You don't have permission to do this.", "error");
+        return;
+    }
+
     [nextBtn, saveLaterBtn].forEach(btn => { if (btn) btn.disabled = true; });
     setWizardMessage("Saving…", "");
 
@@ -1184,6 +1219,7 @@ function updateDeleteProjectConfirmBtnState() {
 
 function openDeleteProjectConfirm() {
     if (!projectWizardState || !projectWizardState.id) return;
+    if (!projectsCan("projects.delete")) return;
     const name = (projectWizardState.values && projectWizardState.values.name) || "this project";
     document.getElementById("deleteProjectConfirmName").textContent = name;
     const input = document.getElementById("deleteProjectConfirmNameInput");
@@ -1202,6 +1238,7 @@ function closeDeleteProjectConfirm() {
 
 async function confirmDeleteProject() {
     if (!projectWizardState || !projectWizardState.id) return;
+    if (!projectsCan("projects.delete")) return;
     // Belt-and-suspenders: the button is only ever enabled once both
     // conditions are met (see updateDeleteProjectConfirmBtnState), but
     // re-check here too rather than trust button state alone as the only
@@ -1277,6 +1314,8 @@ async function confirmDeleteProject() {
 =========================== */
 
 document.addEventListener("DOMContentLoaded", () => {
+
+    applyProjectPermissionsToUI();
 
     const addBtn = document.getElementById("addProjectBtn");
     if (addBtn) addBtn.addEventListener("click", () => openProjectWizard(null));

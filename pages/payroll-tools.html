@@ -346,7 +346,7 @@
 
           <div class="payday-actions">
             <button type="button" class="auth-button auth-button--secondary" onclick="openPayPeriodCalendar()">View Calendar</button>
-            <button type="button" class="auth-button" onclick="openNewPayPeriodModal()">Make a New Pay Period</button>
+            <button type="button" id="newPayPeriodBtn" class="auth-button" onclick="openNewPayPeriodModal()">Make a New Pay Period</button>
           </div>
         </div>
 
@@ -381,7 +381,7 @@
                 </label>
               </div>
             </div>
-            <button type="button" class="auth-button auth-button--secondary" onclick="sendAnnouncement()">Send announcement</button>
+            <button type="button" id="sendAnnouncementBtn" class="auth-button auth-button--secondary" onclick="sendAnnouncement()">Send announcement</button>
           </div>
           <p id="announcementMsg" class="auth-message"></p>
 
@@ -396,7 +396,7 @@
             <h2 class="card-title">Accounting Employee Dashboard</h2>
             <p class="card-subtitle">Payroll roster, timesheet status, and the manager-approved queue</p>
           </div>
-          <button type="button" class="auth-button auth-button--secondary" onclick="openAddEmployeeModal()">Add Employee</button>
+          <button type="button" id="addEmployeeBtn" class="auth-button auth-button--secondary" onclick="openAddEmployeeModal()">Add Employee</button>
         </div>
 
         <div class="dash-tabs">
@@ -502,9 +502,9 @@
             </div>
             <p id="employeeDetailMsg" class="auth-message"></p>
             <div class="popup-buttons" style="justify-content:flex-start;">
-              <button type="submit" class="auth-button auth-button--secondary auth-button--sm">Save details</button>
+              <button type="submit" class="auth-button auth-button--secondary auth-button--sm" id="employeeDetailSaveBtn">Save details</button>
               <button type="button" class="auth-button auth-button--sm" id="employeeDetailToggleActiveBtn" onclick="toggleEmployeeActive()">Deactivate</button>
-              <button type="button" class="auth-button auth-button--red auth-button--sm" onclick="removeEmployeeFromPayroll()">Remove from payroll</button>
+              <button type="button" class="auth-button auth-button--red auth-button--sm" id="employeeDetailRemoveBtn" onclick="removeEmployeeFromPayroll()">Remove from payroll</button>
             </div>
           </form>
         </section>
@@ -716,6 +716,13 @@ async function sendAnnouncement() {
   const messageInput = document.getElementById('announcementMessage');
   const typeInput = document.querySelector('input[name="announcementType"]:checked');
   const msg = document.getElementById('announcementMsg');
+
+  if (!payrollCan('payroll.post_announcement')) {
+    msg.textContent = "You don't have permission to do this.";
+    msg.className = 'auth-message error';
+    return;
+  }
+
   const title = titleInput.value.trim();
   const message = messageInput.value.trim();
   const isTemporary = !typeInput || typeInput.value === 'temporary';
@@ -758,6 +765,7 @@ async function sendAnnouncement() {
 }
 
 async function deleteAnnouncement(id) {
+  if (!payrollCan('payroll.post_announcement')) return;
   const { error } = await supabaseClient.from('announcements').delete().eq('id', id);
   if (error) { console.error('Failed to delete announcement:', error); return; }
   renderSentAnnouncements();
@@ -782,7 +790,7 @@ async function renderSentAnnouncements() {
         <p>${escapeHtml(item.message)}</p>
         <div class="announcement-date">Sent ${new Date(item.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</div>
       </div>
-      <button class="auth-button auth-button--red auth-button--sm" onclick="deleteAnnouncement('${item.id}')">Delete</button>
+      <button class="auth-button auth-button--red auth-button--sm ${payrollCan('payroll.post_announcement') ? '' : 'hidden'}" onclick="deleteAnnouncement('${item.id}')">Delete</button>
     `;
     container.appendChild(div);
   });

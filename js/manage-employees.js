@@ -23,6 +23,10 @@ let teamTimesheets = [];            // current-period timesheets for myTeam
 let activeReviewTimesheetId = null;
 let activeReviewEmployeeId = null;  // payroll_employees.id
 
+function managerCan(permissionKey) {
+  return window.Permissions ? window.Permissions.hasPermission(permissionKey) : true;
+}
+
 function staffName(staffId) {
   const s = staffDirectoryById.get(staffId);
   return s ? (s.full_name || s.username || 'Unnamed') : '—';
@@ -156,6 +160,9 @@ async function openReviewModal(payrollEmployeeId) {
   const msg = document.getElementById('reviewMsg');
   if (msg) { msg.textContent = ''; msg.className = 'auth-message'; }
 
+  const commentBtn = document.getElementById('addManagerCommentBtn');
+  if (commentBtn) commentBtn.classList.toggle('hidden', !managerCan('manager.comment_on_timesheet'));
+
   await renderReviewTimesheet(emp);
   ppOpenOverlay('reviewTimesheetOverlay');
 }
@@ -213,10 +220,10 @@ async function renderReviewTimesheet(emp) {
 
   if (actionsEl) {
     if (ts.status === 'Submitted' || ts.status === 'Needs Corrections') {
-      actionsEl.innerHTML = `
+      actionsEl.innerHTML = managerCan('manager.approve_reject_timesheets') ? `
         <button type="button" class="auth-button auth-button--red auth-button--sm" onclick="rejectTimesheet()">Reject (needs corrections)</button>
         <button type="button" class="auth-button auth-button--secondary auth-button--sm" onclick="approveTimesheet()">Approve</button>
-      `;
+      ` : `<p class="card-subtitle">You don't have permission to approve or reject timesheets.</p>`;
     } else if (ts.status === 'Not Started' || ts.status === 'In Progress') {
       actionsEl.innerHTML = `<p class="card-subtitle">Still with the employee — nothing to approve yet.</p>`;
     } else {
@@ -259,6 +266,7 @@ function eventTypeLabel(type) {
 
 async function approveTimesheet() {
   if (!activeReviewTimesheetId) return;
+  if (!managerCan('manager.approve_reject_timesheets')) return;
   const actorId = managerProfile?.id || null;
   const comment = document.getElementById('reviewComment').value.trim();
 
@@ -287,6 +295,7 @@ async function approveTimesheet() {
 
 async function rejectTimesheet() {
   if (!activeReviewTimesheetId) return;
+  if (!managerCan('manager.approve_reject_timesheets')) return;
   const comment = document.getElementById('reviewComment').value.trim();
   if (!comment) { setReviewMessage('A comment is required so the employee knows what to fix.', 'error'); return; }
 
@@ -311,6 +320,7 @@ async function rejectTimesheet() {
 
 async function addManagerComment() {
   if (!activeReviewTimesheetId) { setReviewMessage('Nothing to comment on yet — this employee hasn\'t started a timesheet.', 'error'); return; }
+  if (!managerCan('manager.comment_on_timesheet')) { setReviewMessage('You don\'t have permission to do this.', 'error'); return; }
   const comment = document.getElementById('reviewComment').value.trim();
   if (!comment) { setReviewMessage('Write a comment first.', 'error'); return; }
 

@@ -514,7 +514,7 @@ function renderCompanies(companies) {
 
                 <button
                     type="button"
-                    class="company-edit-btn"
+                    class="company-edit-btn ${vendorsCan("vendors.add_edit_vendor") ? "" : "hidden"}"
                     data-id="${company.id}"
                     aria-label="Edit Vendor">
                     <span class="company-edit-icon"></span>
@@ -748,6 +748,15 @@ function openVendorProfileModal(company) {
     const notesMessageEl = document.getElementById("vendorProfileNotesMessage");
     if (notesMessageEl) { notesMessageEl.textContent = ""; notesMessageEl.className = "auth-message"; }
 
+    const canEditVendor = vendorsCan("vendors.add_edit_vendor");
+    const editBtn = document.getElementById("vendorProfileEditBtn");
+    if (editBtn) editBtn.classList.toggle("hidden", !canEditVendor);
+
+    const canSaveNotes = vendorsCan("vendors.save_notes");
+    const saveNotesBtn = document.getElementById("vendorProfileSaveNotesBtn");
+    if (saveNotesBtn) saveNotesBtn.classList.toggle("hidden", !canSaveNotes);
+    if (notesInput) notesInput.disabled = !canSaveNotes;
+
     overlay.classList.remove("hidden");
     document.body.classList.add("popup-active");
 }
@@ -895,6 +904,11 @@ function updateCoiSectionVisibility() {
 
 function openCompanyModal(company) {
 
+    if (!vendorsCan("vendors.add_edit_vendor")) {
+        showCompanyMessage("You don't have permission to add or edit vendors.", "error");
+        return;
+    }
+
     const overlay = document.getElementById("companyModalOverlay");
     const title = document.getElementById("companyModalTitle");
     const subtitle = document.getElementById("companyModalSubtitle");
@@ -963,6 +977,11 @@ function closeCompanyModal() {
 async function handleCompanyFormSubmit(event) {
 
     event.preventDefault();
+
+    if (!vendorsCan("vendors.add_edit_vendor")) {
+        setFormMessage("You don't have permission to add or edit vendors.", "error");
+        return;
+    }
 
     const submitBtn = document.getElementById("submitCompanyBtn");
     const id = document.getElementById("companyIdInput").value;
@@ -1041,13 +1060,22 @@ async function handleCompanyFormSubmit(event) {
 
     } catch (error) {
         console.error("Failed to save company:", error);
-        setFormMessage("Something went wrong saving this company. Please try again.", "error");
+        setFormMessage(
+            error?.message?.startsWith("You don't have permission")
+                ? error.message
+                : "Something went wrong saving this company. Please try again.",
+            "error"
+        );
     } finally {
         submitBtn.disabled = false;
     }
 }
 
 async function uploadW9(file, existingPath) {
+
+    if (!vendorsCan("vendors.upload_w9")) {
+        throw new Error("You don't have permission to upload W9 files.");
+    }
 
     const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, "_");
     const path = `${Date.now()}-${safeName}`;
@@ -1073,6 +1101,10 @@ async function uploadW9(file, existingPath) {
 
 // Mirrors uploadW9() above exactly, just against the company-cois bucket.
 async function uploadCoi(file, existingPath) {
+
+    if (!vendorsCan("vendors.upload_coi")) {
+        throw new Error("You don't have permission to upload COI files.");
+    }
 
     const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, "_");
     const path = `${Date.now()}-${safeName}`;
@@ -1134,6 +1166,11 @@ function resetDeleteConfirmFields() {
 }
 
 function openDeleteConfirm() {
+    if (!vendorsCan("vendors.delete_vendor")) {
+        setFormMessage("You don't have permission to delete vendors.", "error");
+        return;
+    }
+
     const id = document.getElementById("companyIdInput").value;
     const w9Path = document.getElementById("companyExistingW9PathInput").value;
     const coiPath = document.getElementById("companyExistingCoiPathInput").value;
@@ -1155,6 +1192,11 @@ function openDeleteConfirm() {
 }
 
 function openContactDeleteConfirm() {
+    if (!vendorsCan("vendors.manage_contacts")) {
+        setContactFormMessage("You don't have permission to delete vendor contacts.", "error");
+        return;
+    }
+
     const id = document.getElementById("contactIdInput").value;
 
     if (!id) return;
@@ -1186,6 +1228,16 @@ async function confirmDelete() {
 
     if (!pendingDeleteId || !pendingDeleteType) return;
     if (!deleteConfirmReady()) return;
+
+    // Defense in depth -- openDeleteConfirm()/openContactDeleteConfirm()
+    // already check this before the modal even opens, but this is the one
+    // function that actually performs the delete, so it checks again too.
+    const requiredPermission = pendingDeleteType === "company" ? "vendors.delete_vendor" : "vendors.manage_contacts";
+    if (!vendorsCan(requiredPermission)) {
+        document.getElementById("deleteConfirmMessage").textContent = "You don't have permission to do this.";
+        document.getElementById("deleteConfirmMessage").className = "auth-message error";
+        return;
+    }
 
     const confirmBtn = document.getElementById("confirmDeleteBtn");
     confirmBtn.disabled = true;
@@ -1328,7 +1380,7 @@ function renderContactList(contacts, companyId) {
 
                     <button
                         type="button"
-                        class="company-edit-btn contact-edit-btn"
+                        class="company-edit-btn contact-edit-btn ${vendorsCan("vendors.manage_contacts") ? "" : "hidden"}"
                         data-id="${contact.id}"
                         aria-label="Edit contact">
                         <span class="company-edit-icon"></span>
@@ -1358,6 +1410,13 @@ function renderContactList(contacts, companyId) {
 }
 
 function openContactFormModal(contact, companyId, companyName) {
+
+    // Defense in depth -- the buttons that call this (the contacts list's
+    // own "+ Add Contact" and per-row edit icon) are already hidden by
+    // renderContactList()/applyVendorPermissionsToUI() when this permission
+    // is missing, so there's no visible trigger left to show an error
+    // message against; this silently no-ops instead.
+    if (!vendorsCan("vendors.manage_contacts")) return;
 
     const overlay = document.getElementById("contactModalOverlay");
     const title = document.getElementById("contactModalTitle");
@@ -1465,6 +1524,11 @@ function setManageTagsMessage(text, type) {
 }
 
 function openManageTagsModal() {
+    // Defense in depth -- the toolbar's "Manage Tags" entry point is already
+    // hidden by applyVendorPermissionsToUI() when this permission is missing,
+    // so there's no visible trigger left; this silently no-ops instead of
+    // trying to show a message against a modal that isn't open yet.
+    if (!vendorsCan("vendors.manage_tags")) return;
     renderManageTagsCategories();
     setManageTagsMessage("", "");
     document.getElementById("manageTagsModalOverlay").classList.remove("hidden");
@@ -1658,6 +1722,7 @@ async function refreshAfterTagAdminChange() {
 }
 
 async function addTagCategory() {
+    if (!vendorsCan("vendors.manage_tags")) return;
     const input = document.getElementById("newTagCategoryInput");
     const name = input.value.trim();
     if (!name) return;
@@ -1680,6 +1745,7 @@ async function addTagCategory() {
 }
 
 async function renameTagCategory(categoryId) {
+    if (!vendorsCan("vendors.manage_tags")) return;
     const category = allTagCategories.find(c => String(c.id) === String(categoryId));
     if (!category) return;
 
@@ -1701,6 +1767,7 @@ async function renameTagCategory(categoryId) {
 }
 
 async function deleteTagCategory(categoryId) {
+    if (!vendorsCan("vendors.manage_tags")) return;
     const category = allTagCategories.find(c => String(c.id) === String(categoryId));
     if (!category) return;
 
@@ -1721,6 +1788,7 @@ async function deleteTagCategory(categoryId) {
 }
 
 async function addTagToCategory(categoryId, inputEl) {
+    if (!vendorsCan("vendors.manage_tags")) return;
     const name = inputEl.value.trim();
     if (!name) return;
 
@@ -1739,6 +1807,7 @@ async function addTagToCategory(categoryId, inputEl) {
 }
 
 async function renameTag(tagId) {
+    if (!vendorsCan("vendors.manage_tags")) return;
     const tag = allTags.find(t => String(t.id) === String(tagId));
     if (!tag) return;
 
@@ -1760,6 +1829,7 @@ async function renameTag(tagId) {
 }
 
 async function deleteTag(tagId) {
+    if (!vendorsCan("vendors.manage_tags")) return;
     const tag = allTags.find(t => String(t.id) === String(tagId));
     if (!tag) return;
 
@@ -2271,29 +2341,49 @@ function isEmailLike(value) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
 }
 
-// Mirrors isItOrSuperAdmin() in workgroups.js -- kept as its own small
-// copy here rather than a shared cross-page helper, matching how this
-// app's other per-page role checks (e.g. workgroups.js's own version)
-// are already written.
-async function currentProfileIsItOrSuperAdmin() {
-    let profile = window.currentSupabaseProfile;
-    if (!profile && window.supabaseInitialProfilePromise) {
-        try { profile = await window.supabaseInitialProfilePromise; } catch { profile = null; }
-    }
-    if (!profile || !window.isSupabaseUserInGroup) return false;
-    return window.isSupabaseUserInGroup(profile, "IT") || window.isSupabaseUserInGroup(profile, "Super Admin");
+/* ===========================
+   PERMISSIONS (vendors.*, see js/permissions.js + claude/permissions-audit.md)
+
+   2026-09-21: this page used to gate everything beyond viewing the tab at
+   all -- add/edit/delete a vendor, manage tags, manage a vendor's contacts,
+   save notes, generate reports were all open to anyone who could see the
+   page. This wires those up to the real per-workgroup permission table
+   instead. Same as every other permission check in the app: fails open
+   (returns true) if Permissions hasn't loaded yet or the migration hasn't
+   been run, so a half-deployed migration can never lock anyone out.
+
+   These are client-side checks, same caliber as this app's other
+   action-level gates (canManageForms(), canManageProject(), etc.) -- they
+   are not backed by new Supabase RLS, so this doesn't change what's
+   possible via a direct API call, only what the UI lets you do. Only
+   vendors.manage_coi_notifications has a real RLS backstop (unchanged by
+   this edit -- see the comment on COI_NOTIFICATION_TABLE's policies).
+=========================== */
+function vendorsCan(permissionKey) {
+    return window.Permissions ? window.Permissions.hasPermission(permissionKey) : true;
 }
 
-// Shows the "COI Notifications" menu item only for IT/Super Admin. This
-// is a UX nicety, not the real access control -- RLS on
-// coi_notification_settings is what actually enforces it, so someone
-// hand-showing the button in devtools still can't read or write the
-// table.
-async function initCoiNotificationsAccess() {
-    const allowed = await currentProfileIsItOrSuperAdmin();
-    const btn = document.getElementById("coiNotificationsBtn");
-    if (btn) btn.classList.toggle("hidden", !allowed);
-    return allowed;
+// Called once on page init (see window.initCompaniesPage below). Hides the
+// three toolbar "More Actions" items a workgroup doesn't have, and the COI
+// Notifications item (replacing the old hardcoded IT/Super-Admin-only
+// check with the real permission, which is seeded to the same IT/Super
+// Admin set so behavior is unchanged for everyone today).
+async function applyVendorPermissionsToUI() {
+    if (window.Permissions) {
+        try { await window.Permissions.initPermissions(); } catch { /* hasPermission() fails open regardless */ }
+    }
+
+    const addBtn = document.getElementById("addCompanyBtn");
+    if (addBtn) addBtn.classList.toggle("hidden", !vendorsCan("vendors.add_edit_vendor"));
+
+    const manageTagsBtn = document.getElementById("manageTagsBtn");
+    if (manageTagsBtn) manageTagsBtn.classList.toggle("hidden", !vendorsCan("vendors.manage_tags"));
+
+    const startReportBtn = document.getElementById("startReportBtn");
+    if (startReportBtn) startReportBtn.classList.toggle("hidden", !vendorsCan("vendors.generate_reports"));
+
+    const coiBtn = document.getElementById("coiNotificationsBtn");
+    if (coiBtn) coiBtn.classList.toggle("hidden", !vendorsCan("vendors.manage_coi_notifications"));
 }
 
 function showCoiNotificationsMessage(text, isError) {
@@ -2356,7 +2446,7 @@ async function openCoiNotificationsModal() {
     const overlay = document.getElementById("coiNotificationsModalOverlay");
     if (!overlay) return;
 
-    if (!(await currentProfileIsItOrSuperAdmin())) {
+    if (!vendorsCan("vendors.manage_coi_notifications")) {
         // Shouldn't normally be reachable (the button is hidden), but RLS
         // is the real gate -- if someone gets here anyway the Supabase
         // read below will just come back empty/denied.
@@ -2525,8 +2615,9 @@ window.initCompaniesPage = async function () {
         });
     }
 
-    // COI Notifications popup (IT / Super Admin only)
-    initCoiNotificationsAccess();
+    // Hide/show the toolbar menu items this workgroup doesn't have --
+    // Add Vendor, Manage Tags, Generate A Report, COI Notifications.
+    applyVendorPermissionsToUI();
 
     const coiNotificationsBtn = document.getElementById("coiNotificationsBtn");
     if (coiNotificationsBtn) coiNotificationsBtn.addEventListener("click", openCoiNotificationsModal);

@@ -69,6 +69,18 @@ function sanitizeForStorageKey(fileName) {
     return safeExt ? `${safeBase}.${safeExt}` : safeBase;
 }
 
+function workbooksCan(permissionKey) {
+    return window.Permissions ? window.Permissions.hasPermission(permissionKey) : true;
+}
+
+async function applyWorkbookPermissionsToUI() {
+    if (window.Permissions) {
+        try { await window.Permissions.initPermissions(); } catch { /* hasPermission() fails open regardless */ }
+    }
+    const addBtn = document.getElementById("addWorkbookBtn");
+    if (addBtn) addBtn.classList.toggle("hidden", !workbooksCan("workbooks.add"));
+}
+
 function showPageMessage(text, type) {
     const el = document.getElementById("workbookMessage");
     if (!el) return;
@@ -157,7 +169,7 @@ function buildWorkbookCard(record) {
     card.innerHTML = `
         <div class="workbook-cover"${coverStyle}>
             <div class="workbook-cover-gradient"></div>
-            <button type="button" class="workbook-edit-btn" data-action="edit" aria-label="Edit workbook">
+            <button type="button" class="workbook-edit-btn ${workbooksCan("workbooks.edit") ? "" : "hidden"}" data-action="edit" aria-label="Edit workbook">
                 <span class="company-edit-icon"></span>
             </button>
             <h3 class="workbook-cover-title">${escapeHtml(record.title)}</h3>
@@ -197,6 +209,13 @@ function openEditWorkbookModal(record) {
 }
 
 function openWorkbookModal(record) {
+    // Defense in depth -- the entry points (addWorkbookBtn, the per-card edit
+    // button) are already hidden by applyWorkbookPermissionsToUI()/
+    // buildWorkbookCard() when the relevant permission is missing, so this
+    // silently no-ops rather than trying to show an error against a modal
+    // that isn't open yet.
+    if (!workbooksCan(record ? "workbooks.edit" : "workbooks.add")) return;
+
     const overlay = document.getElementById("uploadModalOverlay");
     const titleEl = document.getElementById("workbookModalTitle");
     const subtitleEl = document.getElementById("workbookModalSubtitle");
@@ -229,7 +248,7 @@ function openWorkbookModal(record) {
         if (coverExistingNote) coverExistingNote.style.display = "block";
         if (fileExistingNote) fileExistingNote.style.display = "block";
         if (submitBtn) submitBtn.textContent = "Save changes";
-        if (deleteBtn) deleteBtn.style.display = "block";
+        if (deleteBtn) deleteBtn.style.display = workbooksCan("workbooks.delete") ? "block" : "none";
     } else {
         if (titleEl) titleEl.textContent = "Add Workbook";
         if (subtitleEl) subtitleEl.textContent = "Upload the Excel file. A cover image is optional — everything else is filled in automatically.";
@@ -278,6 +297,7 @@ function updateDeleteWorkbookConfirmBtnState() {
 
 function openDeleteWorkbookConfirm() {
     if (!editingWorkbookRecord) return;
+    if (!workbooksCan("workbooks.delete")) return;
 
     const name = editingWorkbookRecord.title || "this workbook";
     document.getElementById("deleteWorkbookConfirmName").textContent = name;
@@ -311,6 +331,7 @@ function removeWorkbookCardFromDom(id) {
 
 async function confirmDeleteWorkbook() {
     if (!editingWorkbookRecord) return;
+    if (!workbooksCan("workbooks.delete")) return;
     if (!deleteWorkbookConfirmReady()) return;
 
     const record = editingWorkbookRecord;
@@ -388,6 +409,14 @@ async function handleUploadSubmit(event) {
 
     const editingId = idInput?.value || "";
     const isEditing = Boolean(editingId);
+
+    if (!workbooksCan(isEditing ? "workbooks.edit" : "workbooks.add")) {
+        if (messageEl) {
+            messageEl.textContent = "You don't have permission to do this.";
+            messageEl.className = "auth-message error";
+        }
+        return;
+    }
 
     const title = titleInput?.value.trim();
     const uploadedBy = uploaderInput?.value.trim();
@@ -596,6 +625,7 @@ function closePreviewModal() {
 
 window.addEventListener("DOMContentLoaded", function () {
     loadWorkbooks();
+    applyWorkbookPermissionsToUI();
 
     document.getElementById("addWorkbookBtn")?.addEventListener("click", openUploadModal);
     document.getElementById("cancelUploadBtn")?.addEventListener("click", closeUploadModal);

@@ -353,7 +353,7 @@
       </label>
       <p id="reviewMsg" class="auth-message"></p>
       <div class="popup-buttons" style="justify-content:flex-start;">
-        <button type="button" class="auth-button auth-button--sm" onclick="addManagerComment()">Add comment only</button>
+        <button type="button" id="addManagerCommentBtn" class="auth-button auth-button--sm" onclick="addManagerComment()">Add comment only</button>
       </div>
 
       <div class="auth-divider"></div>
@@ -461,10 +461,13 @@ function updateGroupPill(profile) {
     pill.textContent = matched.length ? matched.join(' · ') : 'Staff';
 }
 
-// This page's content is Manager/Super Admin-only. The sidebar link is also hidden for
-// everyone else (see manager-nav.js), but this check is what actually gates the page
-// content if someone opens the URL directly.
-function updateNavAccess(profile) {
+// This page's content is gated by the manager.view_team_timesheets permission
+// (auto-granted to Super Admin via the hardcoded bypass in permissions.js,
+// and to anyone with staff_users.role === 'Manager' via its Manager-role
+// bonus -- see permissions.js's MANAGER_ROLE_BONUS_PERMISSIONS). The sidebar
+// link is also hidden for everyone else (see manager-nav.js), but this check
+// is what actually gates the page content if someone opens the URL directly.
+async function updateNavAccess(profile) {
     const isIT = window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, 'IT') : false;
     const isSuperAdmin = window.isSupabaseUserInGroup ? window.isSupabaseUserInGroup(profile, 'Super Admin') : false;
     const isManager = String(profile?.role || '').trim().toLowerCase() === 'manager';
@@ -476,7 +479,12 @@ function updateNavAccess(profile) {
     const payrollToolsNavItem = document.getElementById('payrollToolsNavItem');
     if (payrollToolsNavItem) payrollToolsNavItem.style.display = (isAccounting || isSuperAdmin) ? 'flex' : 'none';
 
-    const hasAccess = isManager || isSuperAdmin;
+    if (window.Permissions) {
+        try { await window.Permissions.initPermissions(); } catch { /* hasPermission() fails open regardless */ }
+    }
+    const hasAccess = window.Permissions
+        ? window.Permissions.hasPermission('manager.view_team_timesheets')
+        : (isManager || isSuperAdmin);
     document.getElementById('manageEmployeesContent').style.display = hasAccess ? 'block' : 'none';
     document.getElementById('restrictedView').style.display = hasAccess ? 'none' : 'block';
 

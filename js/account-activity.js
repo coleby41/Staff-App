@@ -45,6 +45,10 @@
         allForms: [],
     };
 
+    function incidentReportsCan(permissionKey) {
+        return window.Permissions ? window.Permissions.hasPermission(permissionKey) : true;
+    }
+
     function aaEscapeHtml(str) {
         const d = document.createElement("div");
         d.textContent = str ?? "";
@@ -293,11 +297,15 @@
 
         if (opts.showApproveReject) {
             lines.push(`<button type="button" class="workbook-btn aa-preview-btn" data-id="${aaEscapeHtml(report.id)}">View PDF</button>`);
-            lines.push(`<button type="button" class="auth-button aa-approve-btn" data-id="${aaEscapeHtml(report.id)}">Approve</button>`);
-            lines.push(`<button type="button" class="auth-button auth-button--red aa-reject-btn" data-id="${aaEscapeHtml(report.id)}">Reject</button>`);
+            if (incidentReportsCan("incident_reports.approve")) {
+                lines.push(`<button type="button" class="auth-button aa-approve-btn" data-id="${aaEscapeHtml(report.id)}">Approve</button>`);
+            }
+            if (incidentReportsCan("incident_reports.reject")) {
+                lines.push(`<button type="button" class="auth-button auth-button--red aa-reject-btn" data-id="${aaEscapeHtml(report.id)}">Reject</button>`);
+            }
         }
 
-        if (opts.showApproverDelete) {
+        if (opts.showApproverDelete && incidentReportsCan("incident_reports.delete_filed_report")) {
             lines.push(`<button type="button" class="workbook-btn workbook-btn--danger aa-delete-report-btn" data-id="${aaEscapeHtml(report.id)}">Delete</button>`);
         }
 
@@ -307,7 +315,7 @@
 
         if (report.status === "approved" && filedFile) {
             lines.push(`<button type="button" class="workbook-btn aa-view-filed-btn" data-id="${aaEscapeHtml(report.id)}">View filed PDF</button>`);
-        } else if (report.status === "approved" && !report.project_file_id) {
+        } else if (report.status === "approved" && !report.project_file_id && incidentReportsCan("incident_reports.retry_filing")) {
             lines.push(`<button type="button" class="workbook-btn aa-retry-file-btn" data-id="${aaEscapeHtml(report.id)}">Retry filing</button>`);
         }
 
@@ -568,6 +576,7 @@
     // trigger also reclaims the IR number if this was the latest one for
     // its project, so the next report filed doesn't leave a gap.
     async function deleteReport(reportId, btnEl) {
+        if (!incidentReportsCan("incident_reports.delete_filed_report")) return;
         if (!window.confirm("Delete this incident report? This can't be undone.")) return;
 
         const report = state.reportsById.get(String(reportId));
@@ -618,6 +627,9 @@
     /* ---------- reject popup ---------- */
 
     function openRejectPopup(reportId) {
+        // Defense in depth -- the Reject button that triggers this is
+        // already hidden without this permission, so this silently no-ops.
+        if (!incidentReportsCan("incident_reports.reject")) return;
         state.pendingRejectReportId = reportId;
         document.getElementById("aaRejectReasonInput").value = "";
         const messageEl = document.getElementById("aaRejectMessage");
@@ -634,6 +646,7 @@
 
     async function confirmReject() {
         if (!state.pendingRejectReportId) return;
+        if (!incidentReportsCan("incident_reports.reject")) return;
         const reason = document.getElementById("aaRejectReasonInput").value.trim();
         const messageEl = document.getElementById("aaRejectMessage");
         if (!reason) { if (messageEl) { messageEl.textContent = "Please give a reason."; messageEl.className = "auth-message error"; } return; }
@@ -707,6 +720,7 @@
     }
 
     async function approveReport(reportId, btnEl) {
+        if (!incidentReportsCan("incident_reports.approve")) return;
         if (btnEl) { btnEl.disabled = true; btnEl.textContent = "Approving…"; }
         try {
             const { data: finalized, error: rpcError } = await window.supabaseClient.rpc("finalize_incident_report_approval", { p_id: reportId });
@@ -726,6 +740,7 @@
     }
 
     async function retryFileReport(reportId, btnEl) {
+        if (!incidentReportsCan("incident_reports.retry_filing")) return;
         if (btnEl) { btnEl.disabled = true; btnEl.textContent = "Retrying…"; }
         try {
             const { data: report, error } = await window.supabaseClient.from(INCIDENT_REPORTS_TABLE).select("*").eq("id", reportId).single();
@@ -771,7 +786,10 @@
         state.myStaffId = profile?.id || profile?.uid || null;
         state.myName = (profile && (profile.full_name || profile.username)) || "Staff";
         state.viewedStaffId = state.myStaffId;
-        state.isAdmin = !!(window.isSupabaseUserInGroup && (window.isSupabaseUserInGroup(profile, "IT") || window.isSupabaseUserInGroup(profile, "Super Admin")));
+        if (window.Permissions) {
+            try { await window.Permissions.initPermissions(); } catch { /* incidentReportsCan() fails open regardless */ }
+        }
+        state.isAdmin = incidentReportsCan("incident_reports.view_all_activity");
 
         await Promise.all([loadAllStaff(), loadAllProjects()]);
         populateStaffPicker();

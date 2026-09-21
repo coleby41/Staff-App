@@ -37,6 +37,10 @@ function setMessage(element, text, type) {
   element.className = `auth-message ${type}`;
 }
 
+function staffCan(permissionKey) {
+  return window.Permissions ? window.Permissions.hasPermission(permissionKey) : true;
+}
+
 function getStoredProfile() {
   try {
     const storedProfile = localStorage.getItem('staffProfile');
@@ -210,6 +214,16 @@ function showDetailsForm(user) {
   if (toggleActiveBtn) {
     toggleActiveBtn.textContent = user.active === false ? 'Reactivate' : 'Deactivate';
   }
+
+  const canEditDetails = staffCan('staff.edit_account_details');
+  [fullNameInput, usernameInput, groupInput, staffRoleInput, staffManagerInput, employeeCodeInput, accountNotesInput].forEach((el) => {
+    if (el) el.disabled = !canEditDetails;
+  });
+  const saveBtn = document.getElementById('saveUserDetailsBtn');
+  if (saveBtn) saveBtn.disabled = !canEditDetails;
+  if (toggleActiveBtn) toggleActiveBtn.classList.toggle('hidden', !canEditDetails);
+
+  if (passwordInput) passwordInput.disabled = !staffCan('staff.reset_password');
 }
 
 function applySearch(term) {
@@ -317,6 +331,11 @@ userSearch.addEventListener('input', function (event) {
 userDetailsForm.addEventListener('submit', async function (event) {
   event.preventDefault();
 
+  if (!staffCan('staff.edit_account_details')) {
+    setMessage(directoryMessage, "You don't have permission to do this.", 'error');
+    return;
+  }
+
   const updates = {
     full_name: fullNameInput.value.trim(),
     username: usernameInput.value.trim(),
@@ -328,6 +347,12 @@ userDetailsForm.addEventListener('submit', async function (event) {
   };
 
   const newPassword = passwordInput.value.trim();
+
+  if (newPassword && !staffCan('staff.reset_password')) {
+    setMessage(directoryMessage, "You don't have permission to reset passwords.", 'error');
+    return;
+  }
+
   const pendingPasswordReset = newPassword ? selectedUserId : null;
 
   const savedFields = await updateSelectedUser(updates);
@@ -349,6 +374,7 @@ userDetailsForm.addEventListener('submit', async function (event) {
 
 toggleActiveBtn.addEventListener('click', async function () {
   if (!selectedUserId) return;
+  if (!staffCan('staff.edit_account_details')) return;
   const currentUser = allUsers.find((user) => String(user.id) === String(selectedUserId));
   if (!currentUser) return;
   const nextActiveState = currentUser.active === false;
@@ -356,6 +382,9 @@ toggleActiveBtn.addEventListener('click', async function () {
 });
 
 window.addEventListener('DOMContentLoaded', async function () {
+  if (window.Permissions) {
+    try { await window.Permissions.initPermissions(); } catch { /* staffCan() fails open regardless */ }
+  }
   // Populate the live Workgroups list into the Group <select> before the
   // first showDetailsForm() call (inside loadStaffUsers) tries to select a
   // value into it — ensureGroupOption() still covers any per-user legacy

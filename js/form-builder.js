@@ -162,21 +162,40 @@ function getFormStaffId() {
     return profile?.id || profile?.uid || null;
 }
 
-// IT / Super Admin / Office can manage (create/edit/delete) any form.
-function canManageForms() {
-    const profile = getFormStaffProfile();
-    if (!window.isSupabaseUserInGroup) return false;
-    return (
-        window.isSupabaseUserInGroup(profile, "IT") ||
-        window.isSupabaseUserInGroup(profile, "Super Admin") ||
-        window.isSupabaseUserInGroup(profile, "Office")
-    );
+function formsCan(permissionKey) {
+    return window.Permissions ? window.Permissions.hasPermission(permissionKey) : true;
 }
 
-// Whoever created a specific form can also manage that one form, even if
-// they're not in one of the groups above (e.g. their group changed later).
-function canManageThisForm(record) {
-    if (canManageForms()) return true;
+async function applyFormPermissionsToUI() {
+    if (window.Permissions) {
+        try { await window.Permissions.initPermissions(); } catch { /* hasPermission() fails open regardless */ }
+    }
+    const newFormBtn = document.getElementById("newFormBtn");
+    if (newFormBtn) newFormBtn.style.display = formsCan("forms.create_template") ? "inline-flex" : "none";
+}
+
+// Whoever created a specific form can also edit it or manage its responses,
+// even if they don't hold the general workgroup permission (e.g. their group
+// changed later) -- same fallback the old canManageThisForm() had, just
+// split across the two permissions it used to bundle together.
+function canEditThisForm(record) {
+    if (formsCan("forms.edit_any_template")) return true;
+    const myId = getFormStaffId();
+    return Boolean(myId && record && record.created_by && String(record.created_by) === String(myId));
+}
+
+function canManageResponsesForThisForm(record) {
+    if (formsCan("forms.manage_responses")) return true;
+    const myId = getFormStaffId();
+    return Boolean(myId && record && record.created_by && String(record.created_by) === String(myId));
+}
+
+// Deleting wasn't previously its own gate at all -- it was reachable any
+// time the edit modal was (i.e. whenever canManageThisForm() was true), so
+// this keeps that same reach (group permission OR creator) now that
+// forms.delete_template is a distinct, separately-toggleable permission.
+function canDeleteThisForm(record) {
+    if (formsCan("forms.delete_template")) return true;
     const myId = getFormStaffId();
     return Boolean(myId && record && record.created_by && String(record.created_by) === String(myId));
 }
@@ -384,12 +403,14 @@ function buildFormCard(record) {
     card.className = "workbook-card form-template-card";
     card.dataset.id = record.id;
 
-    const canManage = canManageThisForm(record);
+    const canEdit = canEditThisForm(record);
+    const canViewResponses = canManageResponsesForThisForm(record);
+    const canFillOut = formsCan("forms.fill_out");
     const fieldCount = Array.isArray(record.fields) ? record.fields.filter(f => f.type !== "section").length : 0;
 
     card.innerHTML = `
         <div class="workbook-cover form-template-cover">
-            ${canManage ? `
+            ${canEdit ? `
                 <button type="button" class="workbook-edit-btn" data-action="edit" aria-label="Edit form">
                     <span class="company-edit-icon"></span>
                 </button>
@@ -403,13 +424,13 @@ function buildFormCard(record) {
                 <span class="workbook-meta-date">${fieldCount} question${fieldCount === 1 ? "" : "s"}</span>
             </div>
             <div class="workbook-actions">
-                <button type="button" class="workbook-btn workbook-btn--preview" data-action="fill">Fill out</button>
-                ${canManage ? `<button type="button" class="workbook-btn workbook-btn--download" data-action="responses">Responses</button>` : ""}
+                ${canFillOut ? `<button type="button" class="workbook-btn workbook-btn--preview" data-action="fill">Fill out</button>` : ""}
+                ${canViewResponses ? `<button type="button" class="workbook-btn workbook-btn--download" data-action="responses">Responses</button>` : ""}
             </div>
         </div>
     `;
 
-    card.querySelector('[data-action="fill"]').addEventListener("click", () => openFillFormModal(record));
+    card.querySelector('[data-action="fill"]')?.addEventListener("click", () => openFillFormModal(record));
 
     const editBtn = card.querySelector('[data-action="edit"]');
     if (editBtn) editBtn.addEventListener("click", (e) => { e.stopPropagation(); openFormBuilderModal(record); });
@@ -854,6 +875,12 @@ function handlePdfFieldDelete() {
 /* ---------- builder modal: open/close/save/delete ---------- */
 
 async function openFormBuilderModal(record) {
+    // Defense in depth -- the entry points (newFormBtn, each card's edit
+    // button) are already hidden when the relevant permission is missing,
+    // so this silently no-ops rather than trying to show an error against a
+    // modal that isn't open yet.
+    if (!(record ? canEditThisForm(record) : formsCan("forms.create_template"))) return;
+
     editingFormRecord = record || null;
     editingFields = record && Array.isArray(record.fields)
         ? JSON.parse(JSON.stringify(record.fields))
@@ -908,7 +935,7 @@ async function openFormBuilderModal(record) {
         if (titleInput) titleInput.value = record.title || "";
         if (descriptionInput) descriptionInput.value = record.description || "";
         if (saveBtn) saveBtn.textContent = "Save changes";
-        if (deleteBtn) deleteBtn.style.display = "block";
+        if (deleteBtn) deleteBtn.style.display = canDeleteThisForm(record) ? "block" : "none";
     } else {
         if (titleEl) titleEl.textContent = "New Form";
         if (subtitleEl) subtitleEl.textContent = "Upload the form's PDF, then click and drag on it to add fields.";
@@ -960,6 +987,11 @@ async function handleSaveForm(event) {
     const titleInput = document.getElementById("formTitleInput");
     const descriptionInput = document.getElementById("formDescriptionInput");
     const messageEl = document.getElementById("formBuilderMessage");
+
+    if (!(editingFormRecord ? canEditThisForm(editingFormRecord) : formsCan("forms.create_template"))) {
+        if (messageEl) { messageEl.textContent = "You don't have permission to do this."; messageEl.className = "auth-message error"; }
+        return;
+    }
 
     const title = titleInput?.value.trim();
     const description = descriptionInput?.value.trim() || "";
@@ -1131,6 +1163,7 @@ function updateDeleteFormConfirmBtnState() {
 
 function openDeleteFormConfirm() {
     if (!editingFormRecord) return;
+    if (!canDeleteThisForm(editingFormRecord)) return;
     const name = editingFormRecord.title || "this form";
     document.getElementById("deleteFormConfirmName").textContent = name;
     const input = document.getElementById("deleteFormConfirmNameInput");
@@ -1149,6 +1182,7 @@ function closeDeleteFormConfirm() {
 
 async function confirmDeleteForm() {
     if (!editingFormRecord) return;
+    if (!canDeleteThisForm(editingFormRecord)) return;
     if (!deleteFormConfirmReady()) return;
     const record = editingFormRecord;
     const confirmBtn = document.getElementById("confirmDeleteFormBtn");
@@ -1261,6 +1295,14 @@ function renderFillField(field) {
 }
 
 async function openFillFormModal(record, existingSubmission) {
+    // Defense in depth -- the card's "Fill out" button is already hidden
+    // when this permission is missing, so this silently no-ops. Only guards
+    // a fresh fill-out, though: editing an existing submission also reaches
+    // this function via openEditSubmissionModal(), which is already gated
+    // by forms.manage_responses (or the same creator fallback) at the
+    // Responses modal, and shouldn't additionally require forms.fill_out.
+    if (!existingSubmission && !formsCan("forms.fill_out")) return;
+
     fillFormRecord = record;
     fillPdfDoc = null;
     editingSubmission = existingSubmission || null;
@@ -2001,6 +2043,14 @@ async function handleSubmitFillForm(event) {
     const record = fillFormRecord;
     const isEditing = Boolean(editingSubmission);
     const messageEl = document.getElementById("fillFormMessage");
+
+    // See openFillFormModal's comment -- a fresh fill-out needs forms.fill_out;
+    // editing an existing submission is gated by forms.manage_responses
+    // instead (already checked when the Responses modal opened).
+    if (!isEditing && !formsCan("forms.fill_out")) {
+        if (messageEl) { messageEl.textContent = "You don't have permission to do this."; messageEl.className = "auth-message error"; }
+        return;
+    }
     const isPdfForm = Boolean(record.pdf_path);
 
     const result = isPdfForm ? collectFillPdfAnswers(record) : collectFillAnswers(record);
@@ -2294,6 +2344,10 @@ async function handleConfirmSubmissionFileName(event) {
 /* ---------- responses modal ---------- */
 
 async function openResponsesModal(record) {
+    // Defense in depth -- the card's "Responses" button is already hidden
+    // when this permission is missing, so this silently no-ops.
+    if (!canManageResponsesForThisForm(record)) return;
+
     responsesFormRecord = record;
     responsesCurrentSubmissions = [];
     updateDownloadAllResponsesBtnState();
@@ -2800,9 +2854,9 @@ window.addEventListener("DOMContentLoaded", function () {
         renderFileProjectLockOptions(e.target.value, "");
     });
 
+    applyFormPermissionsToUI();
     const newFormBtn = document.getElementById("newFormBtn");
     if (newFormBtn) {
-        newFormBtn.style.display = canManageForms() ? "inline-flex" : "none";
         newFormBtn.addEventListener("click", () => openFormBuilderModal(null));
     }
 

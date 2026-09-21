@@ -1070,6 +1070,8 @@
 <script src="/js/timeout.js"></script>
 <script src="/js/notifications.js"></script>
 <script src="/js/change-password.js"></script>
+<script src="/js/permissions.js"></script>
+<script src="/js/permission-editor.js"></script>
 <script src="/js/nav-access.js"></script>
 <script src="/js/nav-approvals-badge.js"></script>
 
@@ -1546,6 +1548,13 @@ function getStartReportMessageSetter() {
 // error" flow — used by both the plain report buttons and the per-tag
 // chips, so neither has to duplicate the try/catch/message logic.
 async function generateAndPreviewReport(buildFn, pickerOverlay, setMessage) {
+    // Single choke-point for every report-generation path (plain buttons and
+    // per-tag chips alike) -- the startReportBtn toolbar entry is already
+    // hidden when this permission is missing, this is defense in depth.
+    if (window.Permissions && !window.Permissions.hasPermission("vendors.generate_reports")) {
+        setMessage("You don't have permission to generate reports.", "error");
+        return;
+    }
     if (typeof buildFn !== "function") {
         setMessage("Report tool isn't loaded. Refresh and try again.", "error");
         return;

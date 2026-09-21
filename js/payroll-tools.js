@@ -14,6 +14,26 @@
 
 let calendarViewDate = new Date(); // month currently shown in the View Calendar popup
 
+function payrollCan(permissionKey) {
+  return window.Permissions ? window.Permissions.hasPermission(permissionKey) : true;
+}
+
+// Also used by the Announcements block in payroll-tools.html's own inline
+// script, which loads after this file so payrollCan() is already global.
+async function applyPayrollPermissionsToUI() {
+  if (window.Permissions) {
+    try { await window.Permissions.initPermissions(); } catch { /* hasPermission() fails open regardless */ }
+  }
+  const newPayPeriodBtn = document.getElementById('newPayPeriodBtn');
+  if (newPayPeriodBtn) newPayPeriodBtn.classList.toggle('hidden', !payrollCan('payroll.manage_pay_periods'));
+
+  const addEmployeeBtn = document.getElementById('addEmployeeBtn');
+  if (addEmployeeBtn) addEmployeeBtn.classList.toggle('hidden', !payrollCan('payroll.add_remove_employee'));
+
+  const sendAnnouncementBtn = document.getElementById('sendAnnouncementBtn');
+  if (sendAnnouncementBtn) sendAnnouncementBtn.classList.toggle('hidden', !payrollCan('payroll.post_announcement'));
+}
+
 const PP_MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const PP_DAY_NAMES_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
@@ -27,6 +47,7 @@ function renderNextPayday() {
 }
 
 async function initPayrollToolsCard() {
+  applyPayrollPermissionsToUI();
   await loadPayPeriods();
   renderNextPayday();
   await initAccountingDashboard();
@@ -114,12 +135,13 @@ function renderPayPeriodList() {
         <h3>${ppFormatLong(ppParseDate(p.start_date))} &ndash; ${ppFormatLong(ppParseDate(p.end_date))}</h3>
         <p>Payday: ${ppFormatMmDdDay(ppParseDate(p.end_date))}</p>
       </div>
-      <button type="button" class="auth-button auth-button--red auth-button--sm" onclick="deletePayPeriod('${p.id}')">Delete</button>
+      <button type="button" class="auth-button auth-button--red auth-button--sm ${payrollCan('payroll.manage_pay_periods') ? '' : 'hidden'}" onclick="deletePayPeriod('${p.id}')">Delete</button>
     </div>
   `).join('');
 }
 
 async function deletePayPeriod(id) {
+  if (!payrollCan('payroll.manage_pay_periods')) return;
   if (!confirm('Delete this pay period? This cannot be undone.')) return;
   const { error } = await supabaseClient.from('pay_periods').delete().eq('id', id);
   if (error) { console.error('Failed to delete pay period:', error); alert('Could not delete that pay period.'); return; }
@@ -132,6 +154,10 @@ async function deletePayPeriod(id) {
 /* --------------------------- Make a New Pay Period popup --------------------------- */
 
 function openNewPayPeriodModal() {
+  // Defense in depth -- newPayPeriodBtn is already hidden without this
+  // permission, so this silently no-ops rather than showing an error
+  // against a modal that isn't open yet.
+  if (!payrollCan('payroll.manage_pay_periods')) return;
   document.getElementById('newPayPeriodStart').value = '';
   document.getElementById('newPayPeriodEnd').value = '';
   const msg = document.getElementById('newPayPeriodMsg');
@@ -144,6 +170,12 @@ async function submitNewPayPeriod(event) {
   const startVal = document.getElementById('newPayPeriodStart').value;
   const endVal = document.getElementById('newPayPeriodEnd').value;
   const msg = document.getElementById('newPayPeriodMsg');
+
+  if (!payrollCan('payroll.manage_pay_periods')) {
+    msg.textContent = "You don't have permission to do this.";
+    msg.className = 'auth-message error';
+    return;
+  }
 
   if (!startVal || !endVal) {
     msg.textContent = 'Both a start and end date are required.';
@@ -290,6 +322,9 @@ function renderEmployeeCards() {
 /* ------------------------------- Add Employee popup ------------------------------- */
 
 async function openAddEmployeeModal() {
+  // Defense in depth -- addEmployeeBtn is already hidden without this
+  // permission, so this silently no-ops.
+  if (!payrollCan('payroll.add_remove_employee')) return;
   await loadStaffDirectory();
   const existingStaffIds = new Set(payrollEmployees.map(e => e.staff_id));
   const available = staffDirectory.filter(s => !existingStaffIds.has(s.id));
@@ -315,6 +350,12 @@ async function submitAddEmployee(event) {
   event.preventDefault();
   const staffId = document.getElementById('addEmployeeStaffSelect').value;
   const msg = document.getElementById('addEmployeeMsg');
+
+  if (!payrollCan('payroll.add_remove_employee')) {
+    msg.textContent = "You don't have permission to do this.";
+    msg.className = 'auth-message error';
+    return;
+  }
 
   if (!staffId) { msg.textContent = 'Pick a staff member first.'; msg.className = 'auth-message error'; return; }
 
@@ -365,6 +406,15 @@ async function openEmployeeDetailModal(payrollEmployeeId) {
   const detailMsg = document.getElementById('employeeDetailMsg');
   if (detailMsg) { detailMsg.textContent = ''; detailMsg.className = 'auth-message'; }
 
+  const canEditDetails = payrollCan('payroll.edit_employee_details');
+  const saveBtn = document.getElementById('employeeDetailSaveBtn');
+  if (saveBtn) saveBtn.classList.toggle('hidden', !canEditDetails);
+  const toggleActiveBtn = document.getElementById('employeeDetailToggleActiveBtn');
+  if (toggleActiveBtn) toggleActiveBtn.classList.toggle('hidden', !canEditDetails);
+
+  const removeBtn = document.getElementById('employeeDetailRemoveBtn');
+  if (removeBtn) removeBtn.classList.toggle('hidden', !payrollCan('payroll.add_remove_employee'));
+
   await renderEmployeeDetailTimesheet(emp);
   ppOpenOverlay('employeeDetailOverlay');
 }
@@ -373,6 +423,11 @@ async function saveEmployeeDetails(event) {
   event.preventDefault();
   if (!activeEmployeeDetailId) return;
   const msg = document.getElementById('employeeDetailMsg');
+
+  if (!payrollCan('payroll.edit_employee_details')) {
+    if (msg) { msg.textContent = "You don't have permission to do this."; msg.className = 'auth-message error'; }
+    return;
+  }
 
   const rateVal = document.getElementById('editEmployeeRate').value;
   const { error } = await supabaseClient.from('payroll_employees').update({
@@ -395,6 +450,7 @@ async function saveEmployeeDetails(event) {
 
 async function toggleEmployeeActive() {
   if (!activeEmployeeDetailId) return;
+  if (!payrollCan('payroll.edit_employee_details')) return;
   const emp = payrollEmployees.find(e => e.id === activeEmployeeDetailId);
   if (!emp) return;
   const { error } = await supabaseClient.from('payroll_employees')
@@ -410,6 +466,7 @@ async function toggleEmployeeActive() {
 
 async function removeEmployeeFromPayroll() {
   if (!activeEmployeeDetailId) return;
+  if (!payrollCan('payroll.add_remove_employee')) return;
   if (!confirm('Remove this employee from payroll? This also deletes their timesheets, entries, and history. This cannot be undone.')) return;
   const { error } = await supabaseClient.from('payroll_employees').delete().eq('id', activeEmployeeDetailId);
   if (error) { console.error('Failed to remove employee from payroll:', error); alert('Could not remove that employee.'); return; }
@@ -490,16 +547,20 @@ async function renderEmployeeDetailTimesheet(emp) {
 
   if (actionsEl) {
     const buttons = [];
-    if (ts.status === 'Sent to Accounting') {
-      buttons.push(`<button type="button" class="auth-button auth-button--secondary auth-button--sm" onclick="markTimesheetProcessed('${ts.id}')">Mark Processed</button>`);
-    } else if (ts.status === 'Processed') {
-      buttons.push(`<button type="button" class="auth-button auth-button--secondary auth-button--sm" onclick="markTimesheetComplete('${ts.id}')">Mark Complete</button>`);
+    const canMarkProcessedComplete = payrollCan('payroll.mark_processed_complete');
+    const canUnapprove = payrollCan('payroll.unapprove_timesheet');
+    if (canMarkProcessedComplete) {
+      if (ts.status === 'Sent to Accounting') {
+        buttons.push(`<button type="button" class="auth-button auth-button--secondary auth-button--sm" onclick="markTimesheetProcessed('${ts.id}')">Mark Processed</button>`);
+      } else if (ts.status === 'Processed') {
+        buttons.push(`<button type="button" class="auth-button auth-button--secondary auth-button--sm" onclick="markTimesheetComplete('${ts.id}')">Mark Complete</button>`);
+      }
     }
     // Unapprove is available any time after manager approval — including
     // after Accounting has processed or fully completed it — since Coleby
     // confirmed Accounting should be able to send a timesheet back even
     // that late in the workflow.
-    if (['Sent to Accounting', 'Processed', 'Complete'].includes(ts.status)) {
+    if (canUnapprove && ['Sent to Accounting', 'Processed', 'Complete'].includes(ts.status)) {
       buttons.push(`<button type="button" class="auth-button auth-button--red auth-button--sm" onclick="unapproveTimesheet('${ts.id}')">Unapprove</button>`);
     }
     actionsEl.innerHTML = buttons.length
@@ -541,6 +602,7 @@ function eventTypeLabel(type) {
 }
 
 async function markTimesheetProcessed(timesheetId) {
+  if (!payrollCan('payroll.mark_processed_complete')) return;
   const actorId = window.currentSupabaseProfile?.id || null;
   const { error } = await supabaseClient.from('timesheets').update({
     status: 'Processed', processed_by: actorId, processed_at: new Date().toISOString()
@@ -553,6 +615,7 @@ async function markTimesheetProcessed(timesheetId) {
 }
 
 async function markTimesheetComplete(timesheetId) {
+  if (!payrollCan('payroll.mark_processed_complete')) return;
   const actorId = window.currentSupabaseProfile?.id || null;
   const { error } = await supabaseClient.from('timesheets').update({
     status: 'Complete', completed_at: new Date().toISOString()
@@ -585,6 +648,7 @@ async function markTimesheetComplete(timesheetId) {
 // Complete), it gets invalidated first since it reflected numbers that are
 // about to change.
 async function unapproveTimesheet(timesheetId) {
+  if (!payrollCan('payroll.unapprove_timesheet')) return;
   const commentEl = document.getElementById('employeeDetailComment');
   const comment = commentEl ? commentEl.value.trim() : '';
   if (!comment) { alert('A comment is required so the employee knows what to fix.'); return; }
@@ -689,9 +753,11 @@ function renderApprovedQueue() {
     const periodLabel = period ? `${ppFormatLong(ppParseDate(period.start_date))} – ${ppFormatLong(ppParseDate(period.end_date))}` : '—';
     const totalHours = (approvedQueueHoursByTimesheet.get(ts.id) || 0).toFixed(2);
     const approvalDate = ts.approved_at ? new Date(ts.approved_at).toLocaleDateString() : '—';
-    const actionBtn = ts.status === 'Sent to Accounting'
-      ? `<button type="button" class="auth-button auth-button--secondary auth-button--sm" onclick="markTimesheetProcessed('${ts.id}')">Mark Processed</button>`
-      : `<button type="button" class="auth-button auth-button--secondary auth-button--sm" onclick="markTimesheetComplete('${ts.id}')">Mark Complete</button>`;
+    const actionBtn = payrollCan('payroll.mark_processed_complete')
+      ? (ts.status === 'Sent to Accounting'
+          ? `<button type="button" class="auth-button auth-button--secondary auth-button--sm" onclick="markTimesheetProcessed('${ts.id}')">Mark Processed</button>`
+          : `<button type="button" class="auth-button auth-button--secondary auth-button--sm" onclick="markTimesheetComplete('${ts.id}')">Mark Complete</button>`)
+      : '';
 
     return `
       <tr>
