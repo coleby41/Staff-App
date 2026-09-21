@@ -1324,18 +1324,19 @@ body.sidebar-collapsed .nav-item-badge {
    JS (it's always visible while the HTML comment block is in place), so
    this rule is the only thing that was missing for it to actually render
    styled — the div existed with no CSS backing it at all. Same layout as
-   .supabase-status-banner (same grid, same centering) but uses --info
-   instead of --warning so a planned notice reads distinctly from a live
-   incident. */
+   .supabase-status-banner (same grid, same centering) but uses --danger
+   and bold text, per Coleby, so a planned outage reads as more urgent
+   than the live-incident banner below it rather than less. */
 .maintenance-banner {
   width: min(1100px, 100%);
   margin-bottom: 16px;
   padding: 14px 20px;
-  background: var(--info-soft);
-  border: 1px solid var(--info);
+  background: var(--danger-soft);
+  border: 1px solid var(--danger);
   border-radius: var(--radius-sm);
-  color: var(--info);
+  color: var(--danger);
   font-size: 14px;
+  font-weight: 700;
   line-height: 1.5;
   text-align: center;
 }
