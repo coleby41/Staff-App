@@ -543,6 +543,130 @@
 </div>
 
 
+<!-- "Is this a BC or a VPO?" -- shown right after an incident report is
+     approved (see openBcVpoChoicePopup() in js/account-activity.js). No
+     close button and no backdrop-dismiss on purpose, per Coleby: "it must
+     be a VPO or a BC" -- the only way out is BC, VPO, or the Reject panel
+     below (which requires a reason and is logged on the report). -->
+<div class="popup-overlay hidden" id="aaBcVpoChoiceOverlay">
+    <div class="popup popup--corporate">
+        <div class="aa-files-popup-header">
+            <div>
+                <p class="aa-files-popup-eyebrow">The Leeward Group</p>
+                <h2>Is this form a BC or a VPO?</h2>
+                <p class="aa-files-popup-subtitle">This incident report is approved and filed. Choose one to continue.</p>
+            </div>
+        </div>
+
+        <div class="aa-corporate-popup-body">
+            <div class="popup-buttons">
+                <button type="button" class="auth-button" id="aaBcChoiceBtn">BC</button>
+                <button type="button" class="auth-button" id="aaVpoChoiceBtn">VPO</button>
+            </div>
+
+            <button type="button" class="auth-button auth-button--secondary aa-bc-vpo-reject-toggle" id="aaBcVpoRejectToggleBtn">This report doesn't need a BC or VPO</button>
+
+            <div class="aa-bc-vpo-reject-panel hidden" id="aaBcVpoRejectPanel">
+                <label class="auth-field">
+                    Reason
+                    <textarea id="aaBcVpoRejectReasonInput" placeholder="Why doesn't this report need a BC or VPO?"></textarea>
+                </label>
+                <p class="auth-message" id="aaBcVpoRejectMessage" role="status"></p>
+                <div class="popup-buttons">
+                    <button type="button" class="auth-button auth-button--secondary" id="aaBcVpoRejectCancelBtn">Back</button>
+                    <button type="button" class="auth-button auth-button--red" id="aaBcVpoRejectConfirmBtn">Confirm — Skip BC/VPO</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- BC: Who to Charge / Who to CR Back -- everything else on the BC is
+     auto-populated from the incident report itself, per Coleby: "all that
+     info should come from the IR form except the to be charge and the
+     credit." Cancel here returns to the choice popup above, not a plain
+     dismiss -- same "must end in BC, VPO, or a logged Reject" rule. -->
+<div class="popup-overlay hidden" id="aaBcOverlay">
+    <div class="popup popup--corporate">
+        <div class="aa-files-popup-header">
+            <div>
+                <p class="aa-files-popup-eyebrow">The Leeward Group</p>
+                <h2>Create Back Charge</h2>
+                <p class="aa-files-popup-subtitle">Project, price, building, reason, etc. all come from the incident report — just pick the two vendors below.</p>
+            </div>
+        </div>
+
+        <div class="aa-corporate-popup-body">
+            <div class="aa-bc-vpo-template-status">
+                <span id="aaBcTemplateStatusText">Checking template…</span>
+                <label class="aa-bc-vpo-template-upload-label" for="aaBcTemplateUploadInput">Replace template</label>
+                <input type="file" id="aaBcTemplateUploadInput" accept=".docx" class="hidden" />
+            </div>
+
+            <label class="auth-field">
+                Who to Charge
+                <select id="aaBcVendorToCharge">
+                    <option value="">Select a vendor…</option>
+                </select>
+            </label>
+
+            <label class="auth-field">
+                Who to CR Back
+                <select id="aaBcVendorToCredit">
+                    <option value="">Select a vendor…</option>
+                </select>
+            </label>
+
+            <p class="auth-message" id="aaBcMessage" role="status"></p>
+
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="aaBcCancelBtn">Back</button>
+                <button type="button" class="auth-button" id="aaBcConfirmBtn">Create Back Charge</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- VPO: just the vendor -- everything else auto-populates from the
+     incident report, same pattern as BC. Cancel returns to the choice
+     popup, same rule as BC's Cancel above. -->
+<div class="popup-overlay hidden" id="aaVpoOverlay">
+    <div class="popup popup--corporate">
+        <div class="aa-files-popup-header">
+            <div>
+                <p class="aa-files-popup-eyebrow">The Leeward Group</p>
+                <h2>Create VPO</h2>
+                <p class="aa-files-popup-subtitle">Project, building, price, explanation, etc. all come from the incident report — just pick the vendor below.</p>
+            </div>
+        </div>
+
+        <div class="aa-corporate-popup-body">
+            <div class="aa-bc-vpo-template-status">
+                <span id="aaVpoTemplateStatusText">Checking template…</span>
+                <label class="aa-bc-vpo-template-upload-label" for="aaVpoTemplateUploadInput">Replace template</label>
+                <input type="file" id="aaVpoTemplateUploadInput" accept=".docx" class="hidden" />
+            </div>
+
+            <label class="auth-field">
+                Vendor
+                <select id="aaVpoVendor">
+                    <option value="">Select a vendor…</option>
+                </select>
+            </label>
+
+            <p class="auth-message" id="aaVpoMessage" role="status"></p>
+
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="aaVpoCancelBtn">Back</button>
+                <button type="button" class="auth-button" id="aaVpoConfirmBtn">Create VPO</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
 <!-- "Show All" -- every form submitted by this staff member, opened from
      the Form Submissions card once there are more than the 4 shown there
      (see openFormsPopup() in js/account-activity.js). -->
@@ -582,7 +706,15 @@
 <script src="https://cdn.jsdelivr.net/npm/pdfmake@0.3.10/build/vfs_fonts.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 
+<!-- pizzip + docxtemplater fill the BC/VPO .docx templates (the
+     {FIELD_NAME} tags) -- see js/bc-vpo-docs.js. window.PizZip and
+     window.docxtemplater (the constructor itself, not a namespace) are
+     the globals docxtemplater's own browser quickstart documents. -->
+<script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.7/dist/pizzip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.47.1/build/docxtemplater.min.js"></script>
+
 <script src="/js/incident-report-pdf.js"></script>
+<script src="/js/bc-vpo-docs.js"></script>
 <script src="/js/account-activity.js"></script>
 
 <script>

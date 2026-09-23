@@ -243,6 +243,16 @@
         return Number.isNaN(num) ? null : num;
     }
 
+    // Building and Unit Number were widened to "list each one" in the
+    // original build, then tightened back to a single identifier so
+    // BC/VPO numbering has one unambiguous value to key off of. This is a
+    // best-effort heuristic (commas, "&", " and ", or the word "multiple")
+    // rather than a hard parser — good enough to catch the obvious cases
+    // without being clever about it.
+    function looksLikeMultipleValues(text) {
+        return /[,;/]|\band\b|&|\bmultiple\b/i.test(text);
+    }
+
     function initCurrencyInput() {
         const input = document.getElementById("irPriceInput");
         if (!input) return;
@@ -550,8 +560,10 @@
 
         if (!projectId) { setMessage("Please select a project.", "error"); return; }
         if (parseCurrencyInput(priceRaw) === null) { setMessage("Please enter a price.", "error"); return; }
-        if (!buildings) { setMessage("Please enter the building(s).", "error"); return; }
-        if (!unitNumbers) { setMessage("Please enter the unit number(s).", "error"); return; }
+        if (!buildings) { setMessage("Please enter the building.", "error"); return; }
+        if (looksLikeMultipleValues(buildings)) { setMessage("Building must be a single identifier (e.g. \"1\") — it's used for BC/VPO numbering. Submit a separate report for each additional building.", "error"); return; }
+        if (!unitNumbers) { setMessage("Please enter the unit number.", "error"); return; }
+        if (looksLikeMultipleValues(unitNumbers)) { setMessage("Unit Number must be a single value (e.g. \"311\") — list any additional units in Reason for Report instead.", "error"); return; }
         if (!person) { setMessage("Please enter who's making this report.", "error"); return; }
         if (!reasonPlainText) { setMessage("Please enter a reason for this report.", "error"); return; }
         if (!whoCaused) { setMessage("Please enter who caused the issue.", "error"); return; }

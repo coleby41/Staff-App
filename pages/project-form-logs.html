@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Project Files | The Leeward Group</title>
+    <title>Form Logs | The Leeward Group</title>
 
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
@@ -16,7 +16,7 @@
 <!-- Header/sidebar shell shared by every project-dashboard page
      (project-shell.js). Keep this block in sync across projects.html,
      project-files.html, project-timeline.html, project-to-do.html,
-     project-accounting.html if you change it here. -->
+     project-accounts.html, project-form-logs.html if you change it here. -->
 
 <header class="header">
 
@@ -38,7 +38,7 @@
     </div>
 
     <div class="header-center">
-        <h1 class="header-page-name" id="headerPageName">All Files</h1>
+        <h1 class="header-page-name" id="headerPageName">Form Logs</h1>
     </div>
 
     <div class="header-right">
@@ -63,7 +63,7 @@
                             <a class="report-bug-btn" href="https://tally.so/r/QKyGj8" target="_blank" rel="noopener">Report bug</a>
                             <button class="auth-button auth-button--secondary header-signout" id="signOutButton" type="button">Sign out</button>
                         </div>
-                    
+
                         <div class="notification-change-password-row">
                             <button type="button" class="notification-change-password-btn" id="changePasswordBtn">
                                 <span class="notification-change-password-btn-icon" aria-hidden="true"></span>
@@ -143,197 +143,68 @@
 
 <main class="main-content">
 
-    <div id="filesPageMessage" class="workbook-page-message" style="display:none;"></div>
+    <section class="hero-section">
+        <div>
+            <p class="eyebrow">Project Dashboard</p>
+            <h1 id="formLogsHeroName">Form Logs</h1>
+            <p>Every VPO, Back Charge, and filed Incident Report for this project. Click an ID to open its filed document.</p>
+        </div>
+    </section>
 
-    <div class="workbook-loading" id="filesLoadingState">
-        <p>Loading files…</p>
+    <div id="formLogsPageMessage" class="workbook-page-message" style="display:none;"></div>
+
+    <!-- VPO -->
+    <div class="card form-log-card">
+        <div class="card-header">
+            <h2 class="card-title">VPO</h2>
+        </div>
+        <div class="workbook-loading" id="formLogsVpoLoading"><p>Loading…</p></div>
+        <div class="empty-state" id="formLogsVpoEmpty" style="display:none;">No VPOs yet for this project.</div>
+        <div class="table-wrap" id="formLogsVpoTableWrap" style="display:none;">
+            <table class="dash-queue-table">
+                <thead>
+                    <tr><th>ID</th><th>Vendor</th><th>Date</th><th>Comment</th><th>Amount</th></tr>
+                </thead>
+                <tbody id="formLogsVpoBody"></tbody>
+            </table>
+        </div>
     </div>
 
-    <div id="filesBody" style="display:none;">
-
-        <!-- List view / Folders view — same underlying selection state
-             (window.ProjectFields taxonomy), just two different ways to
-             browse to a folder. The right-hand panel (#filesMainPanel,
-             defined once below) gets moved into whichever view is active
-             instead of being duplicated. -->
-        <div class="all-files-view-toggle" id="filesViewToggle" role="group" aria-label="View">
-            <button type="button" class="all-files-view-toggle-btn is-active" data-view="list">List</button>
-            <button type="button" class="all-files-view-toggle-btn" data-view="folders">Folders</button>
+    <!-- BC -->
+    <div class="card form-log-card">
+        <div class="card-header">
+            <h2 class="card-title">BC</h2>
         </div>
-
-        <div class="all-files-layout" id="filesListView">
-
-            <!-- Left: 11-category folder tree. Built once from
-                 window.ProjectFields.PROJECT_FILE_CATEGORIES (the shared
-                 taxonomy constant — also used by form-builder.js's "file
-                 into a project folder?" pickers), with live file counts
-                 per folder. -->
-            <aside class="all-files-tree" id="filesTree"></aside>
-
-            <div class="all-files-main-slot" id="filesListMainSlot"></div>
-
+        <div class="workbook-loading" id="formLogsBcLoading"><p>Loading…</p></div>
+        <div class="empty-state" id="formLogsBcEmpty" style="display:none;">No Back Charges yet for this project.</div>
+        <div class="table-wrap" id="formLogsBcTableWrap" style="display:none;">
+            <table class="dash-queue-table">
+                <thead>
+                    <tr><th>ID</th><th>Vendor</th><th>Date</th><th>Comment</th><th>Amount</th></tr>
+                </thead>
+                <tbody id="formLogsBcBody"></tbody>
+            </table>
         </div>
+    </div>
 
-        <!-- Folder view: blue folder-icon tiles, drill from the 11
-             categories into a category's subfolders into that subfolder's
-             files (the same shared panel again). -->
-        <div class="all-files-folder-view" id="filesFolderView" style="display:none;">
-            <div class="all-files-folder-breadcrumb" id="filesFolderBreadcrumb"></div>
-            <div class="all-files-folder-grid" id="filesFolderGrid"></div>
-            <div class="all-files-main-slot" id="filesFolderMainSlot"></div>
+    <!-- IR -->
+    <div class="card form-log-card">
+        <div class="card-header">
+            <h2 class="card-title">IR</h2>
         </div>
-
-        <!-- The actual folder-contents panel — a single instance, moved
-             (via appendChild) into #filesListMainSlot or
-             #filesFolderMainSlot depending on which view is active and
-             whether a subfolder is selected. -->
-        <section class="all-files-main" id="filesMainPanel">
-            <div class="all-files-main-header">
-                <h2 id="filesCurrentFolderTitle">Select a folder</h2>
-                <div class="all-files-main-actions" id="filesFolderActions"></div>
-            </div>
-
-            <input type="file" id="filesUploadInput" multiple hidden>
-
-            <p class="all-files-hint" id="filesNoFolderHint">Pick a folder to see its files, upload a document, or fill a form into it.</p>
-
-            <div class="workbook-empty" id="filesFolderEmpty" style="display:none;">
-                <p>No files in this folder yet. Drag and drop files here, or use Upload File(s) above.</p>
-            </div>
-
-            <div id="filesFolderList"></div>
-
-            <!-- Same pagination component as project-home.html's project list
-                 (renderProjectPagination() in projects-page.js) — reuses its
-                 exact CSS classes so it looks identical, just wired to this
-                 folder's file count (renderFilesPagination() in
-                 project-files.js). Starts at 10 per page instead of 6, since
-                 a folder of documents runs bigger than a project list. -->
-            <div class="project-pagination" id="filesPagination" style="display:none;">
-                <p class="project-pagination-summary" id="filesPaginationSummary"></p>
-                <div class="project-pagination-controls">
-                    <button type="button" class="project-page-btn" id="filesPrevPageBtn" aria-label="Previous page">&lsaquo;</button>
-                    <div class="project-page-numbers" id="filesPageNumbers"></div>
-                    <button type="button" class="project-page-btn" id="filesNextPageBtn" aria-label="Next page">&rsaquo;</button>
-                </div>
-                <select class="project-page-size-select" id="filesPageSizeSelect">
-                    <option value="10">10 per page</option>
-                    <option value="25">25 per page</option>
-                    <option value="50">50 per page</option>
-                </select>
-            </div>
-
-            <!-- Shown while dragging file(s) over the panel (any tab —
-                 see the dragenter/dragover/drop wiring in project-files.js);
-                 pointer-events:none so the drop event still lands on the
-                 panel underneath, not this overlay. -->
-            <div class="all-files-drop-overlay" id="filesDropOverlay">Drop to upload into this folder</div>
-        </section>
-
+        <div class="workbook-loading" id="formLogsIrLoading"><p>Loading…</p></div>
+        <div class="empty-state" id="formLogsIrEmpty" style="display:none;">No approved Incident Reports yet for this project.</div>
+        <div class="table-wrap" id="formLogsIrTableWrap" style="display:none;">
+            <table class="dash-queue-table">
+                <thead>
+                    <tr><th>ID</th><th>Vendor</th><th>Date</th><th>Comment</th><th>Amount</th></tr>
+                </thead>
+                <tbody id="formLogsIrBody"></tbody>
+            </table>
+        </div>
     </div>
 
 </main>
-
-<!-- Upload status widget — bottom-right floating tray, Google-Drive-style,
-     showing progress for uploadFiles() in project-files.js (both the file
-     picker and drag-and-drop funnel through it). Lives outside #filesBody
-     as a fixed-position sibling of <main> so it isn't affected by the
-     List/Folders view toggle or by render() rebuilding the folder panel. -->
-<div class="upload-status-widget hidden" id="uploadStatusWidget">
-    <div class="upload-status-header" id="uploadStatusHeader">
-        <span class="upload-status-title" id="uploadStatusTitle">Uploading…</span>
-        <div class="upload-status-header-actions">
-            <button type="button" class="upload-status-icon-btn" id="uploadStatusToggleBtn" aria-label="Minimize">
-                <span class="upload-status-toggle-icon">⌄</span>
-            </button>
-            <button type="button" class="upload-status-icon-btn" id="uploadStatusCloseBtn" aria-label="Close">✕</button>
-        </div>
-    </div>
-    <div class="upload-status-list" id="uploadStatusList"></div>
-</div>
-
-
-<!-- Delete Confirmation -->
-<div class="popup-overlay hidden" id="deleteFileConfirmOverlay">
-    <div class="popup popup--danger">
-        <div class="delete-confirm-header">
-            <span class="delete-confirm-icon" aria-hidden="true"></span>
-            <h2>Delete this file?</h2>
-        </div>
-
-        <div class="delete-confirm-warning-box">
-            <p>This will <strong>permanently</strong> remove the file. This action cannot be undone.</p>
-        </div>
-
-        <label class="auth-field delete-confirm-name-field">
-            <span>Type <strong id="deleteFileConfirmName"></strong> below to confirm</span>
-            <input type="text" id="deleteFileConfirmNameInput" autocomplete="off" autocapitalize="off" spellcheck="false">
-        </label>
-
-        <label class="delete-confirm-checkbox-row">
-            <input type="checkbox" id="deleteFileConfirmUnderstandCheckbox">
-            <span>I understand this action is permanent and cannot be undone.</span>
-        </label>
-
-        <p class="auth-message" id="deleteFileConfirmMessage"></p>
-
-        <div class="popup-buttons">
-            <button type="button" class="auth-button auth-button--secondary" id="cancelDeleteFileBtn">Cancel</button>
-            <button type="button" class="auth-button auth-button--red" id="confirmDeleteFileBtn" disabled>Delete</button>
-        </div>
-    </div>
-</div>
-
-
-<!-- Rename File — same permission as Delete (uploader or project
-     leadership, per project_files_update_owner_or_leadership). For a plain
-     upload, this actually moves the storage object to a new path (see
-     confirmRenameFile() in project-files.js); a form-filed PDF's storage
-     key is submission-id-based, not filename-based, so there's nothing to
-     move there — its name is kept in sync across project_files and
-     form_submissions instead. The extension is split out into its own
-     fixed, non-editable suffix (#renameFileExtSuffix) so it's simply not
-     possible to type a different one — not just validated after the
-     fact — since the field the person types into never contains it. -->
-<div class="popup-overlay hidden" id="renameFileModalOverlay">
-    <div class="popup">
-        <h2>Rename file</h2>
-
-        <form class="auth-form" id="renameFileForm">
-            <label class="auth-field">
-                File name
-                <div class="rename-file-input-group">
-                    <input type="text" id="renameFileInput" name="fileName" required>
-                    <span class="rename-file-ext" id="renameFileExtSuffix"></span>
-                </div>
-            </label>
-
-            <p class="auth-message" id="renameFileMessage"></p>
-
-            <div class="popup-buttons">
-                <button type="button" class="auth-button auth-button--secondary" id="cancelRenameFileBtn">Cancel</button>
-                <button type="submit" class="auth-button auth-button--secondary" id="confirmRenameFileBtn">Save</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-
-<!-- File Preview — opened by the "Preview" action in a file row's "⋯" menu
-     (and by right-clicking a row, which opens that same menu instead of the
-     browser's native context menu — see project-files.js). Images render
-     inline via <img>, PDFs via <iframe>; anything else falls back to a
-     message with a Download button rather than attempting an unsupported
-     inline preview. -->
-<div class="popup-overlay hidden" id="filePreviewModalOverlay">
-    <div class="popup popup--preview">
-        <div class="file-preview-header">
-            <h2 id="filePreviewTitle">Preview</h2>
-            <button type="button" class="file-preview-close-btn" id="filePreviewCloseBtn" aria-label="Close preview">✕</button>
-        </div>
-        <div class="file-preview-body" id="filePreviewBody"></div>
-    </div>
-</div>
 
 
 <!-- Change Password modal — opened from the "Change Password" action in
@@ -394,7 +265,14 @@
 <script src="/js/nav-access.js"></script>
 <script src="/js/project-fields.js"></script>
 <script src="/js/project-shell.js"></script>
-<script src="/js/project-files.js"></script>
+
+<!-- Only richTextToPlainText()/formatIncidentReportCurrency()/
+     formatIncidentReportDate() are used here (see js/project-form-logs.js)
+     -- pdfmake/pdf-lib aren't loaded on this page since nothing here builds
+     a PDF, and incident-report-pdf.js only touches those globals inside
+     the PDF-building functions this page never calls. -->
+<script src="/js/incident-report-pdf.js"></script>
+<script src="/js/project-form-logs.js"></script>
 
 <script>
 

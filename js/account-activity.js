@@ -43,6 +43,10 @@
         // though the card itself only renders the first AA_FORMS_SHOWN (see
         // loadAndRenderViewedSections() / openFormsPopup()).
         allForms: [],
+        // BC/VPO popup, opened right after an incident report is approved
+        // -- see openBcVpoChoicePopup() below.
+        pendingBcVpoReport: null,
+        allVendors: [], // Companies, loaded lazily the first time the BC popup opens
     };
 
     function incidentReportsCan(permissionKey) {
@@ -732,10 +736,412 @@
             await notify(finalized.submitted_by, "Incident Report approved", `Your incident report was approved as ${finalized.ir_number}.`, "incident_report_approved", "/pages/account-activity.html", "View it here");
 
             await refreshEverything();
+            openBcVpoChoicePopup(finalized);
         } catch (error) {
             console.error("Failed to approve report:", error);
             alert(error.message || "Something went wrong approving this. Please try again.");
             if (btnEl) { btnEl.disabled = false; btnEl.textContent = "Approve"; }
+        }
+    }
+
+    /* ---------- BC / VPO decision (asked right after approval) ----------
+       No dismiss button, no backdrop-click-to-close -- Coleby: "it must be
+       a VPO or a BC". The only ways out of this popup are choosing BC,
+       choosing VPO, or confirming the Reject panel with a reason (which
+       is logged on the report, see confirmBcVpoReject() below). Cancel on
+       either the BC or the VPO popup comes back here rather than fully
+       dismissing, so the same rule holds all the way through. */
+
+    function openBcVpoChoicePopup(report) {
+        state.pendingBcVpoReport = report;
+        hideBcVpoRejectPanel();
+        document.getElementById("aaBcVpoChoiceOverlay").classList.remove("hidden");
+        document.body.classList.add("popup-active");
+    }
+
+    function hideBcVpoChoicePopup() {
+        document.getElementById("aaBcVpoChoiceOverlay").classList.add("hidden");
+        document.body.classList.remove("popup-active");
+    }
+
+    function chooseBc() {
+        const report = state.pendingBcVpoReport;
+        hideBcVpoChoicePopup();
+        openBcPopup(report);
+    }
+
+    function chooseVpo() {
+        const report = state.pendingBcVpoReport;
+        hideBcVpoChoicePopup();
+        openVpoPopup(report);
+    }
+
+    /* ---------- "doesn't need a BC or VPO" -- requires a reason, logged
+       onto the incident report as bc_vpo_decision = 'rejected'. ---------- */
+
+    function showBcVpoRejectPanel() {
+        document.getElementById("aaBcVpoRejectReasonInput").value = "";
+        const messageEl = document.getElementById("aaBcVpoRejectMessage");
+        if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
+        document.getElementById("aaBcVpoRejectPanel").classList.remove("hidden");
+    }
+
+    function hideBcVpoRejectPanel() {
+        document.getElementById("aaBcVpoRejectPanel")?.classList.add("hidden");
+    }
+
+    async function confirmBcVpoReject() {
+        const report = state.pendingBcVpoReport;
+        if (!report) return;
+
+        const reason = document.getElementById("aaBcVpoRejectReasonInput").value.trim();
+        const messageEl = document.getElementById("aaBcVpoRejectMessage");
+        if (!reason) { messageEl.textContent = "Please give a reason."; messageEl.className = "auth-message error"; return; }
+
+        const btn = document.getElementById("aaBcVpoRejectConfirmBtn");
+        if (btn) btn.disabled = true;
+
+        try {
+            const { error } = await window.supabaseClient
+                .from(INCIDENT_REPORTS_TABLE)
+                .update({ bc_vpo_decision: "rejected", bc_vpo_decision_reason: reason, bc_vpo_decision_at: new Date().toISOString() })
+                .eq("id", report.id);
+            if (error) throw error;
+
+            hideBcVpoChoicePopup();
+            state.pendingBcVpoReport = null;
+            await refreshEverything();
+        } catch (error) {
+            console.error("Failed to record BC/VPO decision:", error);
+            messageEl.textContent = error.message || "Something went wrong. Please try again.";
+            messageEl.className = "auth-message error";
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    /* ---------- BC popup: Who to Charge / Who to CR Back ---------- */
+
+    async function loadAllVendors() {
+        try {
+            const { data, error } = await window.supabaseClient
+                .from("Companies")
+                .select("id, Name")
+                .order("Name", { ascending: true });
+            if (error) throw error;
+            state.allVendors = data || [];
+        } catch (err) {
+            console.warn("Couldn't load vendors for the BC popup:", err);
+            state.allVendors = [];
+        }
+    }
+
+    function bcVendorOptionsHtml() {
+        return ['<option value="">Select a vendor…</option>']
+            .concat(state.allVendors.map(v => `<option value="${v.id}">${aaEscapeHtml(v.Name || "Unnamed vendor")}</option>`))
+            .join("");
+    }
+
+    /* ---------- BC/VPO template status + inline "replace template" upload
+       -- lives in the BC/VPO popups themselves rather than a separate
+       settings page, since this is the only place a project user/admin
+       needs to touch it (see js/bc-vpo-docs.js for the resolution rules:
+       project-specific template if one's been uploaded, else the company
+       default). ---------- */
+
+    const BC_VPO_LABEL = { bc: "Back Charge", vpo: "VPO" };
+
+    async function refreshBcVpoTemplateStatus(kind, projectId) {
+        const statusEl = document.getElementById(kind === "bc" ? "aaBcTemplateStatusText" : "aaVpoTemplateStatusText");
+        if (!statusEl) return;
+        const label = BC_VPO_LABEL[kind];
+        statusEl.textContent = "Checking template…";
+        try {
+            const status = await window.BcVpoDocs.getTemplateStatus(kind, projectId);
+            if (status.source === "project") {
+                statusEl.textContent = `Using this project's ${label} template (${status.fileName}).`;
+            } else if (status.source === "default") {
+                statusEl.textContent = `Using the company default ${label} template (${status.fileName}).`;
+            } else {
+                // No project or company-default template uploaded yet -- falls
+                // back to the built-in template shipped with the app itself
+                // (see js/bc-vpo-docs.js's KIND.bundledPath), so this is just
+                // informational, not a blocker.
+                statusEl.textContent = `Using the built-in ${label} template (${status.fileName}) — upload your own below to replace it.`;
+            }
+        } catch (err) {
+            console.warn(`Couldn't check the ${kind} template status:`, err);
+            statusEl.textContent = "Couldn't check the template status.";
+        }
+    }
+
+    async function handleBcVpoTemplateUpload(kind, projectId, inputEl) {
+        const file = inputEl.files && inputEl.files[0];
+        inputEl.value = "";
+        if (!file) return;
+
+        const statusEl = document.getElementById(kind === "bc" ? "aaBcTemplateStatusText" : "aaVpoTemplateStatusText");
+        if (statusEl) statusEl.textContent = "Uploading…";
+        try {
+            await window.BcVpoDocs.uploadTemplate(kind, projectId, file, state.myStaffId, state.myName);
+            await refreshBcVpoTemplateStatus(kind, projectId);
+        } catch (err) {
+            console.error(`Failed to upload the ${kind} template:`, err);
+            if (statusEl) statusEl.textContent = err.message || "Upload failed — please try again.";
+        }
+    }
+
+    async function openBcPopup(report) {
+        state.pendingBcVpoReport = report;
+
+        const messageEl = document.getElementById("aaBcMessage");
+        if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
+
+        if (!state.allVendors.length) await loadAllVendors();
+        const optionsHtml = bcVendorOptionsHtml();
+        document.getElementById("aaBcVendorToCharge").innerHTML = optionsHtml;
+        document.getElementById("aaBcVendorToCredit").innerHTML = optionsHtml;
+
+        document.getElementById("aaBcOverlay").classList.remove("hidden");
+        document.body.classList.add("popup-active");
+        refreshBcVpoTemplateStatus("bc", report.project_id);
+    }
+
+    // "Back", not a real cancel -- returns to the choice popup rather than
+    // dismissing outright, so the BC/VPO/Reject decision still has to be
+    // made one way or another.
+    function closeBcPopup() {
+        document.getElementById("aaBcOverlay").classList.add("hidden");
+        const report = state.pendingBcVpoReport;
+        if (report) openBcVpoChoicePopup(report);
+        else document.body.classList.remove("popup-active");
+    }
+
+    async function recordBcVpoDecision(reportId, decision) {
+        try {
+            await window.supabaseClient
+                .from(INCIDENT_REPORTS_TABLE)
+                .update({ bc_vpo_decision: decision, bc_vpo_decision_at: new Date().toISOString() })
+                .eq("id", reportId);
+        } catch (err) {
+            // Non-fatal -- the BC/VPO record itself is what matters; this
+            // is just the audit trail on the incident report.
+            console.warn("Couldn't record bc_vpo_decision on the report:", err);
+        }
+    }
+
+    // BC-<project_code>-### -- mirrors the IR-<project_code>-### scheme.
+    // Throws (with a message meant to be shown to the user) if the project
+    // has no project_code set, same guardrail as IR approval already has.
+    async function bcNumberFor(projectId, project) {
+        if (!project?.project_code) {
+            throw new Error("This project has no Project Code set — open its Edit Project wizard (Job Name step) and set one before creating a BC.");
+        }
+        const { data: seq, error } = await window.supabaseClient.rpc("next_bc_number", { p_project_id: projectId });
+        if (error) throw error;
+        return `BC-${project.project_code}-${String(seq).padStart(3, "0")}`;
+    }
+
+    async function confirmBc() {
+        const report = state.pendingBcVpoReport;
+        if (!report) return;
+        if (!incidentReportsCan("incident_reports.approve")) return;
+
+        const chargeId = document.getElementById("aaBcVendorToCharge").value;
+        const creditId = document.getElementById("aaBcVendorToCredit").value;
+        const messageEl = document.getElementById("aaBcMessage");
+
+        if (!chargeId) { messageEl.textContent = "Please select who to charge."; messageEl.className = "auth-message error"; return; }
+        if (!creditId) { messageEl.textContent = "Please select who to CR back."; messageEl.className = "auth-message error"; return; }
+
+        const chargeVendor = state.allVendors.find(v => String(v.id) === String(chargeId));
+        const creditVendor = state.allVendors.find(v => String(v.id) === String(creditId));
+        const project = projectFor(report.project_id);
+
+        const btn = document.getElementById("aaBcConfirmBtn");
+        if (btn) { btn.disabled = true; btn.textContent = "Creating…"; }
+
+        try {
+            const bcNumber = await bcNumberFor(report.project_id, project);
+
+            const { data: bcRow, error } = await window.supabaseClient.from("back_charges").insert({
+                incident_report_id: report.id,
+                project_id: report.project_id,
+                bc_number: bcNumber,
+                vendor_to_charge_id: chargeVendor?.id || null,
+                vendor_to_charge_name: chargeVendor?.Name || null,
+                vendor_to_cr_back_id: creditVendor?.id || null,
+                vendor_to_cr_back_name: creditVendor?.Name || null,
+                project_name: project?.name || null,
+                report_date: report.report_date || null,
+                price: report.price ?? null,
+                buildings: report.buildings || null,
+                unit_numbers: report.unit_numbers || null,
+                person_making_report: report.person_making_report || null,
+                reason_for_report: report.reason_for_report || null,
+                change_in_scope: report.change_in_scope || null,
+                created_by_id: state.myStaffId,
+                created_by_name: state.myName,
+            }).select().single();
+            if (error) throw error;
+
+            await recordBcVpoDecision(report.id, "bc");
+
+            // The BC record itself is already safely in the database at this
+            // point -- a failure filling/filing the template from here on
+            // shouldn't read as "the BC wasn't created". It was; only the
+            // filing failed, and that's worth a distinct message.
+            let filingNote;
+            try {
+                const filed = await window.BcVpoDocs.fillAndFile("bc", {
+                    report,
+                    project,
+                    recordId: bcRow.id,
+                    docNumber: bcNumber,
+                    extraTags: {
+                        VENDOR_TO_CHARGE: chargeVendor?.Name || "",
+                        VENDOR_TO_CREDIT: creditVendor?.Name || "",
+                    },
+                    staffName: state.myName,
+                });
+                filingNote = ` It's been filed into Project Files as "${filed.fileName}".`;
+            } catch (fileErr) {
+                console.error(`${bcNumber} was created but couldn't be filled/filed:`, fileErr);
+                filingNote = ` The BC record was saved, but filing it into Project Files failed: ${fileErr.message || "please try again."}`;
+            }
+
+            document.getElementById("aaBcOverlay").classList.add("hidden");
+            document.body.classList.remove("popup-active");
+            state.pendingBcVpoReport = null;
+            alert(`${bcNumber} created.${filingNote}`);
+            await refreshEverything();
+        } catch (error) {
+            console.error("Failed to create BC:", error);
+            messageEl.textContent = error.message || "Something went wrong creating this BC. Please try again.";
+            messageEl.className = "auth-message error";
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = "Create Back Charge"; }
+        }
+    }
+
+    /* ---------- VPO popup: just the vendor -- everything else comes off the IR ---------- */
+
+    async function openVpoPopup(report) {
+        state.pendingBcVpoReport = report;
+
+        const messageEl = document.getElementById("aaVpoMessage");
+        if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
+
+        if (!state.allVendors.length) await loadAllVendors();
+        document.getElementById("aaVpoVendor").innerHTML = bcVendorOptionsHtml();
+
+        document.getElementById("aaVpoOverlay").classList.remove("hidden");
+        document.body.classList.add("popup-active");
+        refreshBcVpoTemplateStatus("vpo", report.project_id);
+    }
+
+    // "Back", not a real cancel -- same reasoning as closeBcPopup() above.
+    function closeVpoPopup() {
+        document.getElementById("aaVpoOverlay").classList.add("hidden");
+        const report = state.pendingBcVpoReport;
+        if (report) openBcVpoChoicePopup(report);
+        else document.body.classList.remove("popup-active");
+    }
+
+    // VPO-<project_code>-<building>-<seq for that building>-<project total
+    // AS OF THIS VPO's CREATION>. The last segment is a fixed snapshot,
+    // confirmed with Coleby -- it counts up over time but never rewrites
+    // an already-issued VPO's number.
+    async function vpoNumberFor(projectId, project, buildingNumber) {
+        if (!project?.project_code) {
+            throw new Error("This project has no Project Code set — open its Edit Project wizard (Job Name step) and set one before creating a VPO.");
+        }
+        if (!buildingNumber) {
+            throw new Error("This incident report has no building set, so a VPO can't be numbered from it.");
+        }
+        const { data, error } = await window.supabaseClient.rpc("next_vpo_numbering", { p_project_id: projectId, p_building_number: buildingNumber });
+        if (error) throw error;
+        const row = Array.isArray(data) ? data[0] : data;
+        if (!row) throw new Error("Numbering failed — please try again.");
+        return {
+            vpoNumber: `VPO-${project.project_code}-${buildingNumber}-${row.building_seq}-${row.project_total}`,
+            buildingSeq: row.building_seq,
+            projectTotal: row.project_total,
+        };
+    }
+
+    async function confirmVpo() {
+        const report = state.pendingBcVpoReport;
+        if (!report) return;
+        if (!incidentReportsCan("incident_reports.approve")) return;
+
+        const vendorId = document.getElementById("aaVpoVendor").value;
+        const messageEl = document.getElementById("aaVpoMessage");
+
+        if (!vendorId) { messageEl.textContent = "Please select a vendor."; messageEl.className = "auth-message error"; return; }
+
+        const vendor = state.allVendors.find(v => String(v.id) === String(vendorId));
+        const project = projectFor(report.project_id);
+
+        const btn = document.getElementById("aaVpoConfirmBtn");
+        if (btn) { btn.disabled = true; btn.textContent = "Creating…"; }
+
+        try {
+            const { vpoNumber, buildingSeq, projectTotal } = await vpoNumberFor(report.project_id, project, report.buildings);
+
+            const { data: vpoRow, error } = await window.supabaseClient.from("vpos").insert({
+                incident_report_id: report.id,
+                project_id: report.project_id,
+                vpo_number: vpoNumber,
+                building_number: report.buildings || null,
+                building_seq: buildingSeq,
+                project_total_at_creation: projectTotal,
+                vendor_id: vendor?.id || null,
+                vendor_name: vendor?.Name || null,
+                project_name: project?.name || null,
+                report_date: report.report_date || null,
+                unit_numbers: report.unit_numbers || null,
+                person_making_report: report.person_making_report || null,
+                reason_for_report: report.reason_for_report || null,
+                change_in_scope: report.change_in_scope || null,
+                price: report.price ?? null,
+                created_by_id: state.myStaffId,
+                created_by_name: state.myName,
+            }).select().single();
+            if (error) throw error;
+
+            await recordBcVpoDecision(report.id, "vpo");
+
+            // Same "record is safe even if filing fails" handling as confirmBc().
+            let filingNote;
+            try {
+                const filed = await window.BcVpoDocs.fillAndFile("vpo", {
+                    report,
+                    project,
+                    recordId: vpoRow.id,
+                    docNumber: vpoNumber,
+                    extraTags: {
+                        VENDOR: vendor?.Name || "",
+                    },
+                    staffName: state.myName,
+                });
+                filingNote = ` It's been filed into Project Files as "${filed.fileName}".`;
+            } catch (fileErr) {
+                console.error(`${vpoNumber} was created but couldn't be filled/filed:`, fileErr);
+                filingNote = ` The VPO record was saved, but filing it into Project Files failed: ${fileErr.message || "please try again."}`;
+            }
+
+            document.getElementById("aaVpoOverlay").classList.add("hidden");
+            document.body.classList.remove("popup-active");
+            state.pendingBcVpoReport = null;
+            alert(`${vpoNumber} created.${filingNote}`);
+            await refreshEverything();
+        } catch (error) {
+            console.error("Failed to create VPO:", error);
+            messageEl.textContent = error.message || "Something went wrong creating this VPO. Please try again.";
+            messageEl.className = "auth-message error";
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = "Create VPO"; }
         }
     }
 
@@ -769,6 +1175,34 @@
         document.getElementById("aaFormsCloseBtn")?.addEventListener("click", closeFormsPopup);
         document.getElementById("aaFormsOverlay")?.addEventListener("click", (event) => {
             if (event.target.id === "aaFormsOverlay") closeFormsPopup();
+        });
+
+        document.getElementById("aaBcChoiceBtn")?.addEventListener("click", chooseBc);
+        document.getElementById("aaVpoChoiceBtn")?.addEventListener("click", chooseVpo);
+        // No close button and no backdrop-dismiss wired here on purpose --
+        // see the comment on openBcVpoChoicePopup() above.
+        document.getElementById("aaBcVpoRejectToggleBtn")?.addEventListener("click", showBcVpoRejectPanel);
+        document.getElementById("aaBcVpoRejectCancelBtn")?.addEventListener("click", hideBcVpoRejectPanel);
+        document.getElementById("aaBcVpoRejectConfirmBtn")?.addEventListener("click", confirmBcVpoReject);
+
+        document.getElementById("aaBcCancelBtn")?.addEventListener("click", closeBcPopup);
+        document.getElementById("aaBcConfirmBtn")?.addEventListener("click", confirmBc);
+        document.getElementById("aaBcOverlay")?.addEventListener("click", (event) => {
+            if (event.target.id === "aaBcOverlay") closeBcPopup();
+        });
+        document.getElementById("aaBcTemplateUploadInput")?.addEventListener("change", (event) => {
+            const report = state.pendingBcVpoReport;
+            if (report) handleBcVpoTemplateUpload("bc", report.project_id, event.target);
+        });
+
+        document.getElementById("aaVpoCancelBtn")?.addEventListener("click", closeVpoPopup);
+        document.getElementById("aaVpoConfirmBtn")?.addEventListener("click", confirmVpo);
+        document.getElementById("aaVpoOverlay")?.addEventListener("click", (event) => {
+            if (event.target.id === "aaVpoOverlay") closeVpoPopup();
+        });
+        document.getElementById("aaVpoTemplateUploadInput")?.addEventListener("change", (event) => {
+            const report = state.pendingBcVpoReport;
+            if (report) handleBcVpoTemplateUpload("vpo", report.project_id, event.target);
         });
     }
 

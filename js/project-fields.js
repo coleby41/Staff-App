@@ -87,7 +87,7 @@ window.ProjectFields = (function () {
                 { key: "vendors", label: "Vendors" },
                 { key: "purchase_orders", label: "Purchase Orders" },
                 { key: "contracts", label: "Contracts" },
-                { key: "change_orders", label: "Change Orders" },
+                { key: "back_charges", label: "Back Charges - BC" },
                 { key: "vpo", label: "VPO" },
                 { key: "insurance_bonds", label: "Insurance & Bonds" }
             ]
