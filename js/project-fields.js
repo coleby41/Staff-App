@@ -124,16 +124,7 @@ window.ProjectFields = (function () {
                 { key: "financial_reports", label: "Financial Reports" }
             ]
         },
-        {
-            key: "project_schedule", number: "08", label: "Project Schedule",
-            subfolders: [
-                { key: "master_schedule", label: "Master Schedule" },
-                { key: "milestones", label: "Milestones" },
-                { key: "look_ahead_schedules", label: "Look-Ahead Schedules" },
-                { key: "schedule_updates", label: "Schedule Updates" },
-                { key: "critical_path", label: "Critical Path" }
-            ]
-        },
+        
         {
             key: "marketing", number: "09", label: "Marketing",
             subfolders: [
