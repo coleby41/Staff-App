@@ -157,40 +157,49 @@
     <div class="card form-log-card">
         <div class="card-header">
             <h2 class="card-title">VPO</h2>
+            <span class="form-log-card-total" id="formLogsVpoTotal"></span>
         </div>
         <div class="workbook-loading" id="formLogsVpoLoading"><p>Loading…</p></div>
         <div class="empty-state" id="formLogsVpoEmpty" style="display:none;">No VPOs yet for this project.</div>
         <div class="table-wrap" id="formLogsVpoTableWrap" style="display:none;">
             <table class="dash-queue-table">
                 <thead>
-                    <tr><th>ID</th><th>Vendor</th><th>Date</th><th>Comment</th><th>Amount</th></tr>
+                    <tr><th>ID</th><th>IR ID</th><th>Vendor</th><th>Date</th><th>Comment</th><th>Amount</th><th>Actions</th></tr>
                 </thead>
                 <tbody id="formLogsVpoBody"></tbody>
             </table>
         </div>
+        <p class="aa-show-all-wrap hidden" id="formLogsVpoShowAllWrap">
+            <button type="button" class="aa-see-more-link" id="formLogsVpoShowAllBtn">Show All</button>
+        </p>
     </div>
 
     <!-- BC -->
     <div class="card form-log-card">
         <div class="card-header">
             <h2 class="card-title">BC</h2>
+            <span class="form-log-card-total" id="formLogsBcTotal"></span>
         </div>
         <div class="workbook-loading" id="formLogsBcLoading"><p>Loading…</p></div>
         <div class="empty-state" id="formLogsBcEmpty" style="display:none;">No Back Charges yet for this project.</div>
         <div class="table-wrap" id="formLogsBcTableWrap" style="display:none;">
             <table class="dash-queue-table">
                 <thead>
-                    <tr><th>ID</th><th>Vendor</th><th>Date</th><th>Comment</th><th>Amount</th></tr>
+                    <tr><th>ID</th><th>IR ID</th><th>Vendor</th><th>Date</th><th>Comment</th><th>Amount</th><th>Actions</th></tr>
                 </thead>
                 <tbody id="formLogsBcBody"></tbody>
             </table>
         </div>
+        <p class="aa-show-all-wrap hidden" id="formLogsBcShowAllWrap">
+            <button type="button" class="aa-see-more-link" id="formLogsBcShowAllBtn">Show All</button>
+        </p>
     </div>
 
     <!-- IR -->
     <div class="card form-log-card">
         <div class="card-header">
             <h2 class="card-title">IR</h2>
+            <span class="form-log-card-total" id="formLogsIrTotal"></span>
         </div>
         <div class="workbook-loading" id="formLogsIrLoading"><p>Loading…</p></div>
         <div class="empty-state" id="formLogsIrEmpty" style="display:none;">No approved Incident Reports yet for this project.</div>
@@ -202,10 +211,43 @@
                 <tbody id="formLogsIrBody"></tbody>
             </table>
         </div>
+        <p class="aa-show-all-wrap hidden" id="formLogsIrShowAllWrap">
+            <button type="button" class="aa-see-more-link" id="formLogsIrShowAllBtn">Show All</button>
+        </p>
     </div>
 
 </main>
 
+<!-- "Show All" popup — shared by all three cards (VPO/BC/IR); openShowAllPopup()
+     in js/project-form-logs.js fills in the title/subtitle/rows for
+     whichever card's Show All link was clicked. Same "very corporate"
+     navy-letterhead popup styling as Account Activity's own Show All / See
+     more popups (.popup--corporate / .aa-files-popup-header). Mirrors the
+     main card table exactly, including the Actions/Delete column for
+     VPO/BC (IR still has none — see actionsCellHtml()) — the header row
+     is built in JS (formLogsShowAllHeadRow) since it's kind-dependent. -->
+<div class="popup-overlay hidden" id="formLogsShowAllOverlay">
+    <div class="popup popup--corporate">
+        <div class="aa-files-popup-header">
+            <div>
+                <p class="aa-files-popup-eyebrow">The Leeward Group</p>
+                <h2 id="formLogsShowAllTitle">Records</h2>
+                <p class="aa-files-popup-subtitle" id="formLogsShowAllSubtitle"></p>
+            </div>
+            <button type="button" class="file-preview-close-btn" id="formLogsShowAllCloseBtn" aria-label="Close">✕</button>
+        </div>
+        <div class="aa-files-popup-list">
+            <div class="table-wrap">
+                <table class="dash-queue-table">
+                    <thead>
+                        <tr id="formLogsShowAllHeadRow"><th>ID</th><th>Vendor</th><th>Date</th><th>Comment</th><th>Amount</th></tr>
+                    </thead>
+                    <tbody id="formLogsShowAllBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Change Password modal — opened from the "Change Password" action in
      the notification center dropdown (see /js/change-password.js). Same

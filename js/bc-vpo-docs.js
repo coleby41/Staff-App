@@ -27,13 +27,16 @@
    Filing: the filled .docx goes into the SAME project-documents bucket
    the rest of the app already uses (not a new bucket -- only the raw,
    pre-fill templates get their own private buckets), and gets indexed in
-   project_files same as everything else project Files shows. BC files
-   under 06 Construction -> Incident Report (same folder as the IR itself,
-   per Coleby's spec). VPO files under 05 Contracts & Procurement -> VPO
-   -- the taxonomy in js/project-fields.js already had a VPO folder
-   sitting there unused; using it instead of piling VPO into the Incident
-   Report folder too. Flagging that choice -- the original spec didn't
-   say where VPOs should file, only that they should.
+   project_files same as everything else project Files shows. Both BC and
+   VPO now file into their own nested folder under 05 Contracts &
+   Procurement -- BC under Back Charges - BC / BC Without Signature, VPO
+   under Variance Purchase Order - VPO / VPO Without Signature (Coleby's
+   explicit instruction; BC used to file under 06 Construction -> Incident
+   Report, same folder as the IR itself -- see
+   claude/incident-report-feature.md for that history). Both "Without
+   Signature" folders are where a freshly auto-generated document lands by
+   default; the "With Signature" folder alongside it is for the signed
+   copy to be uploaded into by hand afterward.
 =========================================================== */
 
 window.BcVpoDocs = (function () {
@@ -49,8 +52,17 @@ window.BcVpoDocs = (function () {
             recordTable: "back_charges",
             idTagName: "ID_HERE",
             fileLabel: "Back Charge",
-            category: "construction",
-            subfolder: "incident_report",
+            category: "contracts_procurement",
+            subfolder: "back_charges",
+            // Was "construction" / "incident_report" (filed alongside the
+            // IR itself) -- Coleby asked for BC to file into its own
+            // nested folder instead, same as VPO already does, now that
+            // that folder exists: "BC gose Contracts & Procurement / Back
+            // Charges - BC / BC Without Signature". A freshly auto-filed
+            // BC has no signature yet, so it lands here by default; "BC
+            // With Signature" is for the signed copy to be uploaded into
+            // by hand afterward, same manual-filing role as VPO's pair.
+            subSubfolder: "bc_without_signature",
             source: "back_charge",
             recordIdColumn: "back_charge_id",
             // Shipped with the app itself (see assets/templates/) -- the
@@ -73,6 +85,17 @@ window.BcVpoDocs = (function () {
             fileLabel: "VPO",
             category: "contracts_procurement",
             subfolder: "vpo",
+            // "vpo" now has its own children (Coleby: "Variance Purchase
+            // Order - VPO" / "VPO With Signature" / "VPO Without
+            // Signature" -- see PROJECT_FILE_CATEGORIES) and, like Back
+            // Charges - BC, no longer accepts a file filed loose in it
+            // (project-files.js's folderAcceptsFiles()). A freshly filled
+            // VPO has no signature yet, so this fills that in automatically
+            // -- Without Signature is where every auto-generated VPO lands;
+            // the signed copy is expected to get uploaded into With
+            // Signature by hand afterward. This session's own call, not
+            // separately confirmed with Coleby.
+            subSubfolder: "vpo_without_signature",
             source: "vpo",
             recordIdColumn: "vpo_id",
             bundledPath: "/assets/templates/vpo-default-template.docx",
@@ -256,7 +279,8 @@ window.BcVpoDocs = (function () {
 
     async function fileFilledDocument(kind, { projectId, recordId, filledBytes, fileName, staffName }) {
         const cfg = kindConfig(kind);
-        const storagePath = `${projectId}/${cfg.category}/${cfg.subfolder}/${Date.now()}-${fileName}`;
+        const folderPath = cfg.subSubfolder ? `${cfg.subfolder}/${cfg.subSubfolder}` : cfg.subfolder;
+        const storagePath = `${projectId}/${cfg.category}/${folderPath}/${Date.now()}-${fileName}`;
 
         const { error: uploadError } = await window.supabaseClient.storage
             .from(PROJECT_DOCS_BUCKET)
@@ -271,6 +295,7 @@ window.BcVpoDocs = (function () {
             project_id: projectId,
             category: cfg.category,
             subfolder: cfg.subfolder,
+            sub_subfolder: cfg.subSubfolder || null,
             bucket: PROJECT_DOCS_BUCKET,
             storage_path: storagePath,
             file_name: fileName,

@@ -197,6 +197,14 @@
 
             <p class="all-files-hint" id="filesNoFolderHint">Pick a folder to see its files, upload a document, or fill a form into it.</p>
 
+            <!-- A folder inside a folder: shown only when the currently
+                 selected subfolder has its own children (see
+                 PROJECT_FILE_CATEGORIES' optional `subfolders` on a
+                 subfolder) and none of them is picked yet — reuses the same
+                 .all-files-folder-grid tiles as the Folders view's own
+                 category/subfolder grid. -->
+            <div class="all-files-folder-grid all-files-panel-child-grid" id="filesPanelChildGrid" style="display:none;"></div>
+
             <div class="workbook-empty" id="filesFolderEmpty" style="display:none;">
                 <p>No files in this folder yet. Drag and drop files here, or use Upload File(s) above.</p>
             </div>

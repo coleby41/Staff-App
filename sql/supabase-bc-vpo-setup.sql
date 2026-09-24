@@ -423,6 +423,154 @@ alter table public.vpos
 
 
 -- ============================================================================
+-- 10. Delete a BC or VPO — number reclaim + cleanup RPC
+-- ============================================================================
+-- Coleby: "when other bc or VPO are dealted the new one takes its place
+-- just like the IR ID you have going on." Same two-part recipe already
+-- used for incident reports in supabase-incident-reports-setup.sql
+-- (reclaim_incident_report_number() / delete_incident_report_with_cleanup()):
+-- an AFTER DELETE trigger that rolls the relevant counter back by one, but
+-- ONLY when the deleted row held the CURRENT top of that counter (deleting
+-- from the middle of the sequence still just leaves a gap — rolling back
+-- further would risk handing out a number already on a newer, undeleted
+-- row) — plus a security-definer RPC that does the actual delete, checks
+-- who's allowed, and cleans up the filed project_files row so a deleted
+-- BC/VPO doesn't leave an orphaned document behind in Project Files. The
+-- client removes the actual Storage object first (Postgres can't reach
+-- Storage itself), same as js/account-activity.js's deleteReport().
+
+-- ---- BC: bc_number is "BC-<code>-###", one trailing sequence, same shape
+-- ---- as an IR number, so this reclaim works exactly the same way.
+create or replace function public.reclaim_bc_number()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_deleted_number integer;
+begin
+  if old.bc_number is null then
+    return old;
+  end if;
+
+  v_deleted_number := nullif(regexp_replace(old.bc_number, '^.*-(\d+)$', '\1'), old.bc_number)::integer;
+  if v_deleted_number is null then
+    return old;
+  end if;
+
+  update public.bc_counters
+     set next_number = v_deleted_number
+   where project_id = old.project_id
+     and next_number = v_deleted_number + 1;
+
+  return old;
+end;
+$$;
+
+drop trigger if exists back_charges_reclaim_number on public.back_charges;
+create trigger back_charges_reclaim_number
+  after delete on public.back_charges
+  for each row execute function public.reclaim_bc_number();
+
+-- ---- VPO: vpo_number bakes in TWO sequences (building_seq and
+-- ---- project_total_at_creation — see section 4 above), each reclaimed
+-- ---- independently since a VPO can hold the top of one but not the
+-- ---- other. Uses the stored building_seq/project_total_at_creation
+-- ---- columns directly (exactly what next_vpo_numbering() wrote) rather
+-- ---- than re-parsing the formatted vpo_number string.
+create or replace function public.reclaim_vpo_numbering()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if old.building_number is not null and old.building_seq is not null then
+    update public.vpo_building_counters
+       set next_number = old.building_seq
+     where project_id = old.project_id
+       and building_number = old.building_number
+       and next_number = old.building_seq + 1;
+  end if;
+
+  if old.project_total_at_creation is not null then
+    update public.vpo_project_counters
+       set total_count = old.project_total_at_creation - 1
+     where project_id = old.project_id
+       and total_count = old.project_total_at_creation;
+  end if;
+
+  return old;
+end;
+$$;
+
+drop trigger if exists vpos_reclaim_numbering on public.vpos;
+create trigger vpos_reclaim_numbering
+  after delete on public.vpos
+  for each row execute function public.reclaim_vpo_numbering();
+
+-- ---- Delete RPCs — whoever created the BC/VPO, or IT/Super Admin, same
+-- ---- gate shape as delete_incident_report_with_cleanup(). The client-side
+-- ---- gate (js/project-form-logs.js) additionally requires the
+-- ---- incident_reports.delete_filed_report permission before even showing
+-- ---- the Delete button — this RPC is the real enforcement either way.
+create or replace function public.delete_bc_with_cleanup(p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_row public.back_charges;
+begin
+  select * into v_row from public.back_charges where id = p_id for update;
+  if v_row.id is null then
+    raise exception 'Back Charge not found.';
+  end if;
+  if not (v_row.created_by_id = public.current_staff_id() or public.is_workgroup('IT') or public.is_super_admin()) then
+    raise exception 'Only whoever created this Back Charge, or IT/Super Admin, can delete it.';
+  end if;
+
+  if v_row.project_file_id is not null then
+    delete from public.project_files where id = v_row.project_file_id;
+  end if;
+
+  delete from public.back_charges where id = p_id;
+end;
+$$;
+
+grant execute on function public.delete_bc_with_cleanup(uuid) to authenticated;
+
+create or replace function public.delete_vpo_with_cleanup(p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_row public.vpos;
+begin
+  select * into v_row from public.vpos where id = p_id for update;
+  if v_row.id is null then
+    raise exception 'VPO not found.';
+  end if;
+  if not (v_row.created_by_id = public.current_staff_id() or public.is_workgroup('IT') or public.is_super_admin()) then
+    raise exception 'Only whoever created this VPO, or IT/Super Admin, can delete it.';
+  end if;
+
+  if v_row.project_file_id is not null then
+    delete from public.project_files where id = v_row.project_file_id;
+  end if;
+
+  delete from public.vpos where id = p_id;
+end;
+$$;
+
+grant execute on function public.delete_vpo_with_cleanup(uuid) to authenticated;
+
+
+-- ============================================================================
 -- Done. Sanity checks to run after this migration:
 --   select count(*) from public.back_charges;                          -- 0 on a fresh install
 --   select count(*) from public.vpos;                                  -- 0 on a fresh install
@@ -431,4 +579,5 @@ alter table public.vpos
 --   select conname from pg_constraint where conrelid = 'public.project_files'::regclass; -- should show project_files_source_check widened
 --   select id, public from storage.buckets where id in ('bc-templates', 'vpo-templates'); -- both public = false
 --   select conname, pg_get_constraintdef(oid) from pg_constraint where conname in ('back_charges_template_source_check', 'vpos_template_source_check'); -- both should list 'bundled'
+--   select routine_name from information_schema.routines where routine_name in ('reclaim_bc_number', 'reclaim_vpo_numbering', 'delete_bc_with_cleanup', 'delete_vpo_with_cleanup'); -- all 4 should show up
 -- ============================================================================

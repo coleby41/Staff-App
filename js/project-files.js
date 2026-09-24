@@ -34,7 +34,9 @@
     let projectForms = [];           // form_templates rows with a folder mapping (default_category/default_subfolder set)
     let selectedCategory = null;
     let selectedSubfolder = null;
+    let selectedSubSubfolder = null; // a folder inside a folder — see PROJECT_FILE_CATEGORIES' optional per-subfolder `subfolders` array ("back_charges" and "vpo" both have one)
     let expandedCategory = null;     // which category's subfolder list is open in the tree (List view)
+    let expandedSubfolder = null;    // "categoryKey::subfolderKey" — which subfolder-with-children's own child list is open in the tree ("back_charges" and "vpo" both have children)
     let currentView = "list";        // "list" | "folders" — two ways to browse to the same folder
     let folderBrowseCategory = null; // Folders view drill state: null = showing the 11 category tiles, else showing that category's subfolder tiles
     let pendingDeleteFile = null;
@@ -344,12 +346,44 @@
 
     /* ---------- folder tree (left) ---------- */
 
-    function filesInFolder(categoryKey, subfolderKey) {
-        return allFiles.filter(f => f.category === categoryKey && f.subfolder === subfolderKey);
+    // subSubfolderKey is optional. Files filed directly in a subfolder that
+    // HAS children (sub_subfolder left null, e.g. an old upload from before
+    // "back_charges" gained its own subfolders) still show up here when
+    // called with no third argument — a folder can hold both loose files
+    // and child folders at once, same as any normal file explorer.
+    function filesInFolder(categoryKey, subfolderKey, subSubfolderKey) {
+        const wantSubSub = subSubfolderKey || null;
+        return allFiles.filter(f => f.category === categoryKey && f.subfolder === subfolderKey && (f.sub_subfolder || null) === wantSubSub);
     }
 
     function filesInCategory(categoryKey) {
         return allFiles.filter(f => f.category === categoryKey);
+    }
+
+    // Coleby: "there should be no files in Back Charges - BC it should be
+    // in one of the new folders" — once a subfolder has its own children,
+    // it's a router only, never a place files sit directly. Governs both
+    // whether renderMainPanel() shows an upload control/file list at that
+    // level and whether uploadFiles()/the drop handler will actually
+    // accept a file there. Any subfolder without children (the overwhelming
+    // majority) is unaffected either way.
+    function folderAcceptsFiles(categoryKey, subfolderKey, subSubfolderKey) {
+        if (!categoryKey || !subfolderKey) return false;
+        if (subSubfolderKey) return true; // the innermost level always accepts files
+        const subfolder = window.ProjectFields.findFileSubfolder(categoryKey, subfolderKey);
+        return !(subfolder?.subfolders?.length);
+    }
+
+    // The count badge shown ON a subfolder that has children reads as
+    // "everything filed under here" (direct files + every child's files),
+    // not just whatever's sitting loose at that exact level — matches what
+    // filesInCategory() already does one level up for a category's badge.
+    function filesInSubfolderTree(categoryKey, subfolderKey) {
+        const subfolder = window.ProjectFields.findFileSubfolder(categoryKey, subfolderKey);
+        const direct = filesInFolder(categoryKey, subfolderKey).length;
+        const children = subfolder?.subfolders || [];
+        if (!children.length) return direct;
+        return direct + children.reduce((sum, child) => sum + filesInFolder(categoryKey, subfolderKey, child.key).length, 0);
     }
 
     function renderTree() {
@@ -363,14 +397,48 @@
             const categoryCount = filesInCategory(category.key).length;
 
             const subfoldersHtml = category.subfolders.map(subfolder => {
-                const isSelected = selectedCategory === category.key && selectedSubfolder === subfolder.key;
-                const count = filesInFolder(category.key, subfolder.key).length;
+                const children = subfolder.subfolders || [];
+                const hasChildren = children.length > 0;
+                const groupKey = `${category.key}::${subfolder.key}`;
+                const isSubExpanded = hasChildren && expandedSubfolder === groupKey;
+
+                // A subfolder with no children is selectable exactly as
+                // before. One WITH children is a router, not a destination
+                // (see folderAcceptsFiles() — Coleby: "there should be no
+                // files in Back Charges - BC"), so it's no longer
+                // individually selected here — Coleby then asked for it to
+                // "feel like" the top-level category row while staying put
+                // under its own category: bold label, a caret, and the same
+                // pill highlight while expanded, expanding/collapsing in
+                // place rather than opening a page of its own.
+                const isSelected = !hasChildren && selectedCategory === category.key && selectedSubfolder === subfolder.key && !selectedSubSubfolder;
+                const count = hasChildren ? filesInSubfolderTree(category.key, subfolder.key) : filesInFolder(category.key, subfolder.key).length;
+
+                const childrenHtml = hasChildren ? `
+                    <div class="all-files-subsubfolder-list${isSubExpanded ? "" : " is-collapsed"}">
+                        ${children.map(child => {
+                            const childSelected = selectedCategory === category.key && selectedSubfolder === subfolder.key && selectedSubSubfolder === child.key;
+                            const childCount = filesInFolder(category.key, subfolder.key, child.key).length;
+                            return `
+                                <button type="button" class="all-files-subfolder-btn all-files-subsubfolder-btn${childSelected ? " is-selected" : ""}"
+                                        data-category="${escapeHtmlFiles(category.key)}" data-subfolder="${escapeHtmlFiles(subfolder.key)}" data-subsubfolder="${escapeHtmlFiles(child.key)}">
+                                    <span class="all-files-subfolder-label">${escapeHtmlFiles(child.label)}</span>
+                                    <span class="all-files-folder-count${childCount ? "" : " all-files-folder-count--zero"}">${childCount}</span>
+                                </button>
+                            `;
+                        }).join("")}
+                    </div>
+                ` : "";
+
+                const groupClass = hasChildren ? ` all-files-subfolder-btn--group${isSubExpanded ? " is-expanded" : ""}` : "";
                 return `
-                    <button type="button" class="all-files-subfolder-btn${isSelected ? " is-selected" : ""}"
-                            data-category="${escapeHtmlFiles(category.key)}" data-subfolder="${escapeHtmlFiles(subfolder.key)}">
+                    <button type="button" class="all-files-subfolder-btn${isSelected ? " is-selected" : ""}${groupClass}"
+                            data-category="${escapeHtmlFiles(category.key)}" data-subfolder="${escapeHtmlFiles(subfolder.key)}"${hasChildren ? ' data-has-children="1"' : ""}>
+                        ${hasChildren ? `<span class="all-files-subfolder-caret">${isSubExpanded ? "⌄" : "›"}</span>` : ""}
                         <span class="all-files-subfolder-label">${escapeHtmlFiles(subfolder.label)}</span>
                         <span class="all-files-folder-count${count ? "" : " all-files-folder-count--zero"}">${count}</span>
                     </button>
+                    ${childrenHtml}
                 `;
             }).join("");
 
@@ -394,9 +462,22 @@
             });
         });
 
+        // .all-files-subsubfolder-btn carries .all-files-subfolder-btn too
+        // (shares its styling), so this one selector wires both levels —
+        // dataset.subsubfolder is only present on the child buttons.
+        // dataset.hasChildren marks the router row itself (e.g. "Back
+        // Charges - BC"): clicking it just expands/collapses its own
+        // children in place, like a category caret, rather than
+        // navigating anywhere — it has nothing of its own to open.
         treeEl.querySelectorAll(".all-files-subfolder-btn").forEach(btn => {
             btn.addEventListener("click", () => {
-                selectFolder(btn.dataset.category, btn.dataset.subfolder);
+                if (btn.dataset.hasChildren) {
+                    const key = `${btn.dataset.category}::${btn.dataset.subfolder}`;
+                    expandedSubfolder = expandedSubfolder === key ? null : key;
+                    renderTree();
+                    return;
+                }
+                selectFolder(btn.dataset.category, btn.dataset.subfolder, btn.dataset.subsubfolder);
             });
         });
     }
@@ -404,11 +485,20 @@
     // Selecting a folder is shared by both views (the tree's subfolder
     // buttons and the Folders view's subfolder tiles both call this), so
     // List and Folders always agree on what's currently open.
-    function selectFolder(categoryKey, subfolderKey) {
+    function selectFolder(categoryKey, subfolderKey, subSubfolderKey) {
         selectedCategory = categoryKey;
         selectedSubfolder = subfolderKey;
+        selectedSubSubfolder = subSubfolderKey || null;
         expandedCategory = categoryKey;
         folderBrowseCategory = categoryKey;
+        // Arriving at a subfolder-with-children (or one of its own
+        // children) via any path other than the tree's own caret — a
+        // Folders-view tile, a search result, a deep link — should still
+        // auto-open it in the tree, same as expandedCategory above.
+        const subfolder = window.ProjectFields.findFileSubfolder(categoryKey, subfolderKey);
+        if (subfolder?.subfolders?.length) {
+            expandedSubfolder = `${categoryKey}::${subfolderKey}`;
+        }
         filesCurrentPage = 1; // switching folders always starts back on page 1 of the new list
         render();
     }
@@ -421,6 +511,7 @@
         const hintEl = document.getElementById("filesNoFolderHint");
         const emptyEl = document.getElementById("filesFolderEmpty");
         const listEl = document.getElementById("filesFolderList");
+        const childGridEl = document.getElementById("filesPanelChildGrid");
         if (!titleEl || !actionsEl || !listEl) return;
 
         if (!selectedCategory || !selectedSubfolder) {
@@ -428,6 +519,7 @@
             actionsEl.innerHTML = "";
             if (hintEl) hintEl.style.display = "block";
             if (emptyEl) emptyEl.style.display = "none";
+            if (childGridEl) { childGridEl.style.display = "none"; childGridEl.innerHTML = ""; }
             listEl.innerHTML = "";
             renderFilesPagination(0);
             return;
@@ -435,11 +527,69 @@
 
         if (hintEl) hintEl.style.display = "none";
 
+        // Reset to the normal "no files yet" copy on every render — the
+        // router-only branch below overwrites this text, and without
+        // resetting it here first that override would stick even after
+        // navigating away to an ordinary folder.
+        if (emptyEl) emptyEl.innerHTML = `<p>No files in this folder yet. Drag and drop files here, or use Upload File(s) above.</p>`;
+
         const category = window.ProjectFields.findFileCategory(selectedCategory);
         const subfolder = window.ProjectFields.findFileSubfolder(selectedCategory, selectedSubfolder);
-        titleEl.textContent = category && subfolder ? `${category.label} / ${subfolder.label}` : "Folder";
+        const subSubfolder = selectedSubSubfolder
+            ? window.ProjectFields.findFileSubSubfolder(selectedCategory, selectedSubfolder, selectedSubSubfolder)
+            : null;
 
-        const matchingForms = projectForms.filter(f => f.default_category === selectedCategory && f.default_subfolder === selectedSubfolder);
+        const titleParts = [category?.label, subfolder?.label, subSubfolder?.label].filter(Boolean);
+        titleEl.textContent = titleParts.length ? titleParts.join(" / ") : "Folder";
+
+        // A folder inside a folder: the selected subfolder has its own
+        // children and none is picked yet — show them as tiles, same
+        // .all-files-folder-tile look as the Folders view's own grid, right
+        // above whatever's filed loose in this subfolder itself.
+        const children = (!selectedSubSubfolder && subfolder?.subfolders) || [];
+        if (childGridEl) {
+            if (children.length) {
+                childGridEl.style.display = "grid";
+                childGridEl.innerHTML = "";
+                children.forEach(child => {
+                    childGridEl.appendChild(folderIconTile({
+                        key: child.key,
+                        label: child.label,
+                        count: filesInFolder(selectedCategory, selectedSubfolder, child.key).length,
+                        onClick: () => selectFolder(selectedCategory, selectedSubfolder, child.key)
+                    }));
+                });
+            } else {
+                childGridEl.style.display = "none";
+                childGridEl.innerHTML = "";
+            }
+        }
+
+        // A subfolder with children is a router only — no upload control,
+        // no fill-a-form links, and no file list of its own. Coleby:
+        // "there should be no files in Back Charges - BC it should be in
+        // one of the new folder[s]". Stop here once the child tiles above
+        // are in place; folderAcceptsFiles() enforces the same rule against
+        // uploadFiles()/drag-and-drop so this can't be bypassed either.
+        if (children.length) {
+            actionsEl.innerHTML = "";
+            listEl.innerHTML = "";
+            if (emptyEl) {
+                emptyEl.style.display = "block";
+                emptyEl.innerHTML = `<p>This folder just organizes the folders above — choose one to view or upload files.</p>`;
+            }
+            renderFilesPagination(0);
+            return;
+        }
+
+        // A project form's default_subfolder only ever names a subfolder,
+        // never a sub-subfolder, so these only show at that middle level —
+        // once you're inside a specific sub-subfolder there's nothing here
+        // to match against (deliberate: no form template targets a
+        // sub-subfolder today).
+        const matchingForms = selectedSubSubfolder
+            ? []
+            : projectForms.filter(f => f.default_category === selectedCategory && f.default_subfolder === selectedSubfolder);
 
         actionsEl.innerHTML = `
             <button type="button" class="workbook-btn workbook-btn--preview" id="filesUploadBtn">+ Upload File(s)</button>
@@ -452,7 +602,7 @@
             document.getElementById("filesUploadInput")?.click();
         });
 
-        const files = filesInFolder(selectedCategory, selectedSubfolder);
+        const files = filesInFolder(selectedCategory, selectedSubfolder, selectedSubSubfolder);
 
         if (!files.length) {
             if (emptyEl) emptyEl.style.display = "block";
@@ -720,6 +870,11 @@
         const subfolder = (category && selectedSubfolder && selectedCategory === folderBrowseCategory)
             ? window.ProjectFields.findFileSubfolder(folderBrowseCategory, selectedSubfolder)
             : null;
+        // A folder inside a folder — only reachable when subfolder itself
+        // has children (see PROJECT_FILE_CATEGORIES) and one is selected.
+        const subSubfolder = (subfolder && selectedSubSubfolder)
+            ? window.ProjectFields.findFileSubSubfolder(folderBrowseCategory, selectedSubfolder, selectedSubSubfolder)
+            : null;
 
         const crumbs = [];
         crumbs.push(category
@@ -735,7 +890,14 @@
 
         if (subfolder) {
             crumbs.push(`<span class="all-files-folder-breadcrumb-sep">/</span>`);
-            crumbs.push(`<span class="all-files-folder-breadcrumb-current">${escapeHtmlFiles(subfolder.label)}</span>`);
+            crumbs.push(subSubfolder
+                ? `<button type="button" class="all-files-folder-breadcrumb-link" data-crumb="subfolder">${escapeHtmlFiles(subfolder.label)}</button>`
+                : `<span class="all-files-folder-breadcrumb-current">${escapeHtmlFiles(subfolder.label)}</span>`);
+        }
+
+        if (subSubfolder) {
+            crumbs.push(`<span class="all-files-folder-breadcrumb-sep">/</span>`);
+            crumbs.push(`<span class="all-files-folder-breadcrumb-current">${escapeHtmlFiles(subSubfolder.label)}</span>`);
         }
 
         el.innerHTML = crumbs.join("");
@@ -744,11 +906,21 @@
             folderBrowseCategory = null;
             selectedCategory = null;
             selectedSubfolder = null;
+            selectedSubSubfolder = null;
             render();
         });
         el.querySelector('[data-crumb="category"]')?.addEventListener("click", () => {
             selectedCategory = null;
             selectedSubfolder = null;
+            selectedSubSubfolder = null;
+            render();
+        });
+        // Steps back up from a sub-subfolder to its parent subfolder's own
+        // level — selectedCategory/selectedSubfolder stay set, so
+        // renderMainPanel() shows that subfolder's child tiles again
+        // instead of falling all the way back to the category grid.
+        el.querySelector('[data-crumb="subfolder"]')?.addEventListener("click", () => {
+            selectedSubSubfolder = null;
             render();
         });
     }
@@ -773,10 +945,16 @@
             const category = window.ProjectFields.findFileCategory(folderBrowseCategory);
             if (!category) { folderBrowseCategory = null; return renderFolderView(); }
             category.subfolders.forEach(subfolder => {
+                // Same "everything under here" aggregate as the tree's own
+                // badge for a subfolder with children — see
+                // filesInSubfolderTree().
+                const count = subfolder.subfolders?.length
+                    ? filesInSubfolderTree(category.key, subfolder.key)
+                    : filesInFolder(category.key, subfolder.key).length;
                 gridEl.appendChild(folderIconTile({
                     key: subfolder.key,
                     label: subfolder.label,
-                    count: filesInFolder(category.key, subfolder.key).length,
+                    count,
                     onClick: () => selectFolder(category.key, subfolder.key)
                 }));
             });
@@ -1021,6 +1199,11 @@
         const files = Array.from(fileList || []).filter(Boolean);
         if (!files.length || !currentProject || !selectedCategory || !selectedSubfolder) return;
 
+        if (!folderAcceptsFiles(selectedCategory, selectedSubfolder, selectedSubSubfolder)) {
+            setFilesPageMessage("Choose one of the folders inside this one before uploading.", "error");
+            return;
+        }
+
         const total = files.length;
         let succeeded = 0;
         const failedNames = [];
@@ -1038,8 +1221,12 @@
             setFilesPageMessage(total > 1 ? `Uploading ${i + 1} of ${total}…` : "Uploading…", "");
 
             try {
+                // pathSegments' .filter(Boolean) (in project-fields.js's
+                // uploadFile()) already drops selectedSubSubfolder when
+                // it's null, so this works the same for every subfolder
+                // whether or not it has children.
                 const path = await window.ProjectFields.uploadFile(currentProject.id, file, null, {
-                    pathSegments: [selectedCategory, selectedSubfolder]
+                    pathSegments: [selectedCategory, selectedSubfolder, selectedSubSubfolder]
                 });
 
                 const { data: inserted, error } = await window.supabaseClient
@@ -1048,6 +1235,7 @@
                         project_id: currentProject.id,
                         category: selectedCategory,
                         subfolder: selectedSubfolder,
+                        sub_subfolder: selectedSubSubfolder,
                         bucket: PROJECT_DOCS_BUCKET,
                         storage_path: path,
                         file_name: file.name,
@@ -1327,7 +1515,7 @@
         if (!dragCarriesFiles(event)) return;
         event.preventDefault();
         dragCounter++;
-        if (selectedCategory && selectedSubfolder) filesMainPanel.classList.add("is-drag-over");
+        if (selectedCategory && selectedSubfolder && folderAcceptsFiles(selectedCategory, selectedSubfolder, selectedSubSubfolder)) filesMainPanel.classList.add("is-drag-over");
     });
 
     filesMainPanel?.addEventListener("dragleave", (event) => {
@@ -1344,6 +1532,10 @@
 
         if (!selectedCategory || !selectedSubfolder) {
             setFilesPageMessage("Pick a folder first, then drop files to upload them.", "error");
+            return;
+        }
+        if (!folderAcceptsFiles(selectedCategory, selectedSubfolder, selectedSubSubfolder)) {
+            setFilesPageMessage("Choose one of the folders inside this one before uploading.", "error");
             return;
         }
 
@@ -1422,14 +1614,21 @@
         document.getElementById("filesBody").style.display = "block";
 
         // Arrived via a sidebar search result (project-shell.js links a
-        // file match to project-files.html?...&category=X&subfolder=Y) —
-        // jump straight to that folder instead of landing on "Select a
+        // file match to project-files.html?...&category=X&subfolder=Y[&sub_subfolder=Z])
+        // — jump straight to that folder instead of landing on "Select a
         // folder". selectFolder() already calls render() itself.
         const urlParams = new URLSearchParams(window.location.search);
         const categoryParam = urlParams.get("category");
         const subfolderParam = urlParams.get("subfolder");
+        const subSubfolderParam = urlParams.get("sub_subfolder");
+        // A stale/renamed sub_subfolder key just falls back to landing on
+        // the subfolder itself, same "never disappears, worst case less
+        // precise" spirit as fileSubfolderLabel()'s own fallback.
+        const validSubSubfolder = subSubfolderParam && window.ProjectFields.findFileSubSubfolder(categoryParam, subfolderParam, subSubfolderParam)
+            ? subSubfolderParam
+            : null;
         if (categoryParam && subfolderParam && window.ProjectFields.findFileSubfolder(categoryParam, subfolderParam)) {
-            selectFolder(categoryParam, subfolderParam);
+            selectFolder(categoryParam, subfolderParam, validSubSubfolder);
         } else {
             render();
         }

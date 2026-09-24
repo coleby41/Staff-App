@@ -368,20 +368,31 @@
             const meta = PF.getFileTypeMeta(name);
             const categoryLabel = PF.fileCategoryLabel(file.category);
             const subfolderLabel = PF.fileSubfolderLabel(file.category, file.subfolder);
+            // A folder inside a folder (e.g. Back Charges - BC / BC With
+            // Signature) — most files have no third level at all, in which
+            // case this is just null and the label/link both collapse back
+            // to the plain two-level shape, same as before this existed.
+            const subSubfolderLabel = file.sub_subfolder
+                ? PF.fileSubSubfolderLabel(file.category, file.subfolder, file.sub_subfolder)
+                : null;
             const sourceLabel = file.source === "form_submission" ? "form" : "upload";
 
             const score = scoreMatch(name, [
-                categoryLabel, subfolderLabel, meta.kind, sourceLabel,
+                categoryLabel, subfolderLabel, subSubfolderLabel, meta.kind, sourceLabel,
                 file.uploaded_by_name, formatSearchDate((file.created_at || "").slice(0, 10))
             ], terms);
             if (score === null) return;
 
             results.push({
                 sectionTitle: "Files",
-                label: `${categoryLabel} / ${subfolderLabel}`,
+                label: subSubfolderLabel
+                    ? `${categoryLabel} / ${subfolderLabel} / ${subSubfolderLabel}`
+                    : `${categoryLabel} / ${subfolderLabel}`,
                 value: name,
                 page: "/pages/project-files.html",
-                extraParams: { category: file.category, subfolder: file.subfolder },
+                extraParams: subSubfolderLabel
+                    ? { category: file.category, subfolder: file.subfolder, sub_subfolder: file.sub_subfolder }
+                    : { category: file.category, subfolder: file.subfolder },
                 score
             });
         });
@@ -467,7 +478,7 @@
                 .eq("project_id", projectId),
             window.supabaseClient
                 .from(PROJECT_FILES_TABLE)
-                .select("id, category, subfolder, file_name, source, uploaded_by_name, created_at")
+                .select("id, category, subfolder, sub_subfolder, file_name, source, uploaded_by_name, created_at")
                 .eq("project_id", projectId),
             window.supabaseClient
                 .from(PROJECT_EVENTS_TABLE)

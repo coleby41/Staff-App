@@ -87,8 +87,33 @@ window.ProjectFields = (function () {
                 { key: "vendors", label: "Vendors" },
                 { key: "purchase_orders", label: "Purchase Orders" },
                 { key: "contracts", label: "Contracts" },
-                { key: "back_charges", label: "Back Charges - BC" },
-                { key: "vpo", label: "VPO" },
+                {
+                    key: "back_charges", label: "Back Charges - BC",
+                    // A folder inside a folder: Contracts & Procurement /
+                    // Back Charges - BC / <one of these>. Coleby: keep
+                    // signed and unsigned copies apart. This is the only
+                    // subfolder with its own children right now — see
+                    // findFileSubSubfolder() below and js/project-files.js,
+                    // which renders this extra level (nested under the
+                    // subfolder in the List-view tree; as its own tile grid,
+                    // inline above the file list, in both views) only when
+                    // a subfolder actually has a `subfolders` array.
+                    subfolders: [
+                        { key: "bc_without_signature", label: "BC Without Signature" },
+                        { key: "bc_with_signature", label: "BC With Signature" }
+                    ]
+                },
+                {
+                    key: "vpo", label: "Variance Purchase Order - VPO",
+                    // Same "folder inside a folder" shape as Back Charges -
+                    // BC just above — Coleby wants signed/unsigned VPO
+                    // copies kept apart the same way. Order matches what he
+                    // asked for: With Signature, then Without Signature.
+                    subfolders: [
+                        { key: "vpo_with_signature", label: "VPO With Signature" },
+                        { key: "vpo_without_signature", label: "VPO Without Signature" }
+                    ]
+                },
                 { key: "insurance_bonds", label: "Insurance & Bonds" }
             ]
         },
@@ -178,6 +203,16 @@ window.ProjectFields = (function () {
         return category.subfolders.find(s => s.key === subfolderKey) || null;
     }
 
+    // A folder inside a folder — one level deeper than findFileSubfolder().
+    // Most subfolders have no `subfolders` array at all (the common case),
+    // in which case this just returns null, same as looking up a key that
+    // doesn't exist.
+    function findFileSubSubfolder(categoryKey, subfolderKey, subSubfolderKey) {
+        const subfolder = findFileSubfolder(categoryKey, subfolderKey);
+        if (!subfolder || !subfolder.subfolders) return null;
+        return subfolder.subfolders.find(s => s.key === subSubfolderKey) || null;
+    }
+
     // Label helpers — fall back to the raw stored key so a file never
     // disappears from view just because the taxonomy changed later.
     function fileCategoryLabel(categoryKey) {
@@ -188,6 +223,11 @@ window.ProjectFields = (function () {
     function fileSubfolderLabel(categoryKey, subfolderKey) {
         const subfolder = findFileSubfolder(categoryKey, subfolderKey);
         return subfolder ? subfolder.label : subfolderKey;
+    }
+
+    function fileSubSubfolderLabel(categoryKey, subfolderKey, subSubfolderKey) {
+        const subSubfolder = findFileSubSubfolder(categoryKey, subfolderKey, subSubfolderKey);
+        return subSubfolder ? subSubfolder.label : subSubfolderKey;
     }
 
     // Extension → { type, kind } — shared by project-files.html (the
@@ -482,8 +522,10 @@ window.ProjectFields = (function () {
         computeCompleteness,
         findFileCategory,
         findFileSubfolder,
+        findFileSubSubfolder,
         fileCategoryLabel,
         fileSubfolderLabel,
+        fileSubSubfolderLabel,
         getFileTypeMeta,
         uploadFile,
         storagePathFromPublicUrl

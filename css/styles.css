@@ -3897,6 +3897,16 @@ body.sidebar-collapsed .nav-item-badge {
     white-space: nowrap;
 }
 
+/* VPO/BC "Delete" button (Actions column) — same .workbook-btn--danger used
+   on Account Activity's report Delete button, just right-sized to sit
+   inline in a table cell instead of a full-width popup action row. */
+.form-log-delete-btn {
+    flex: 0 0 auto;
+    padding: 5px 10px;
+    font-size: 0.78rem;
+    white-space: nowrap;
+}
+
 .form-log-id-link {
     color: var(--accent);
     font-weight: 600;
@@ -3910,6 +3920,29 @@ body.sidebar-collapsed .nav-item-badge {
 .form-log-id-unfiled {
     color: var(--text-soft);
     font-style: italic;
+}
+
+/* Card-header total stat, top right of the title — .card-header is already
+   display:flex/justify-content:space-between, so this just lands there as
+   the header's second child. Plain number, not a chart (Coleby: "not a
+   chart it just needs to display the total at the top right of the
+   card"). Blank (no text) while a card is empty/loading. */
+.form-log-card-total {
+    flex: 0 0 auto;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--accent-strong);
+}
+
+/* The Show All popup now carries everything the main card table does,
+   including the Actions/Delete column for VPO/BC, so the shared
+   .popup--corporate default (min(92vw, 560px)) is too tight for 6
+   columns — widen/heighten it here. Scoped to #formLogsShowAllOverlay
+   only so Account Activity's BC/VPO/Forms corporate popups, which
+   reuse the same base class, are untouched. */
+#formLogsShowAllOverlay .popup--corporate {
+    width: min(95vw, 820px);
+    max-height: 88vh;
 }
 
 .employee-detail-popup {
@@ -10540,6 +10573,80 @@ body.week-cal-dragging {
 .all-files-subfolder-label {
   flex: 1 1 auto;
   font-size: 0.84rem;
+}
+
+/* A subfolder that has its own children (only "Back Charges - BC" today)
+   is a router, not a destination — see folderAcceptsFiles() in
+   project-files.js. Coleby wanted it to "feel like" the top-level category
+   row (bold label, a caret, the same pill highlight while expanded) while
+   staying put right where it already was, nested under its own category —
+   so this reuses the category row's visual language rather than moving
+   anything. Clicking it only expands/collapses in place. */
+.all-files-subfolder-btn--group {
+  font-weight: 700;
+  padding: 9px 8px;
+}
+
+.all-files-subfolder-btn--group .all-files-subfolder-label {
+  font-size: 0.85rem;
+}
+
+.all-files-subfolder-btn--group:hover,
+.all-files-subfolder-btn--group.is-expanded {
+  background: var(--accent-soft);
+  color: var(--text);
+  transform: translateX(2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 2px 6px rgba(10, 24, 36, 0.12);
+}
+
+.all-files-subfolder-caret {
+  flex: 0 0 auto;
+  width: 12px;
+  color: var(--text-soft);
+  font-weight: 700;
+}
+
+/* A folder inside a folder — one more level of the same tree, nested under
+   whichever subfolder declares its own `subfolders` (only "Back Charges -
+   BC" today). Same .all-files-subfolder-btn styling as its parent tier,
+   just indented further so the hierarchy reads at a glance. Collapsed by
+   default, opened by clicking the parent's own caret (or automatically,
+   via selectFolder(), whenever this group or one of its children is the
+   current selection). */
+.all-files-subsubfolder-list {
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 4px 22px;
+}
+
+.all-files-subsubfolder-list.is-collapsed {
+  display: none;
+}
+
+.all-files-subsubfolder-btn {
+  font-size: 0.8rem;
+}
+
+/* The child-folder tiles shown inline above a subfolder's own file list
+   (renderMainPanel(), only when that subfolder has children and none is
+   picked yet) — same .all-files-folder-tile grid as the Folders view's own
+   drill-down, just smaller since it's sharing the panel with a file list
+   underneath rather than filling the whole page. */
+.all-files-panel-child-grid {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.all-files-panel-child-grid .all-files-folder-icon {
+  width: 56px;
+  height: 56px;
+}
+
+.all-files-panel-child-grid .all-files-folder-tile {
+  padding: 14px 10px 12px;
 }
 
 .all-files-main {
