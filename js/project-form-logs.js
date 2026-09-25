@@ -450,24 +450,40 @@
         (data || []).forEach(ir => { incidentReportsById[ir.id] = ir; });
     }
 
+    // Pulls the trailing integer off a formatted ID string -- "BC-TP-014" ->
+    // 14, "IR-TP-003" -> 3. Used to sort BC/IR by their actual ID number
+    // rather than by created_at/report_date (Coleby: "it needs to be by ID
+    // Number"). Rows with no number yet (shouldn't normally happen -- both
+    // are only ever created already-numbered) sort to the very end rather
+    // than breaking the sort.
+    function trailingIdNumber(idText) {
+        const match = /(\d+)\s*$/.exec(idText || "");
+        return match ? parseInt(match[1], 10) : -Infinity;
+    }
+
+    // Descending by ID number, newest/highest first (Coleby's answer:
+    // "Newest first (highest number on top)") -- same feel as the previous
+    // newest-first ordering, just keyed off the number itself so it can't
+    // drift out of sync with creation order.
+    function sortByIdNumberDesc(rows, numberOf) {
+        return [...rows].sort((a, b) => numberOf(b) - numberOf(a));
+    }
+
     async function loadFormLogsData(projectId) {
         const [vpoResult, bcResult, irResult] = await Promise.all([
             window.supabaseClient
                 .from(VPO_TABLE)
                 .select("*")
-                .eq("project_id", projectId)
-                .order("created_at", { ascending: false }),
+                .eq("project_id", projectId),
             window.supabaseClient
                 .from(BC_TABLE)
                 .select("*")
-                .eq("project_id", projectId)
-                .order("created_at", { ascending: false }),
+                .eq("project_id", projectId),
             window.supabaseClient
                 .from(IR_TABLE)
                 .select("*")
                 .eq("project_id", projectId)
-                .eq("status", "approved")
-                .order("report_date", { ascending: false }),
+                .eq("status", "approved"),
         ]);
 
         if (vpoResult.error || bcResult.error || irResult.error) {
@@ -476,9 +492,15 @@
             return;
         }
 
-        const vpoRows = vpoResult.data || [];
-        const bcRows = bcResult.data || [];
-        const irRows = irResult.data || [];
+        // Sorted here (client-side) rather than via .order() in the queries
+        // above, since VPO's ID number isn't a single column to order by --
+        // "VPO-TP-3-1-7"'s meaningful sequence number is the trailing
+        // project_total_at_creation, stored separately as a real integer
+        // (see sql/supabase-bc-vpo-setup.sql section 4/5) -- while BC/IR's
+        // number has to be parsed out of their text bc_number/ir_number.
+        const vpoRows = sortByIdNumberDesc(vpoResult.data || [], r => r.project_total_at_creation ?? -Infinity);
+        const bcRows = sortByIdNumberDesc(bcResult.data || [], r => trailingIdNumber(r.bc_number));
+        const irRows = sortByIdNumberDesc(irResult.data || [], r => trailingIdNumber(r.ir_number));
 
         // Resolve each VPO/BC's source IR first, so its project_file_id
         // (needed to make the new "IR ID" column clickable) can be folded
