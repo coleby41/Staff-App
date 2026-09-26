@@ -13216,6 +13216,42 @@ body.week-cal-dragging {
   font-style: italic;
 }
 
+/* Same warning-triangle glyph as .modal-icon--reject below, in amber
+   instead of red -- for the "Submit Old Forms" legacy-feature warning
+   popup (Form Logs). This is a heads-up, not an error, so it borrows that
+   icon's shape but --warning/--warning-soft's colors instead of
+   --danger/--danger-soft. */
+.modal-icon--legacy {
+  background: var(--warning-soft);
+}
+
+.modal-icon--legacy::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 22px;
+  height: 22px;
+  background-color: var(--warning);
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z'/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'/%3E%3C/svg%3E");
+  mask-size: contain;
+  -webkit-mask-size: contain;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-position: center;
+}
+
+/* The little "Legacy Feature" pill riding inside the Submit Old Forms
+   button on Form Logs (see project-form-logs.html) -- reuses
+   .aa-status-pill/.aa-status--pending's existing amber pill styling
+   (Account Activity's "pending" status) rather than a new one, just needs
+   its own spacing to sit inline next to the button's own label. */
+.form-logs-legacy-pill {
+  margin-left: 8px;
+}
+
 .modal-icon--reject {
   background: var(--danger-soft);
 }

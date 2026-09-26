@@ -149,6 +149,12 @@
             <h1 id="formLogsHeroName">Form Logs</h1>
             <p>Every VPO, Back Charge, and filed Incident Report for this project. Click an ID to open its filed document.</p>
         </div>
+        <div class="hero-actions">
+            <button type="button" class="auth-button auth-button--secondary" id="formLogsSubmitOldFormsBtn">
+                Submit Old Forms
+                <span class="aa-status-pill aa-status--pending form-logs-legacy-pill">Legacy Feature</span>
+            </button>
+        </div>
     </section>
 
     <div id="formLogsPageMessage" class="workbook-page-message" style="display:none;"></div>
@@ -245,6 +251,30 @@
                     <tbody id="formLogsShowAllBody"></tbody>
                 </table>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- "Submit Old Forms" legacy-feature warning popup -- Coleby wants a
+     heads-up shown every time this migration entry point is used, since
+     it's a temporary tool for backfilling old BC/VPO records and will get
+     phased out once that backfill's done. "Go Back" (and clicking the
+     backdrop, same convention as this page's own Show All popup above)
+     just closes this and leaves you on Form Logs. "Continue" is wired up
+     but intentionally goes nowhere yet -- the actual batch-upload/review
+     flow it leads to hasn't been built. See js/project-form-logs.js. -->
+<div class="popup-overlay hidden" id="formLogsLegacyWarningOverlay">
+    <div class="popup">
+        <div class="modal-icon-header">
+            <span class="modal-icon modal-icon--legacy" aria-hidden="true"></span>
+            <div>
+                <h2>This is a Legacy Feature</h2>
+                <p class="auth-inline-copy">Submitting old forms this way is a temporary tool for backfilling historical BC/VPO records into the new system. It'll be phased out once that backfill is done.</p>
+            </div>
+        </div>
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="formLogsLegacyGoBackBtn">Go Back</button>
+            <button type="button" class="auth-button" id="formLogsLegacyContinueBtn">Continue</button>
         </div>
     </div>
 </div>

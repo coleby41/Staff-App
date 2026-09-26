@@ -534,6 +534,38 @@
         if (event.target.id === "formLogsShowAllOverlay") closeShowAllPopup();
     });
 
+    /* ---------- "Submit Old Forms" (legacy migration entry point) ----------
+       Button + amber "Legacy Feature" pill on the hero (see
+       project-form-logs.html) -- opens a warning popup before going any
+       further, since this is a temporary tool for backfilling old BC/VPO
+       records that'll get phased out once that's done. "Go Back" and the
+       backdrop both just close the popup and leave you on Form Logs, same
+       convention as the Show All popup right above. "Continue" is wired up
+       but intentionally a no-op for now -- the batch-upload/review flow it
+       leads to (parse each old PDF client-side, show an editable table,
+       "Create All") hasn't been built yet. */
+    function openLegacyWarningPopup() {
+        document.getElementById("formLogsLegacyWarningOverlay")?.classList.remove("hidden");
+        document.body.classList.add("popup-active");
+    }
+
+    function closeLegacyWarningPopup() {
+        document.getElementById("formLogsLegacyWarningOverlay")?.classList.add("hidden");
+        document.body.classList.remove("popup-active");
+    }
+
+    document.getElementById("formLogsSubmitOldFormsBtn")?.addEventListener("click", openLegacyWarningPopup);
+    document.getElementById("formLogsLegacyGoBackBtn")?.addEventListener("click", closeLegacyWarningPopup);
+    document.getElementById("formLogsLegacyWarningOverlay")?.addEventListener("click", (event) => {
+        if (event.target.id === "formLogsLegacyWarningOverlay") closeLegacyWarningPopup();
+    });
+
+    // TODO(old-forms-migration): hook this up once the batch PDF-parse/
+    // review flow exists. Intentionally does nothing right now -- Coleby:
+    // "the continue will take them to nothing since we are still working
+    // on it".
+    document.getElementById("formLogsLegacyContinueBtn")?.addEventListener("click", () => {});
+
     /* ---------- init ---------- */
 
     window.addEventListener("project-shell:ready", async (event) => {
