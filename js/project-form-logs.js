@@ -661,17 +661,15 @@
        Row lifecycle: ready -> creating -> created, or -> failed (and back
        to creating if Create All is clicked again, which only retries
        ready/needs-review/failed rows and leaves already-created ones
-       alone). BC rows show up as "unsupported" -- js/legacy-forms-import.js's
-       parseLegacyBcPage() is a stub until a real BC sample's been seen
-       (see that file's own header comment) -- and unreadable files show up
-       as "error"; neither kind is ever offered to Create All.
+       alone). Unreadable files show up as "error" and are never offered
+       to Create All.
 
-       A VPO row missing a field just means that field renders blank in its
-       input (Coleby: "if there is no info for that input put N/A") --
-       createLegacyVpoFromRow() below is what actually substitutes "N/A"
-       (or a sane default for a non-text column) at creation time, so the
-       review table always shows exactly what was found/typed, blank or
-       not. */
+       A VPO or BC row missing a field just means that field renders blank
+       in its input (Coleby: "if there is no info for that input put N/A")
+       -- createLegacyVpoFromRow()/createLegacyBcFromRow() below are what
+       actually substitute "N/A" (or a sane default for a non-text column)
+       at creation time, so the review table always shows exactly what was
+       found/typed, blank or not. */
 
     let legacyBatchRows = []; // in-memory only -- rebuilt fresh every time the popup's (re)opened, never persisted
     let legacyBatchRowSeq = 0;
@@ -780,26 +778,35 @@
         const statusHtml = `<span class="legacy-batch-row-status legacy-batch-row-status--${row.status}">${escapeHtmlFormLogs(legacyBatchStatusLabel(row))}</span>`;
         const fileCell = `<td title="${escapeHtmlFormLogs(row.fileName)}">${escapeHtmlFormLogs(truncateFormLogText(row.fileName, 28))}</td>`;
 
-        if (row.kind !== "vpo") {
-            // BC (not built yet) and unreadable files -- nothing to edit or
-            // create, just show what little we know plus why.
+        if (row.kind !== "vpo" && row.kind !== "bc") {
+            // Unreadable files -- nothing to edit or create, just show why.
             return `
                 <tr data-row-key="${row.rowKey}">
                     ${fileCell}
                     <td>${kindLabel}</td>
                     <td>${escapeHtmlFormLogs(row.oldId || "—")}</td>
-                    <td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>
+                    <td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>
                     <td>${statusHtml}</td>
                 </tr>
             `;
         }
+
+        // BC has two vendor columns (charge / CR back); VPO only has one, so
+        // its "Vendor to Credit" cell is just a dash -- nothing to fill in.
+        const vendorCell = row.kind === "bc"
+            ? legacyBatchFieldInputHtml(row, "vendorToChargeName", "text")
+            : legacyBatchFieldInputHtml(row, "vendorName", "text");
+        const vendorCreditCell = row.kind === "bc"
+            ? legacyBatchFieldInputHtml(row, "vendorToCrBackName", "text")
+            : "—";
 
         return `
             <tr data-row-key="${row.rowKey}">
                 ${fileCell}
                 <td>${kindLabel}</td>
                 <td>${escapeHtmlFormLogs(row.oldId || "—")}</td>
-                <td>${legacyBatchFieldInputHtml(row, "vendorName", "text")}</td>
+                <td>${vendorCell}</td>
+                <td>${vendorCreditCell}</td>
                 <td>${legacyBatchFieldInputHtml(row, "reportDate", "date")}</td>
                 <td>${legacyBatchFieldInputHtml(row, "buildings", "text")}</td>
                 <td>${legacyBatchFieldInputHtml(row, "reasonForReport", "text")}</td>
@@ -809,12 +816,12 @@
         `;
     }
 
-    // A row is offered to Create All if it's a VPO that hasn't already been
-    // created -- "failed" is included on purpose, so clicking Create All
-    // again after a partial failure retries just the rows that didn't make
-    // it, without touching the ones that already succeeded.
+    // A row is offered to Create All if it's a VPO or BC that hasn't already
+    // been created -- "failed" is included on purpose, so clicking Create
+    // All again after a partial failure retries just the rows that didn't
+    // make it, without touching the ones that already succeeded.
     function legacyRowIsCreatable(row) {
-        return row.kind === "vpo" && row.status !== "created" && row.status !== "creating";
+        return (row.kind === "vpo" || row.kind === "bc") && row.status !== "created" && row.status !== "creating";
     }
 
     function updateLegacyCreateAllButton() {
@@ -858,7 +865,7 @@
         }
         const tr = document.querySelector(`#formLogsLegacyBatchBody tr[data-row-key="${rowKey}"]`);
         if (!tr) return;
-        const statusCell = tr.children[8];
+        const statusCell = tr.children[9];
         if (statusCell) statusCell.innerHTML = `<span class="legacy-batch-row-status legacy-batch-row-status--${status}">${escapeHtmlFormLogs(legacyBatchStatusLabel(row || { status, statusMessage }))}</span>`;
         if (status === "creating" || status === "created") {
             tr.querySelectorAll(".legacy-batch-field-input").forEach(input => { input.disabled = true; });
@@ -1112,6 +1119,149 @@
         return vpoRow;
     }
 
+    // Same shape as createLegacyVpoFromRow() above -- shell IR (now with a
+    // real, live-numbered ir_number via finalize_incident_report_approval()),
+    // best-effort IR summary PDF, then the actual back_charges row (mirroring
+    // confirmBc()'s insert in js/account-activity.js, with the OLD id
+    // preserved as bc_number exactly as scraped instead of next_bc_number()),
+    // then the original old PDF filed into Project Files under BC With
+    // Signature (same "approved another way... Normal" treatment as VPO).
+    async function createLegacyBcFromRow(row) {
+        const staff = getLegacyStaffProfile();
+        const staffId = staff?.id || staff?.uid || null;
+        const staffName = staff?.full_name || staff?.username || "Staff";
+
+        const reportDate = row.reportDate || todayIsoDate();
+        const price = (row.price === null || row.price === undefined || row.price === "") ? 0 : Number(row.price);
+        const buildings = row.buildings || "N/A";
+        const reasonForReport = row.reasonForReport || "N/A";
+        const vendorToChargeName = row.vendorToChargeName || "N/A";
+        const vendorToCrBackName = row.vendorToCrBackName || "N/A";
+
+        const { data: insertedIr, error: insertIrError } = await window.supabaseClient
+            .from(IR_TABLE)
+            .insert({
+                project_id: currentProject.id,
+                report_date: reportDate,
+                price,
+                buildings,
+                unit_numbers: "N/A",
+                person_making_report: "N/A",
+                reason_for_report: reasonForReport,
+                who_caused_issue: "N/A",
+                submitted_by: staffId,
+                submitted_by_name: staffName,
+                is_legacy_migration: true,
+            })
+            .select()
+            .single();
+        if (insertIrError) throw insertIrError;
+
+        const { data: approvedIr, error: approveError } = await window.supabaseClient
+            .rpc("finalize_incident_report_approval", { p_id: insertedIr.id });
+        if (approveError) throw approveError;
+        const irNumber = approvedIr.ir_number;
+
+        const { error: decisionError } = await window.supabaseClient
+            .from(IR_TABLE)
+            .update({
+                bc_vpo_decision: "bc",
+                bc_vpo_decision_at: new Date().toISOString(),
+            })
+            .eq("id", insertedIr.id);
+        if (decisionError) throw decisionError;
+
+        try {
+            const reportForPdf = {
+                report_date: reportDate,
+                price,
+                buildings,
+                unit_numbers: "N/A",
+                person_making_report: "N/A",
+                reason_for_report: reasonForReport,
+                change_in_scope: null,
+                who_caused_issue: "N/A",
+                attachments: [],
+            };
+            const baseBytes = await window.IncidentReportPdf.buildIncidentReportBasePdfBytes(reportForPdf, currentProject, irNumber);
+            const irFileName = `Incident Report - ${irNumber}.pdf`;
+            const irStoragePath = `${currentProject.id}/construction/incident_report/${Date.now()}-${irFileName}`;
+
+            const { error: irUploadError } = await window.supabaseClient.storage
+                .from(PROJECT_DOCS_BUCKET)
+                .upload(irStoragePath, new Blob([baseBytes], { type: "application/pdf" }), { cacheControl: "3600", upsert: true, contentType: "application/pdf" });
+            if (irUploadError) throw irUploadError;
+
+            const { data: irFileRow, error: irFileError } = await window.supabaseClient
+                .from(PROJECT_FILES_TABLE)
+                .insert({
+                    project_id: currentProject.id,
+                    category: "construction",
+                    subfolder: "incident_report",
+                    bucket: PROJECT_DOCS_BUCKET,
+                    storage_path: irStoragePath,
+                    file_name: irFileName,
+                    source: "incident_report",
+                    incident_report_id: insertedIr.id,
+                    uploaded_by_name: staffName,
+                })
+                .select()
+                .single();
+            if (irFileError) throw irFileError;
+
+            const { error: irLinkError } = await window.supabaseClient
+                .from(IR_TABLE)
+                .update({ project_file_id: irFileRow.id })
+                .eq("id", insertedIr.id);
+            if (irLinkError) throw irLinkError;
+        } catch (irPdfErr) {
+            console.warn(`Couldn't generate/file a summary Incident Report PDF for the shell IR behind ${row.oldId}:`, irPdfErr);
+        }
+
+        const { data: bcRow, error: bcError } = await window.supabaseClient
+            .from(BC_TABLE)
+            .insert({
+                incident_report_id: insertedIr.id,
+                project_id: currentProject.id,
+                bc_number: row.oldId,
+                vendor_to_charge_id: null,
+                vendor_to_charge_name: vendorToChargeName,
+                vendor_to_cr_back_id: null,
+                vendor_to_cr_back_name: vendorToCrBackName,
+                project_name: currentProject.name || null,
+                report_date: reportDate,
+                price,
+                buildings,
+                unit_numbers: "N/A",
+                person_making_report: "N/A",
+                reason_for_report: reasonForReport,
+                change_in_scope: null,
+                created_by_id: staffId,
+                created_by_name: staffName,
+            })
+            .select()
+            .single();
+        if (bcError) throw bcError;
+
+        try {
+            const fileBytes = new Uint8Array(await row.file.arrayBuffer());
+            await window.BcVpoDocs.fileExistingDocument("bc", {
+                projectId: currentProject.id,
+                recordId: bcRow.id,
+                fileBytes,
+                fileName: row.file.name,
+                contentType: "application/pdf",
+                staffName,
+                subSubfolderOverride: "bc_with_signature",
+            });
+        } catch (fileErr) {
+            console.error(`${row.oldId} was created but its old PDF couldn't be filed:`, fileErr);
+            throw new Error(`${row.oldId} was created, but filing its PDF failed: ${fileErr.message || "please retry later from Project Files."}`);
+        }
+
+        return bcRow;
+    }
+
     async function runLegacyCreateAll() {
         const btn = document.getElementById("formLogsLegacyCreateAllBtn");
         const messageEl = document.getElementById("formLogsLegacyBatchMessage");
@@ -1130,11 +1280,12 @@
         for (const row of creatableRows) {
             setLegacyBatchRowStatus(row.rowKey, "creating");
             try {
-                await createLegacyVpoFromRow(row);
+                const createFn = row.kind === "bc" ? createLegacyBcFromRow : createLegacyVpoFromRow;
+                await createFn(row);
                 setLegacyBatchRowStatus(row.rowKey, "created");
                 successCount++;
             } catch (error) {
-                console.error(`Failed to create migrated VPO for ${row.fileName}:`, error);
+                console.error(`Failed to create migrated ${row.kind === "bc" ? "BC" : "VPO"} for ${row.fileName}:`, error);
                 setLegacyBatchRowStatus(row.rowKey, "failed", error.message || "Something went wrong.");
                 failCount++;
             }

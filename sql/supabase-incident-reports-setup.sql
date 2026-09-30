@@ -252,6 +252,19 @@ create table if not exists public.incident_reports (
 -- re-running this script picks it up without a separate migration file.
 alter table public.incident_reports add column if not exists change_in_scope text;
 
+-- Marks a "Submit Old Forms" migration shell row (js/project-form-logs.js's
+-- createLegacyVpoFromRow()/createLegacyBcFromRow()) as distinct from a real
+-- submitted report. Added 2026-09-28/30: a shell IR now gets a REAL, live-
+-- numbered ir_number via finalize_incident_report_approval() (same as any
+-- other approval, per Coleby: "it needs to keep the same IR ID policy"), so
+-- ir_number being null no longer identifies a shell on its own the way it
+-- used to. delete_vpo_with_cleanup()/delete_bc_with_cleanup() in
+-- sql/supabase-bc-vpo-setup.sql read this flag to know it's safe to cascade-
+-- delete the shell IR once nothing references it anymore — a real IR
+-- (is_legacy_migration = false) is never touched by those, whatever else
+-- happens to its linked VPO/BC.
+alter table public.incident_reports add column if not exists is_legacy_migration boolean not null default false;
+
 create index if not exists incident_reports_project_id_idx on public.incident_reports (project_id);
 create index if not exists incident_reports_submitted_by_idx on public.incident_reports (submitted_by);
 create index if not exists incident_reports_assigned_approver_idx on public.incident_reports (assigned_approver_id);
@@ -681,10 +694,20 @@ alter table public.project_files
   -- (unchanged — the merged incident report PDF is filed into the existing
   -- 'project-documents' bucket, so no new bucket value is needed here)
 
+-- Widened 2026-09-30: this file's own copy of this constraint had drifted
+-- narrower than sql/supabase-bc-vpo-setup.sql's copy of the same
+-- constraint (which also allows 'back_charge'/'vpo', added in that file's
+-- own Section 7 once BC/VPO filing existed) -- re-running THIS file after
+-- that one, with real back_charge/vpo-sourced rows already in
+-- project_files, hit a real Postgres error: "check constraint
+-- project_files_source_check ... is violated by some row", because this
+-- narrower re-add rejected data the other file's wider version had already
+-- allowed in. Both files now define the full superset so re-running either
+-- one, in either order, is always safe.
 alter table public.project_files drop constraint if exists project_files_source_check;
 alter table public.project_files
   add constraint project_files_source_check
-  check (source in ('upload', 'form_submission', 'incident_report'));
+  check (source in ('upload', 'form_submission', 'incident_report', 'back_charge', 'vpo'));
 
 alter table public.project_files
   add column if not exists incident_report_id uuid references public.incident_reports(id) on delete set null;

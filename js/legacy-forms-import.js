@@ -19,11 +19,13 @@
    built and verified against that real file's actual pdf.js output
    (every field read back correctly) before being wired into the app.
 
-   BC layout is NOT YET implemented -- no real BC sample has been seen.
-   parseLegacyBcPage() is a stub that always returns `unsupported: true`;
-   BC files still show up in the batch review table (nothing silently
-   disappears) but can't be created until a real BC sample comes in and
-   this gets filled in the same way VPO was.
+   BC layout confirmed against a real sample (BC-HC-016, sent in chat
+   2026-09-30) -- built and verified the same way VPO was, against that
+   file's actual pdf.js output. BC's labels fragment across pdf.js items
+   more unpredictably than VPO's (see parseLegacyBcPage() below for how
+   that's handled), and its "Reason/Explanation:" field sits embedded mid-
+   paragraph rather than cleanly above/below its value, unlike every other
+   field on either form.
 
    A note on the text layer, for whoever touches this next: these PDFs
    were produced by a fill-in tool ("Pdftools SDK" per their own
@@ -146,8 +148,8 @@ window.LegacyFormsImport = (function () {
         return amount ? amount.str.trim() : "";
     }
 
-    function findBuildingNumbers(items) {
-        const header = findOne(items, /^Building No\.?$/);
+    function findBuildingNumbers(items, headerPattern = /^Building No\.?$/) {
+        const header = findOne(items, headerPattern);
         const totals = findOne(items, /^Totals$/);
         if (!header) return "";
         const yCeiling = totals ? totals.y - 5 : header.y + 300;
@@ -207,10 +209,61 @@ window.LegacyFormsImport = (function () {
         };
     }
 
-    /* ---------- BC (not built yet -- no real sample seen) ---------- */
+    /* ---------- BC (confirmed against a real sample) ---------- */
 
-    function parseLegacyBcPage() {
-        return { unsupported: true };
+    // BC's static label text fragments unpredictably at the pdf.js item
+    // level in ways VPO's doesn't (e.g. "Vendor /Trade to Be Back Charged:"
+    // -> "Vend"/"or"/"/Trade to"/"Be Ba"/"ck"/"Charge"/"d"/":") -- since
+    // this is static template text (not user input), the fragmentation is
+    // deterministic and repeats identically on every BC PDF from this
+    // template, so anchoring on a short unique fragment is safe and
+    // repeatable. /^Charge$/ is case-sensitive on purpose, to avoid
+    // colliding with the page title's own lowercase "charge".
+    function parseLegacyBcPage(items, fullText) {
+        const { id } = findKindAndId(fullText);
+
+        const chargeLabel = findOne(items, /^Charge$/);
+        const vendorToChargeName = chargeLabel ? valueNear(items, chargeLabel) : "";
+
+        const creditLabel = findOne(items, /^Credit:$/i);
+        const vendorToCrBackName = creditLabel ? valueNear(items, creditLabel) : "";
+
+        const projectLabel = findOne(items, /^Project Name:$/);
+        const projectNameGuess = projectLabel ? valueNear(items, projectLabel, { xMax: 220 }) : "";
+
+        const effectiveLabel = findOne(items, /ective\s+Date/i);
+        const effectiveRaw = effectiveLabel ? valueNear(items, effectiveLabel, { xMax: 200 }) : "";
+
+        // Unlike VPO's "Reason", this form's "Reason/Explanation:" label
+        // sits vertically embedded in the middle of a variable-length
+        // wrapped paragraph rather than cleanly above/below it -- so
+        // instead of valueNear()'s fixed y-offset window, this scans every
+        // item in the bounded region between the row above (Requested By)
+        // and the row below (the Building table header) and reads them
+        // top-to-bottom.
+        const requestedByLabel = findOne(items, /^Requested By:$/i);
+        const buildingHeader = findOne(items, /^Building$/);
+        const reasonRaw = (requestedByLabel && buildingHeader)
+            ? items
+                .filter(it => it.x > 150 && it.y > requestedByLabel.y && it.y < buildingHeader.y)
+                .sort((a, b) => a.y - b.y)
+                .map(it => it.str.trim())
+                .join(" ")
+            : "";
+
+        const buildings = findBuildingNumbers(items, /^Building$/);
+        const totalRaw = findTotalsAmount(items);
+
+        return {
+            oldId: id || "",
+            vendorToChargeName: vendorToChargeName || "",
+            vendorToCrBackName: vendorToCrBackName || "",
+            projectNameGuess: projectNameGuess || "",
+            reportDate: parseDateGuess(effectiveRaw),
+            reasonForReport: reasonRaw || "",
+            buildings: buildings || "",
+            price: parseMoney(totalRaw),
+        };
     }
 
     /* ---------- entry point ---------- */

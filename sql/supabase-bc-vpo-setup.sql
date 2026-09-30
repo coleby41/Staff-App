@@ -515,14 +515,35 @@ create trigger vpos_reclaim_numbering
 -- ---- gate (js/project-form-logs.js) additionally requires the
 -- ---- incident_reports.delete_filed_report permission before even showing
 -- ---- the Delete button — this RPC is the real enforcement either way.
-create or replace function public.delete_bc_with_cleanup(p_id uuid)
-returns void
+--
+-- Section 11 (2026-09-30): both RPCs now ALSO cascade-delete the shell
+-- incident_reports row a "Submit Old Forms" migration created, when this
+-- was its last remaining VPO/BC and that shell is flagged
+-- is_legacy_migration (see sql/supabase-incident-reports-setup.sql) —
+-- Coleby: "i delated all of the BC and the VPO why was the IR not delated
+-- as well." This deliberately, permanently NEVER applies to a real
+-- (is_legacy_migration = false) incident report: the IR is the primary
+-- record that predates the BC/VPO decision, IR deletion is intentionally
+-- locked to IT/Super Admin only (incident_reports_delete, sql/supabase-
+-- incident-reports-setup.sql), and VPO/BC deletion is open to whoever
+-- created it — cascading a real IR's deletion off a VPO/BC delete would
+-- silently bypass that stricter gate.
+--
+-- The return type changed from void to a table so the JS client can remove
+-- the shell IR's own filed summary PDF's actual Storage object afterward
+-- (SQL alone can't reach into Storage) — CREATE OR REPLACE FUNCTION can't
+-- change a return type, so both functions are dropped first.
+drop function if exists public.delete_bc_with_cleanup(uuid);
+create function public.delete_bc_with_cleanup(p_id uuid)
+returns table(deleted_shell_ir_bucket text, deleted_shell_ir_storage_path text)
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
   v_row public.back_charges;
+  v_ir public.incident_reports;
+  v_ir_file public.project_files;
 begin
   select * into v_row from public.back_charges where id = p_id for update;
   if v_row.id is null then
@@ -536,20 +557,43 @@ begin
     delete from public.project_files where id = v_row.project_file_id;
   end if;
 
+  if v_row.incident_report_id is not null then
+    select * into v_ir from public.incident_reports where id = v_row.incident_report_id for update;
+    if v_ir.id is not null and v_ir.is_legacy_migration
+       and not exists (select 1 from public.vpos where incident_report_id = v_ir.id and id <> p_id)
+       and not exists (select 1 from public.back_charges where incident_report_id = v_ir.id and id <> p_id)
+    then
+      if v_ir.project_file_id is not null then
+        select * into v_ir_file from public.project_files where id = v_ir.project_file_id;
+      end if;
+      -- back_charges.incident_report_id is "on delete cascade" (section 3),
+      -- so deleting the shell IR takes this back_charges row with it too.
+      delete from public.incident_reports where id = v_ir.id;
+      if v_ir_file.id is not null then
+        delete from public.project_files where id = v_ir_file.id;
+        return query select v_ir_file.bucket, v_ir_file.storage_path;
+      end if;
+      return;
+    end if;
+  end if;
+
   delete from public.back_charges where id = p_id;
 end;
 $$;
 
 grant execute on function public.delete_bc_with_cleanup(uuid) to authenticated;
 
-create or replace function public.delete_vpo_with_cleanup(p_id uuid)
-returns void
+drop function if exists public.delete_vpo_with_cleanup(uuid);
+create function public.delete_vpo_with_cleanup(p_id uuid)
+returns table(deleted_shell_ir_bucket text, deleted_shell_ir_storage_path text)
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
   v_row public.vpos;
+  v_ir public.incident_reports;
+  v_ir_file public.project_files;
 begin
   select * into v_row from public.vpos where id = p_id for update;
   if v_row.id is null then
@@ -561,6 +605,26 @@ begin
 
   if v_row.project_file_id is not null then
     delete from public.project_files where id = v_row.project_file_id;
+  end if;
+
+  if v_row.incident_report_id is not null then
+    select * into v_ir from public.incident_reports where id = v_row.incident_report_id for update;
+    if v_ir.id is not null and v_ir.is_legacy_migration
+       and not exists (select 1 from public.vpos where incident_report_id = v_ir.id and id <> p_id)
+       and not exists (select 1 from public.back_charges where incident_report_id = v_ir.id and id <> p_id)
+    then
+      if v_ir.project_file_id is not null then
+        select * into v_ir_file from public.project_files where id = v_ir.project_file_id;
+      end if;
+      -- vpos.incident_report_id is "on delete cascade" (section 5), so
+      -- deleting the shell IR takes this vpos row with it too.
+      delete from public.incident_reports where id = v_ir.id;
+      if v_ir_file.id is not null then
+        delete from public.project_files where id = v_ir_file.id;
+        return query select v_ir_file.bucket, v_ir_file.storage_path;
+      end if;
+      return;
+    end if;
   end if;
 
   delete from public.vpos where id = p_id;
@@ -580,4 +644,5 @@ grant execute on function public.delete_vpo_with_cleanup(uuid) to authenticated;
 --   select id, public from storage.buckets where id in ('bc-templates', 'vpo-templates'); -- both public = false
 --   select conname, pg_get_constraintdef(oid) from pg_constraint where conname in ('back_charges_template_source_check', 'vpos_template_source_check'); -- both should list 'bundled'
 --   select routine_name from information_schema.routines where routine_name in ('reclaim_bc_number', 'reclaim_vpo_numbering', 'delete_bc_with_cleanup', 'delete_vpo_with_cleanup'); -- all 4 should show up
+--   select proname, prorettype::regtype from pg_proc where proname in ('delete_bc_with_cleanup', 'delete_vpo_with_cleanup'); -- both should show "record" (a table return), not "void"
 -- ============================================================================
