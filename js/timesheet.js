@@ -302,6 +302,7 @@ async function saveTimesheetDraft(silent) {
   if (upsertError) { console.error('Failed to save timesheet entries:', upsertError); if (msg) { msg.textContent = 'Something went wrong saving your hours.'; msg.className = 'auth-message error'; } return false; }
 
   if (!silent && msg) { msg.textContent = 'Draft saved.'; msg.className = 'auth-message success'; }
+  if (!silent) window.showToast?.('Draft saved.'); // shared bottom-right popup (js/toast.js)
   renderTimesheetStatusChip();
   return true;
 }
@@ -354,6 +355,7 @@ async function submitTimesheet() {
 
   myCurrentTimesheet.status = 'Submitted';
   if (msg) { msg.textContent = 'Submitted — awaiting manager approval.'; msg.className = 'auth-message success'; }
+  window.showToast?.('Timesheet submitted — awaiting manager approval.');
   renderTimesheetStatusChip();
   document.getElementById('timesheetCorrectionsBanner').style.display = 'none';
   renderTimesheetGrid(getCurrentPayPeriod());
@@ -447,6 +449,7 @@ async function uploadDoc() {
   fileInput.value = '';
   msg.textContent = 'Uploaded successfully.';
   msg.className = 'msg success';
+  window.showToast?.('Uploaded successfully.'); // shared bottom-right popup (js/toast.js)
   loadDocuments();
 }
 

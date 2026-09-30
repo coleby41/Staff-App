@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leeward Staff Portal | Good Morning</title>
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+</head>
+
+<!-- Good Morning — once-a-day, onboarding-style walkthrough of what changed
+     (js/good-morning.js). Reached via js/morning-check.js on the first page
+     load of the day. Deliberately full-screen with no header/sidebar, like
+     the login page: one step at a time, then "Let's go" into the portal. -->
+<body class="gm-page">
+
+<div class="gm-shell">
+
+    <header class="gm-topbar">
+        <div class="brand-mark">
+            <div class="brand-mark__icon" style="background:none;">
+                <img src="/assets/logos/leewaed-logo.png" alt="" style="width:100%; height:100%; object-fit:contain; border-radius:inherit;">
+            </div>
+            <div>
+                <div class="brand-title gm-brand-title">The Leeward Group</div>
+                <div class="brand-subtitle gm-brand-subtitle">Your daily update</div>
+            </div>
+        </div>
+        <button type="button" class="gm-skip" id="gmSkipBtn">Skip to portal</button>
+    </header>
+
+    <main class="gm-card" aria-live="polite">
+        <div class="gm-dots" id="gmDots" aria-hidden="true"></div>
+
+        <!-- good-morning.js renders the current step in here. -->
+        <div class="gm-step" id="gmStep">
+            <p class="gm-eyebrow" id="gmDate"></p>
+            <h1 class="gm-title">Good morning</h1>
+            <p class="gm-lede">Catching you up…</p>
+        </div>
+
+        <footer class="gm-nav">
+            <button type="button" class="auth-button auth-button--secondary gm-back" id="gmBackBtn" hidden>&larr; Back</button>
+            <span class="gm-step-count" id="gmStepCount"></span>
+            <button type="button" class="auth-button gm-next" id="gmNextBtn" disabled>Next &rarr;</button>
+        </footer>
+    </main>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="/js/supabase-auth.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script src="/js/toast.js"></script>
+<script src="/js/good-morning.js"></script>
+
+</body>
+</html>

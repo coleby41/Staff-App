@@ -75,6 +75,48 @@ async function loadNotifications() {
     // Already-read notifications simply don't show up anymore, on any page.
     currentNotifications = all.filter(n => !readIds.has(n.id));
     renderNotifications();
+    toastNewNotifications();
+}
+
+/* ---------- yellow "new notification" toast (js/toast.js) ----------
+   Pops once per notification per browser: IDs that have already been
+   toasted are remembered in localStorage, so reloading or changing pages
+   doesn't re-pop the same ones. More than 3 new at once collapses into a
+   single "You have N new notifications" toast instead of a wall of them. */
+
+const TOASTED_KEY = "toastedNotificationIds";
+
+function toastNewNotifications() {
+    if (typeof window.showToast !== "function") return;
+
+    let toasted;
+    try { toasted = new Set(JSON.parse(localStorage.getItem(TOASTED_KEY) || "[]")); }
+    catch { toasted = new Set(); }
+
+    const fresh = currentNotifications.filter(n => !toasted.has(n.id));
+    if (!fresh.length) return;
+
+    // The Good Morning page already lists these in full — count them as
+    // seen so they don't pop as toasts there OR on the next page.
+    if (window.suppressNotificationToasts) {
+        fresh.forEach(n => toasted.add(n.id));
+        try { localStorage.setItem(TOASTED_KEY, JSON.stringify([...toasted].slice(-200))); } catch {}
+        return;
+    }
+
+    if (fresh.length > 3) {
+        window.showToast(`You have ${fresh.length} new notifications.`, { type: "notification" });
+    } else {
+        fresh.forEach(n => window.showToast(n.title || "New notification", {
+            type: "notification",
+            link: n.link_url || null,
+            linkLabel: n.link_label || null
+        }));
+    }
+
+    fresh.forEach(n => toasted.add(n.id));
+    // Keep only the most recent 200 so this never grows forever.
+    try { localStorage.setItem(TOASTED_KEY, JSON.stringify([...toasted].slice(-200))); } catch {}
 }
 
 function renderNotifications() {
@@ -185,6 +227,11 @@ function startNotifications() {
     wireMarkReadButton();
     wireBellRefresh();
     initNotifications();
+    // Re-check every 60s so new notifications pop up while a page stays open
+    // (no Supabase Realtime in this app — same interval as nav-approvals-badge.js).
+    setInterval(function () {
+        if (window.supabaseClient && getNotificationsStaffProfile()) loadNotifications();
+    }, 60000);
 }
 
 if (document.readyState === "loading") {

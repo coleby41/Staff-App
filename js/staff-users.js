@@ -310,6 +310,7 @@ async function updateSelectedUser(updates) {
   }
 
   setMessage(directoryMessage, 'User updated successfully.', 'success');
+  window.showToast?.('User updated successfully.'); // shared bottom-right popup (js/toast.js)
   await loadStaffUsers();
   return true;
 }
@@ -363,6 +364,7 @@ userDetailsForm.addEventListener('submit', async function (event) {
       setMessage(directoryMessage, result.error, 'error');
     } else if (savedFields) {
       setMessage(directoryMessage, 'User updated and password reset successfully.', 'success');
+      window.showToast?.('User updated and password reset successfully.');
     }
   }
 

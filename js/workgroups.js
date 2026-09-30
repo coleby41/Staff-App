@@ -54,6 +54,7 @@ function showWorkgroupsMessage(text, type) {
     el.className = `workbook-page-message ${type || ""}`;
     el.style.display = "block";
     if (type === "success") setTimeout(() => { el.style.display = "none"; }, 4000);
+    if (type === "success") window.showToast?.(text); // shared bottom-right popup (js/toast.js)
 }
 
 /* ---------- access gate ---------- */

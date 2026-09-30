@@ -26,6 +26,7 @@ function setChangePasswordMessage(text, type) {
     if (!el) return;
     el.textContent = text || "";
     el.className = `auth-message ${type || ""}`.trim();
+    if (type === "success") window.showToast?.(text); // shared bottom-right popup (js/toast.js)
 }
 
 function setChangePasswordSubmitState(disabled, label) {

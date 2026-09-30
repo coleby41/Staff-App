@@ -95,10 +95,13 @@
     async function notify(userId, title, message, type, linkUrl, linkLabel) {
         if (!userId) return;
         try {
-            await window.supabaseClient.from("notifications").insert({
+            // supabase-js returns { error } instead of throwing -- check it so a
+            // failed insert (e.g. RLS) actually shows in the console.
+            const { error } = await window.supabaseClient.from("notifications").insert({
                 user_id: userId, title, message, type,
                 link_url: linkUrl || null, link_label: linkLabel || null,
             });
+            if (error) console.error("Couldn't send notification:", error);
         } catch (err) {
             console.warn("Couldn't send notification:", err);
         }

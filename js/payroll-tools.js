@@ -444,6 +444,7 @@ async function saveEmployeeDetails(event) {
   }
 
   if (msg) { msg.textContent = 'Saved.'; msg.className = 'auth-message success'; }
+  window.showToast?.(); // shared bottom-right popup (js/toast.js)
   await loadPayrollEmployees();
   renderEmployeeCards();
 }

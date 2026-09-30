@@ -263,6 +263,7 @@ function showCompanyMessage(text, type) {
     el.textContent = text;
     el.className = `workbook-page-message ${type}`;
     el.style.display = "block";
+    if (type === "success") window.showToast?.(text); // shared bottom-right popup (js/toast.js)
 }
 
 function hideCompanyMessage() {
@@ -798,6 +799,7 @@ async function saveVendorNotes() {
     if (cached) cached.Notes = notes || null;
 
     if (messageEl) { messageEl.textContent = "Saved."; messageEl.className = "auth-message success"; }
+    window.showToast?.("Notes saved."); // shared bottom-right popup (js/toast.js)
 }
 
 function closeVendorProfileModal() {
@@ -1521,6 +1523,7 @@ function setManageTagsMessage(text, type) {
     if (!el) return;
     el.textContent = text || "";
     el.className = `auth-message ${type || ""}`.trim();
+    if (type === "success") window.showToast?.(text); // shared bottom-right popup (js/toast.js)
 }
 
 function openManageTagsModal() {
@@ -2391,6 +2394,7 @@ function showCoiNotificationsMessage(text, isError) {
     if (!el) return;
     el.textContent = text || "";
     el.className = `auth-message ${isError ? "error" : "success"}`;
+    if (!isError && text) window.showToast?.(text); // shared bottom-right popup (js/toast.js)
 }
 
 function renderCoiNotificationSections() {

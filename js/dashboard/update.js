@@ -148,6 +148,7 @@
       }
 
       DS.closePopup(overlay);
+      window.showToast?.("Update posted."); // shared bottom-right popup (js/toast.js)
       loadUpdates();
     });
   }

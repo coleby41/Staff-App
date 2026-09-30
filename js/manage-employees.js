@@ -340,6 +340,7 @@ function setReviewMessage(text, type) {
   if (!msg) return;
   msg.textContent = text;
   msg.className = `auth-message ${type}`;
+  if (type === 'success') window.showToast?.(text); // shared bottom-right popup (js/toast.js)
 }
 
 async function refreshTeamAfterAction() {

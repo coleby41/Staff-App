@@ -318,6 +318,7 @@
     }
 
     DS.setFormMessage(messageEl, "", "");
+    window.showToast?.("Shortcut added."); // shared bottom-right popup (js/toast.js)
     overlay.querySelector("#addShortcutForm").reset();
     overlay.querySelector("#customUrlFields").style.display = "none";
     await loadUserLinks();
@@ -325,10 +326,11 @@
   }
 
   async function removeShortcut(overlay, linkId) {
-    await DS.safeQuery(
+    const { error } = await DS.safeQuery(
       "remove shortcut",
       window.supabaseClient.from("user_quick_links").delete().eq("id", linkId)
     );
+    if (!error) window.showToast?.("Shortcut removed."); // shared bottom-right popup (js/toast.js)
     await loadUserLinks();
     renderCurrentShortcuts(overlay);
   }

@@ -100,6 +100,7 @@
         el.className = `workbook-page-message ${type || ""}`.trim();
         el.style.display = "block";
         if (type === "success") setTimeout(() => { el.style.display = "none"; }, 4000);
+        if (type === "success") window.showToast?.(text); // shared bottom-right popup (js/toast.js)
     }
 
     function formatAccountDate(isoString) {

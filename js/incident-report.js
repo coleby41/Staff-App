@@ -429,7 +429,9 @@
     async function notifyApproverNeedsReview(approverId, projectName) {
         if (!approverId) return;
         try {
-            await window.supabaseClient.from("notifications").insert({
+            // supabase-js returns { error } instead of throwing, so check it --
+            // otherwise a failed insert (e.g. RLS) never shows up anywhere.
+            const { error } = await window.supabaseClient.from("notifications").insert({
                 user_id: approverId,
                 title: "Incident Report needs your approval",
                 message: `${getIrStaffName()} submitted an Incident Report for ${projectName || "a project"}. Review it on your Account Activity page.`,
@@ -437,6 +439,7 @@
                 link_url: "/pages/account-activity.html",
                 link_label: "Review it here",
             });
+            if (error) console.error("Couldn't send needs-review notification:", error);
         } catch (err) {
             console.warn("Couldn't send needs-review notification:", err);
         }
@@ -611,6 +614,7 @@
                 await notifyApproverNeedsReview(editingAssignedApproverId, project?.name);
 
                 setMessage("Incident report resubmitted. Redirecting to your Account Activity page…", "success");
+                window.showToast?.("Incident report resubmitted."); // shared bottom-right popup (js/toast.js)
                 setTimeout(() => { window.location.href = "/pages/account-activity.html"; }, 1200);
                 return;
             }
@@ -650,6 +654,7 @@
             await notifyApproverNeedsReview(inserted.assigned_approver_id, project?.name);
 
             setMessage("Incident report submitted. Track its status on your Account Activity page.", "success");
+            window.showToast?.("Incident report submitted."); // shared bottom-right popup (js/toast.js)
             document.getElementById("incidentReportForm").reset();
             irRichTextClear("irReasonBody");
             irRichTextClear("irChangeInScopeBody");
