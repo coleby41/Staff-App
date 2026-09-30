@@ -314,6 +314,61 @@ window.BcVpoDocs = (function () {
         return filedRow;
     }
 
+    // Files an already-existing document (raw bytes, e.g. an uploaded PDF)
+    // as-is -- no template resolution/fill step at all. Used by the
+    // "Submit Old Forms" legacy migration flow (js/legacy-forms-import.js
+    // + js/project-form-logs.js) to file the actual old signed PDF itself
+    // as the record's document, rather than generating a new one. Mirrors
+    // fileFilledDocument()'s storage-path/project_files shape exactly so a
+    // migrated record shows up identically to a normally-filed one;
+    // subSubfolderOverride lets the caller land it in "With Signature"
+    // instead of this kind's normal "Without Signature" default, since a
+    // migrated old form is already a finished, historical document.
+    async function fileExistingDocument(kind, { projectId, recordId, fileBytes, fileName, contentType, staffName, subSubfolderOverride }) {
+        const cfg = kindConfig(kind);
+        const subSubfolder = subSubfolderOverride !== undefined ? subSubfolderOverride : cfg.subSubfolder;
+        const folderPath = subSubfolder ? `${cfg.subfolder}/${subSubfolder}` : cfg.subfolder;
+        const storagePath = `${projectId}/${cfg.category}/${folderPath}/${Date.now()}-${fileName}`;
+
+        const { error: uploadError } = await window.supabaseClient.storage
+            .from(PROJECT_DOCS_BUCKET)
+            .upload(storagePath, new Blob([fileBytes], { type: contentType || "application/pdf" }), {
+                cacheControl: "3600",
+                upsert: true,
+                contentType: contentType || "application/pdf",
+            });
+        if (uploadError) throw uploadError;
+
+        const fileRow = {
+            project_id: projectId,
+            category: cfg.category,
+            subfolder: cfg.subfolder,
+            sub_subfolder: subSubfolder || null,
+            bucket: PROJECT_DOCS_BUCKET,
+            storage_path: storagePath,
+            file_name: fileName,
+            source: cfg.source,
+            uploaded_by_name: staffName || null,
+        };
+        fileRow[cfg.recordIdColumn] = recordId;
+
+        const { data: filedRow, error: fileError } = await window.supabaseClient
+            .from("project_files")
+            .insert(fileRow)
+            .select()
+            .single();
+        if (fileError) throw fileError;
+
+        const nowIso = new Date().toISOString();
+        const { error: updateError } = await window.supabaseClient
+            .from(cfg.recordTable)
+            .update({ project_file_id: filedRow.id, filed_at: nowIso })
+            .eq("id", recordId);
+        if (updateError) throw updateError;
+
+        return { projectFileId: filedRow.id, filedAt: nowIso, fileName };
+    }
+
     // The one call the popups make: resolve the template, fill it, file
     // it, and update the back_charges/vpos row with where it landed.
     // `extraTags` carries whatever the kind-specific popup collected
@@ -360,5 +415,6 @@ window.BcVpoDocs = (function () {
         getTemplateStatus,
         uploadTemplate,
         fillAndFile,
+        fileExistingDocument,
     };
 })();

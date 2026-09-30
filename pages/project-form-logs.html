@@ -260,9 +260,8 @@
      it's a temporary tool for backfilling old BC/VPO records and will get
      phased out once that backfill's done. "Go Back" (and clicking the
      backdrop, same convention as this page's own Show All popup above)
-     just closes this and leaves you on Form Logs. "Continue" is wired up
-     but intentionally goes nowhere yet -- the actual batch-upload/review
-     flow it leads to hasn't been built. See js/project-form-logs.js. -->
+     just closes this and leaves you on Form Logs. "Continue" opens the
+     batch upload/review popup below. See js/project-form-logs.js. -->
 <div class="popup-overlay hidden" id="formLogsLegacyWarningOverlay">
     <div class="popup">
         <div class="modal-icon-header">
@@ -275,6 +274,61 @@
         <div class="popup-buttons">
             <button type="button" class="auth-button auth-button--secondary" id="formLogsLegacyGoBackBtn">Go Back</button>
             <button type="button" class="auth-button" id="formLogsLegacyContinueBtn">Continue</button>
+        </div>
+    </div>
+</div>
+
+<!-- "Submit Old Forms" batch upload + review popup -- opens when Continue
+     is clicked above. Coleby: batch upload (not one at a time), auto-fill
+     from each PDF, "N/A" for anything not found, and a chance to review
+     before anything actually gets created. Kind (BC/VPO) is auto-detected
+     per file from the id text embedded in it (e.g. "VPO-HC-11-11-56") --
+     nobody picks it manually. Every row is assumed to belong to THIS
+     project (whichever one Form Logs is currently showing); a row is
+     flagged if the PDF's own "Project Name:" text doesn't look like a
+     match, so a wrong-project upload doesn't slip through unnoticed.
+     BC parsing isn't built yet (see js/legacy-forms-import.js) -- those
+     rows show up but can't be created until a real BC sample's been seen.
+     See js/project-form-logs.js's Legacy Batch section for the parsing/
+     rendering/Create All logic. -->
+<div class="popup-overlay hidden" id="formLogsLegacyBatchOverlay">
+    <div class="popup popup--legacy-batch">
+        <div class="aa-files-popup-header">
+            <div>
+                <p class="aa-files-popup-eyebrow">The Leeward Group</p>
+                <h2>Submit Old Forms</h2>
+                <p class="aa-files-popup-subtitle">Pick the old VPO/BC PDFs for this project. Each one gets read automatically — review before creating anything.</p>
+            </div>
+            <button type="button" class="file-preview-close-btn" id="formLogsLegacyBatchCloseBtn" aria-label="Close">✕</button>
+        </div>
+        <div class="aa-files-popup-list">
+            <div class="legacy-batch-picker">
+                <input type="file" id="formLogsLegacyFileInput" accept="application/pdf" multiple>
+                <button type="button" class="auth-button auth-button--secondary" id="formLogsLegacyParseBtn">Read Files</button>
+            </div>
+            <p class="auth-message" id="formLogsLegacyBatchMessage" role="status"></p>
+            <div class="table-wrap" id="formLogsLegacyBatchTableWrap" style="display:none;">
+                <table class="dash-queue-table legacy-batch-table">
+                    <thead>
+                        <tr>
+                            <th>File</th>
+                            <th>Kind</th>
+                            <th>Old ID</th>
+                            <th>Vendor</th>
+                            <th>Date</th>
+                            <th>Building</th>
+                            <th>Reason</th>
+                            <th>Price</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="formLogsLegacyBatchBody"></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="popup-buttons legacy-batch-footer-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="formLogsLegacyBatchBackBtn">Go Back</button>
+            <button type="button" class="auth-button" id="formLogsLegacyCreateAllBtn" disabled>Create All</button>
         </div>
     </div>
 </div>
@@ -338,12 +392,29 @@
 <script src="/js/project-fields.js"></script>
 <script src="/js/project-shell.js"></script>
 
-<!-- Only richTextToPlainText()/formatIncidentReportCurrency()/
-     formatIncidentReportDate() are used here (see js/project-form-logs.js)
-     -- pdfmake/pdf-lib aren't loaded on this page since nothing here builds
-     a PDF, and incident-report-pdf.js only touches those globals inside
-     the PDF-building functions this page never calls. -->
+<!-- pdfmake builds the shell Incident Report summary PDF that "Submit Old
+     Forms" (below) files against each migrated record's own shell IR row,
+     so its "IR ID" column has a real document of its own to link to
+     instead of pointing back at the VPO's own old-form PDF a second time
+     -- see buildIncidentReportBasePdfBytes() in incident-report-pdf.js and
+     createLegacyVpoFromRow() in project-form-logs.js. pdf-lib is NOT
+     loaded -- that's only needed to merge attachments onto the base page
+     (mergeIncidentReportAttachments()/buildMergedIncidentReportPdf()), and
+     a migrated shell IR never has any attachments to merge. -->
+<script src="https://cdn.jsdelivr.net/npm/pdfmake@0.3.10/build/pdfmake.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfmake@0.3.10/build/vfs_fonts.js"></script>
 <script src="/js/incident-report-pdf.js"></script>
+
+<!-- "Submit Old Forms" legacy migration flow: legacy-forms-import.js reads
+     the old PDFs client-side (pdf.js itself is loaded lazily by that
+     module, not here). bc-vpo-docs.js's fileExistingDocument() then files
+     the actual old PDF into Project Files once a migrated record's been
+     created. Neither PizZip nor docxtemplater is loaded on this page --
+     bc-vpo-docs.js's fillAndFile()/fillTemplate() (the functions that need
+     them) are never called here, only fileExistingDocument(), which
+     doesn't touch them. -->
+<script src="/js/legacy-forms-import.js"></script>
+<script src="/js/bc-vpo-docs.js"></script>
 <script src="/js/project-form-logs.js"></script>
 
 <script>

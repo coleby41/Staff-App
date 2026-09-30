@@ -3922,6 +3922,34 @@ body.sidebar-collapsed .nav-item-badge {
     font-style: italic;
 }
 
+/* IR ID column, migrated ("Legacy") rows only — see legacyIrCellHtml() in
+   project-form-logs.js. Small neutral tag (same shape/sizing recipe as
+   .aa-status-pill in Account Activity, just gray instead of a status
+   color since "Legacy" isn't a workflow state) sitting inline after the
+   id, e.g. "IR-906-1-1-6 [Legacy]" (Coleby: "add a pill that says Legacy
+   and add back the id name", then "flip the id and the button"). Lives
+   inside either .form-log-id-link or .form-log-id-unfiled, so it inherits
+   whichever of those governs the row's link/click state -- this rule only
+   touches the pill itself, not the surrounding text color or underline.
+   font-style is reset to normal here because .form-log-id-unfiled above
+   italicizes its whole contents, which would otherwise italicize the
+   pill's own text along with the id. */
+.form-log-legacy-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    margin-left: 5px;
+    border-radius: var(--radius-sm);
+    font-size: 0.68rem;
+    font-weight: 700;
+    font-style: normal;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    background: var(--surface-alt);
+    color: var(--text-soft);
+    vertical-align: 1px;
+}
+
 /* Card-header total stat, top right of the title — .card-header is already
    display:flex/justify-content:space-between, so this just lands there as
    the header's second child. Plain number, not a chart (Coleby: "not a
@@ -13250,6 +13278,101 @@ body.week-cal-dragging {
    its own spacing to sit inline next to the button's own label. */
 .form-logs-legacy-pill {
   margin-left: 8px;
+}
+
+/* "Submit Old Forms" batch upload + review popup (Form Logs) -- same
+   "corporate" navy-header shell as .popup--corporate, just wider since it
+   needs to hold a 9-column review table rather than a simple file list.
+   Mirrors .popup--preview's width/height override pattern above. */
+.popup--legacy-batch {
+  width: min(94vw, 980px);
+  max-height: 90vh;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.legacy-batch-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.legacy-batch-picker input[type="file"] {
+  flex: 1 1 auto;
+  min-width: 220px;
+  font-size: 0.85rem;
+  color: var(--text-soft);
+}
+
+.legacy-batch-picker .auth-button {
+  flex: 0 0 auto;
+  min-width: 120px;
+}
+
+.legacy-batch-table {
+  min-width: 820px;
+}
+
+/* .dash-queue-table's own 4th-column truncation (built for the main Form
+   Logs "Comment" column) would otherwise clip the Vendor column here,
+   which is an editable input, not a line of read-only text. */
+.legacy-batch-table td:nth-child(4) {
+  max-width: none;
+  overflow: visible;
+  text-overflow: initial;
+  white-space: normal;
+}
+
+.legacy-batch-table input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.legacy-batch-table input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.legacy-batch-row-status {
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.legacy-batch-row-status--ready,
+.legacy-batch-row-status--creating {
+  color: var(--text-soft);
+}
+
+.legacy-batch-row-status--needs-review {
+  color: var(--warning);
+}
+
+.legacy-batch-row-status--unsupported,
+.legacy-batch-row-status--error,
+.legacy-batch-row-status--failed {
+  color: var(--danger);
+}
+
+.legacy-batch-row-status--created {
+  color: var(--success);
+}
+
+.legacy-batch-footer-buttons {
+  padding: 16px 24px 20px;
+  margin-top: 0;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .modal-icon--reject {
