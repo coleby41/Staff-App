@@ -86,9 +86,15 @@ window.LegacyFormsImport = (function () {
     /* ---------- generic field-finding helpers ---------- */
 
     function findKindAndId(fullText) {
-        const match = /\b(VPO|BC)-[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*\b/.exec(fullText);
+        // pdf.js sometimes splits a hyphenated id like "VPO-HC-12-11-55" into
+        // separate text items at the kerning gaps around each hyphen, so the
+        // concatenated fullText can read "VPO - HC - 12 - 11 - 55" with stray
+        // spaces around every dash instead of a tight token. Tolerate that
+        // whitespace when matching, then strip it back out of the id itself
+        // so downstream code still sees the clean "VPO-HC-12-11-55" form.
+        const match = /\b(VPO|BC)\s*-\s*[A-Za-z0-9]+(?:\s*-\s*[A-Za-z0-9]+)*\b/.exec(fullText);
         if (!match) return { kind: null, id: null };
-        return { kind: match[1].toLowerCase(), id: match[0] };
+        return { kind: match[1].toLowerCase(), id: match[0].replace(/\s+/g, "") };
     }
 
     const ALL_LABEL_PATTERNS = [
@@ -101,11 +107,22 @@ window.LegacyFormsImport = (function () {
         /^Reason$/i,
         /^Reason.{0,3}Explan/i,
         /^\/Explan/i,
+        // BC's "Vendor /Trade to Be Back Charged:" label, as pdf.js
+        // fragments it (see parseLegacyBcPage()'s header comment) --
+        // widening valueNear()'s search window (above) means these stray
+        // fragments now fall inside it too, so they need to be recognized
+        // as label text rather than mistaken for the vendor value.
+        /^Vend$/,
+        /^or$/,
+        /^\/Trade to$/,
+        /^Be Ba$/,
+        /^ck$/,
+        /^d$/,
     ];
 
     function isLabelItem(item) {
         const str = item.str.trim();
-        if (/^[:;,.\-]+$/.test(str)) return true; // a leftover bare punctuation mark, not a real value
+        if (/^[:;,.\-_]+$/.test(str)) return true; // a leftover bare punctuation/underline mark, not a real value
         return ALL_LABEL_PATTERNS.some(p => p.test(str));
     }
 
@@ -113,21 +130,44 @@ window.LegacyFormsImport = (function () {
         return items.find(it => pattern.test(it.str.trim())) || null;
     }
 
-    // See the module comment above: a value's first line sits `aboveMin`-
-    // `aboveMax` points ABOVE the label, to the right of it (xMin bounds
-    // how close, xMax bounds how far -- keeping a sibling column's own
-    // label/value on the same row from getting swept in); wrapped
-    // continuation lines then run downward from that first line.
-    function valueNear(items, label, { xMin = 15, xMax = 450, aboveMin = 4, aboveMax = 16, maxLines = 1 } = {}) {
-        const firstLine = items.find(it =>
+    // See the module comment above: a value's first line normally sits a
+    // few points ABOVE the label, to the right of it (xMin bounds how
+    // close, xMax bounds how far -- keeping a sibling column's own
+    // label/value on the same row from getting swept in). Some of Coleby's
+    // older forms instead render the value essentially on the SAME line as
+    // the label (offset ~0, occasionally a touch below), so the window is
+    // wide enough to catch both layouts -- picking whichever candidate row
+    // sits closest to the label rather than assuming a fixed gap.
+    //
+    // pdf.js can also split one compact value (a date, a dollar amount)
+    // into several items on that same row around a kerning gap -- e.g.
+    // "6/5" + "/2026". Every item on the chosen row is merged left to
+    // right, with no space when the next fragment starts with something
+    // other than a letter (still the same token) and a space when it
+    // starts with a letter (a genuinely new word).
+    function valueNear(items, label, { xMin = 15, xMax = 450, aboveMin = -5, aboveMax = 16, maxLines = 1 } = {}) {
+        const candidates = items.filter(it =>
             it !== label && !isLabelItem(it) &&
             it.x > label.x + xMin && it.x <= label.x + xMax &&
             (label.y - it.y) >= aboveMin && (label.y - it.y) <= aboveMax
         );
-        if (!firstLine) return "";
+        if (!candidates.length) return "";
 
-        const collected = [firstLine.str.trim()];
-        let cursorY = firstLine.y;
+        candidates.sort((a, b) => Math.abs(label.y - a.y) - Math.abs(label.y - b.y));
+        const anchor = candidates[0];
+
+        const row = candidates
+            .filter(it => Math.abs(it.y - anchor.y) <= 2)
+            .sort((a, b) => a.x - b.x);
+        let firstLineStr = "";
+        row.forEach((it, i) => {
+            const str = it.str.trim();
+            if (i > 0 && /^[A-Za-z]/.test(str)) firstLineStr += " ";
+            firstLineStr += str;
+        });
+
+        const collected = [firstLineStr.trim()];
+        let cursorY = anchor.y;
         for (let i = 1; i < maxLines; i++) {
             const nextLine = items.find(it =>
                 !isLabelItem(it) &&
@@ -144,8 +184,21 @@ window.LegacyFormsImport = (function () {
     function findTotalsAmount(items) {
         const totals = findOne(items, /^Totals$/);
         if (!totals) return "";
-        const amount = items.find(it => (totals.y - it.y) >= 4 && (totals.y - it.y) <= 12 && /^\$[\d,]+\.\d{2}$/.test(it.str.trim()));
-        return amount ? amount.str.trim() : "";
+        // The grand total can render as one item ("$439.77") or, on some of
+        // Coleby's older forms, land exactly on the Totals row instead of a
+        // few points above it, and/or get split by pdf.js into several items
+        // around the "$" or a comma (e.g. "$" + "2" + ",040.00"). Gather
+        // everything in that row band, concatenate it left to right (the
+        // "Project Additional Cost" label text riding the same row is
+        // harmless -- it just doesn't match the amount pattern), and search
+        // the combined string instead of requiring one item to match outright.
+        const rowText = items
+            .filter(it => (totals.y - it.y) >= -5 && (totals.y - it.y) <= 12)
+            .sort((a, b) => a.x - b.x)
+            .map(it => it.str.trim())
+            .join("");
+        const match = /\$[\d,]+\.\d{2}/.exec(rowText);
+        return match ? match[0] : "";
     }
 
     function findBuildingNumbers(items, headerPattern = /^Building No\.?$/) {
@@ -169,9 +222,12 @@ window.LegacyFormsImport = (function () {
     }
 
     function parseDateGuess(str) {
-        const m = /(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(str || "");
+        // Accept a 2-digit year too -- some of Coleby's older forms write
+        // the effective date as "6/5/26" rather than "6/5/2026".
+        const m = /(\d{1,2})\/(\d{1,2})\/(\d{2,4})/.exec(str || "");
         if (!m) return "";
-        const [, mo, day, yr] = m;
+        let [, mo, day, yr] = m;
+        if (yr.length === 2) yr = `20${yr}`;
         return `${yr}-${mo.padStart(2, "0")}-${day.padStart(2, "0")}`;
     }
 
@@ -181,7 +237,7 @@ window.LegacyFormsImport = (function () {
         const { id } = findKindAndId(fullText);
 
         const vendorLabel = findOne(items, /^Name$/); // second line of stacked "Vendor" / "Name"
-        const vendorName = vendorLabel ? valueNear(items, vendorLabel, { xMin: 20, xMax: 450, aboveMin: 4, aboveMax: 40 }) : "";
+        const vendorName = vendorLabel ? valueNear(items, vendorLabel, { xMin: 20, xMax: 450, aboveMin: -5, aboveMax: 40 }) : "";
 
         const projectLabel = findOne(items, /^Project Name:$/);
         // Narrow xMax -- this table cell is only ~80pt of actual text
