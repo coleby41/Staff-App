@@ -566,7 +566,6 @@
         if (!buildings) { setMessage("Please enter the building.", "error"); return; }
         if (looksLikeMultipleValues(buildings)) { setMessage("Building must be a single identifier (e.g. \"1\") — it's used for BC/VPO numbering. Submit a separate report for each additional building.", "error"); return; }
         if (!unitNumbers) { setMessage("Please enter the unit number.", "error"); return; }
-        if (looksLikeMultipleValues(unitNumbers)) { setMessage("Unit Number must be a single value (e.g. \"311\") — list any additional units in Reason for Report instead.", "error"); return; }
         if (!person) { setMessage("Please enter who's making this report.", "error"); return; }
         if (!reasonPlainText) { setMessage("Please enter a reason for this report.", "error"); return; }
         if (!whoCaused) { setMessage("Please enter who caused the issue.", "error"); return; }
