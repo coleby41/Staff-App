@@ -82,6 +82,7 @@ window.ProjectFields = (function () {
         {
             key: "contracts_procurement", number: "05", label: "Contracts & Procurement",
             subfolders: [
+                { key: "Project Forms Downloadable", label: "Project Form Downloadable" },
                 { key: "general_contractor", label: "General Contractor" },
                 { key: "subcontractors", label: "Subcontractors" },
                 { key: "vendors", label: "Vendors" },
