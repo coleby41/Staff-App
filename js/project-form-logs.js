@@ -579,7 +579,7 @@
         // project_total_at_creation, stored separately as a real integer
         // (see sql/supabase-bc-vpo-setup.sql section 4/5) -- while BC/IR's
         // number has to be parsed out of their text bc_number/ir_number.
-        const vpoRows = sortByIdNumberDesc(vpoResult.data || [], r => r.project_total_at_creation ?? -Infinity);
+        const vpoRows = sortByIdNumberDesc(vpoResult.data || [], r => r.project_total_at_creation ?? trailingIdNumber(r.vpo_number)); // imported VPOs have no stored total -- read it off the id
         const bcRows = sortByIdNumberDesc(bcResult.data || [], r => trailingIdNumber(r.bc_number));
         const irRows = sortByIdNumberDesc(irResult.data || [], r => trailingIdNumber(r.ir_number));
 
