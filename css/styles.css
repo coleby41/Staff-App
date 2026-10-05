@@ -13887,3 +13887,39 @@ body.gm-page {
 @media (max-width: 480px) {
     #notificationDropdown { width: calc(100vw - 24px); }
 }
+
+/* ===========================
+   PROJECT MEMBERS POPUP (js/project-members.js)
+   Opened by right-clicking a project card on Project Overview. 2026-10-05
+=========================== */
+.pm-popup { width: min(94vw, 640px); max-height: 86vh; display: flex; flex-direction: column; }
+.pm-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+.pm-header h2 { margin: 2px 0 0; font-size: 1.25rem; color: var(--accent-strong); }
+.pm-eyebrow { margin: 0; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-soft); }
+.pm-readonly-note { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: var(--surface-alt); color: var(--text-soft); font-size: 0.86rem; }
+
+.pm-add { display: flex; gap: 8px; margin-bottom: 4px; }
+.pm-add select { flex: 1 1 auto; min-width: 0; height: 40px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; font: inherit; font-size: 0.9rem; }
+.pm-add #pmAddRole { flex: 0 0 150px; }
+.pm-add .auth-button { flex: 0 0 auto; width: auto; height: 40px; padding: 0 18px; margin: 0; }
+
+.pm-list { overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; }
+.pm-list:empty { display: none; }
+.pm-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.pm-row:last-child { border-bottom: none; }
+.pm-row:hover { background: var(--surface-alt); }
+.pm-row-name { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.pm-row-name strong { font-size: 0.92rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pm-row-name span { font-size: 0.78rem; color: var(--text-soft); }
+.pm-role-select { flex: 0 0 150px; height: 34px; padding: 0 8px; border: 1px solid var(--border); border-radius: 8px; background: #fff; font: inherit; font-size: 0.86rem; }
+.pm-fin { display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; color: var(--text-soft); cursor: pointer; white-space: nowrap; }
+.pm-remove-btn { flex: 0 0 auto; width: 30px; height: 30px; border: none; border-radius: 8px; background: transparent; color: var(--text-soft); cursor: pointer; }
+.pm-remove-btn:hover { background: var(--danger-soft); color: var(--danger); }
+.pm-empty { margin: 10px 0 0; color: var(--text-soft); font-size: 0.88rem; text-align: center; }
+
+@media (max-width: 560px) {
+    .pm-add { flex-wrap: wrap; }
+    .pm-add #pmAddRole { flex: 1 1 auto; }
+    .pm-row { flex-wrap: wrap; }
+    .pm-role-select { flex: 1 1 auto; }
+}
