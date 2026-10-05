@@ -49,7 +49,7 @@ async function loadNotifications() {
         .from("notifications")
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(50); // enough for an accurate badge; the dropdown only SHOWS the newest 2
 
     query = userId
         ? query.or(`user_id.is.null,user_id.eq.${userId}`)
@@ -119,41 +119,121 @@ function toastNewNotifications() {
     try { localStorage.setItem(TOASTED_KEY, JSON.stringify([...toasted].slice(-200))); } catch {}
 }
 
+const DROPDOWN_LIMIT = 2;
+
+function notifyTimeAgo(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const min = Math.round((Date.now() - d.getTime()) / 60000);
+    if (min < 1) return "Just now";
+    if (min < 60) return `${min}m ago`;
+    if (min < 60 * 24) return `${Math.round(min / 60)}h ago`;
+    if (min < 60 * 24 * 7) return `${Math.round(min / 1440)}d ago`;
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+// Picks the round icon on the left from the notification's wording:
+// approved/submitted/complete = green check, rejected/denied = red X,
+// form/document/file = blue doc, anything else = blue bell.
+function notifyIconType(n) {
+    const t = `${n.title || ""} ${n.message || ""}`.toLowerCase();
+    if (/reject|denied|declin|fail|overdue|expired/.test(t)) return "danger";
+    if (/approv|submitted|complete|success|paid/.test(t)) return "success";
+    if (/form|document|file|w-?9|w-?2|1099|coi|report/.test(t)) return "doc";
+    return "bell";
+}
+
+// Blue "Showing your last 2 notifications" banner under the header, which
+// links to the notification center. Injected here so the 19 pages that share
+// the bell markup don't each need an HTML edit.
+function ensureDropdownBanner() {
+    const dropdown = document.getElementById("notificationDropdown");
+    const list = document.getElementById("notificationList");
+    if (!dropdown || !list) return null;
+
+    let banner = dropdown.querySelector(".notif-banner");
+    if (!banner) {
+        banner = document.createElement("a");
+        banner.className = "notif-banner";
+        banner.href = "/pages/notifications.html";
+        banner.innerHTML = `
+            <span class="notif-banner-icon" aria-hidden="true">i</span>
+            <span class="notif-banner-text">
+                <strong class="notif-banner-title"></strong>
+                <span class="notif-banner-copy"></span>
+            </span>`;
+        list.parentNode.insertBefore(banner, list);
+    }
+    return banner;
+}
+
 function renderNotifications() {
+    const banner = ensureDropdownBanner();
     const list = document.getElementById("notificationList");
     const empty = document.getElementById("notificationEmpty");
     const countEl = document.querySelector(".notification-count");
+    const total = currentNotifications.length;
 
     if (countEl) {
-        if (currentNotifications.length > 0) {
+        if (total > 0) {
             countEl.style.display = "inline-flex";
-            countEl.textContent = currentNotifications.length > 9 ? "9+" : String(currentNotifications.length);
+            countEl.textContent = total > 9 ? "9+" : String(total);
         } else {
             countEl.style.display = "none";
+        }
+    }
+
+    if (banner) {
+        const title = banner.querySelector(".notif-banner-title");
+        const copy = banner.querySelector(".notif-banner-copy");
+        if (total > DROPDOWN_LIMIT) {
+            title.textContent = `Showing your last ${DROPDOWN_LIMIT} notifications`;
+            copy.innerHTML = `Only the most recent two are displayed here. You'll see the full list in your <u>notifications page</u>.`;
+        } else {
+            title.textContent = "Your notifications";
+            copy.innerHTML = `See everything, including ones you've read, in your <u>notifications page</u>.`;
         }
     }
 
     if (!list) return;
     list.innerHTML = "";
 
-    if (currentNotifications.length === 0) {
+    if (total === 0) {
+        list.classList.remove("notif-card");
         if (empty) empty.style.display = "block";
         return;
     }
     if (empty) empty.style.display = "none";
+    list.classList.add("notif-card");
 
-    currentNotifications.forEach(n => {
-        const div = document.createElement("div");
-        div.className = "notification-item";
+    // Dropdown only shows the 2 most recent unread — everything else lives in
+    // the notification center (pages/notifications.html) via the banner.
+    currentNotifications.slice(0, DROPDOWN_LIMIT).forEach(n => {
+        const row = document.createElement("div");
+        row.className = "notif-row" + (n.link_url ? " notif-row--link" : "");
         const linkHtml = n.link_url
-            ? `<a class="notification-link" href="${notifyEscapeHtml(n.link_url)}">${notifyEscapeHtml(n.link_label || "View it here")}</a>`
+            ? `<a class="notif-row-link" href="${notifyEscapeHtml(n.link_url)}">${notifyEscapeHtml(n.link_label || "View it here")}</a>`
             : "";
-        div.innerHTML = `
-            <strong>${notifyEscapeHtml(n.title)}</strong>
-            <p>${notifyEscapeHtml(n.message)}</p>
-            ${linkHtml}
+        row.innerHTML = `
+            <span class="notif-icon notif-icon--${notifyIconType(n)}" aria-hidden="true"></span>
+            <div class="notif-row-body">
+                <div class="notif-row-top">
+                    <strong>${notifyEscapeHtml(n.title)}</strong>
+                    <span class="notif-row-time">${notifyTimeAgo(n.created_at)}</span>
+                </div>
+                <p>${notifyEscapeHtml(n.message)}</p>
+                ${linkHtml}
+            </div>
+            ${n.link_url ? '<span class="notif-chevron" aria-hidden="true"></span>' : ""}
         `;
-        list.appendChild(div);
+        // Whole row is clickable (the chevron), not just "View it here".
+        if (n.link_url) {
+            row.addEventListener("click", function (e) {
+                if (e.target.closest("a")) return;
+                window.location.href = n.link_url;
+            });
+        }
+        list.appendChild(row);
     });
 }
 
@@ -224,6 +304,7 @@ function initNotifications(attempts) {
 }
 
 function startNotifications() {
+    ensureDropdownBanner();
     wireMarkReadButton();
     wireBellRefresh();
     initNotifications();
