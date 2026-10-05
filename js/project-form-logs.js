@@ -961,9 +961,12 @@
     //      never touches that live counter either (only the IR side now
     //      consumes real numbering, not the VPO side).
     //   4. The original old PDF itself, filed into Project Files under VPO
-    //      With Signature (Coleby, re: this form's blank signature lines:
-    //      "approved another way (verbal/email)... Normal" -- so treated
-    //      the same as a signed record, not routed to Without Signature).
+    //      Without Signature -- same default subfolder a freshly auto-
+    //      generated VPO gets (2026-10-05: reversed from an earlier version
+    //      that filed these into With Signature on the reasoning that an old
+    //      form's blank signature line was "approved another way... Normal";
+    //      Coleby asked for Without Signature instead, so this no longer
+    //      special-cases a migrated record's folder at all).
     // Any missing text field becomes "N/A" here (Coleby: "if there is no
     // info for that input put N/A"); a missing price/date -- which can't be
     // "N/A", they're a number/date column -- fall back to 0 / today.
@@ -1135,7 +1138,7 @@
                 fileName: row.file.name,
                 contentType: "application/pdf",
                 staffName,
-                subSubfolderOverride: "vpo_with_signature",
+                subSubfolderOverride: "vpo_without_signature",
             });
         } catch (fileErr) {
             // Same "the record itself is safe even if filing fails" handling
@@ -1153,8 +1156,8 @@
     // best-effort IR summary PDF, then the actual back_charges row (mirroring
     // confirmBc()'s insert in js/account-activity.js, with the OLD id
     // preserved as bc_number exactly as scraped instead of next_bc_number()),
-    // then the original old PDF filed into Project Files under BC With
-    // Signature (same "approved another way... Normal" treatment as VPO).
+    // then the original old PDF filed into Project Files under BC Without
+    // Signature (same reversal as VPO above, 2026-10-05).
     async function createLegacyBcFromRow(row) {
         const staff = getLegacyStaffProfile();
         const staffId = staff?.id || staff?.uid || null;
@@ -1295,7 +1298,7 @@
                 fileName: row.file.name,
                 contentType: "application/pdf",
                 staffName,
-                subSubfolderOverride: "bc_with_signature",
+                subSubfolderOverride: "bc_without_signature",
             });
         } catch (fileErr) {
             console.error(`${row.oldId} was created but its old PDF couldn't be filed:`, fileErr);
