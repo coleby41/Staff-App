@@ -139,7 +139,9 @@
         const { data, error } = await window.supabaseClient
             .storage
             .from(file.bucket || PROJECT_DOCS_BUCKET)
-            .createSignedUrl(file.storage_path, 60 * 5);
+            // Save under the clean file_name (e.g. "VPO - VPO-HC-1-7-56.docx"),
+            // not the storage path's "<timestamp>-..." name -- same as Project Files' Download.
+            .createSignedUrl(file.storage_path, 60 * 5, file.file_name ? { download: file.file_name } : undefined);
 
         if (error || !data?.signedUrl) {
             console.error("Failed to create signed URL for filed document:", error);
