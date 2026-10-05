@@ -1006,98 +1006,125 @@
             .single();
         if (insertIrError) throw insertIrError;
 
-        // Same RPC/flow a real approval uses (see approveIncidentReport() in
-        // js/account-activity.js) -- grabs this project's next real
-        // ir_number and stamps the row approved in one atomic step.
-        const { data: approvedIr, error: approveError } = await window.supabaseClient
-            .rpc("finalize_incident_report_approval", { p_id: insertedIr.id });
-        if (approveError) throw approveError;
-        const irNumber = approvedIr.ir_number;
-
-        const { error: decisionError } = await window.supabaseClient
-            .from(IR_TABLE)
-            .update({
-                bc_vpo_decision: "vpo",
-                bc_vpo_decision_at: new Date().toISOString(),
-            })
-            .eq("id", insertedIr.id);
-        if (decisionError) throw decisionError;
-
+        // Everything from here through the VPO insert either finishes this
+        // record or must not leave the shell IR behind -- a thrown error in
+        // this block deletes insertedIr before re-throwing. Before this fix,
+        // a failure here (e.g. finalize_incident_report_approval erroring
+        // out) left the already-inserted shell IR committed and orphaned at
+        // pending_approval, with nothing to clean it up -- it just sat on
+        // Account Activity forever looking like a real report needing
+        // approval, and a retry created a second, successful shell right
+        // alongside it rather than replacing it (confirmed 2026-10-05: two
+        // "(Pending)" ghosts on Account Activity for amounts that already
+        // had real, finished VPO records in Form Logs).
+        let vpoRow;
         try {
-            const reportForPdf = {
-                report_date: reportDate,
-                price,
-                buildings,
-                unit_numbers: "N/A",
-                person_making_report: "N/A",
-                reason_for_report: reasonForReport,
-                change_in_scope: null,
-                who_caused_issue: "N/A",
-                attachments: [],
-            };
-            const baseBytes = await window.IncidentReportPdf.buildIncidentReportBasePdfBytes(reportForPdf, currentProject, irNumber);
-            const irFileName = `Incident Report - ${irNumber}.pdf`;
-            const irStoragePath = `${currentProject.id}/construction/incident_report/${Date.now()}-${irFileName}`;
+            // Same RPC/flow a real approval uses (see approveIncidentReport()
+            // in js/account-activity.js) -- grabs this project's next real
+            // ir_number and stamps the row approved in one atomic step.
+            const { data: approvedIr, error: approveError } = await window.supabaseClient
+                .rpc("finalize_incident_report_approval", { p_id: insertedIr.id });
+            if (approveError) throw approveError;
+            const irNumber = approvedIr.ir_number;
 
-            const { error: irUploadError } = await window.supabaseClient.storage
-                .from(PROJECT_DOCS_BUCKET)
-                .upload(irStoragePath, new Blob([baseBytes], { type: "application/pdf" }), { cacheControl: "3600", upsert: true, contentType: "application/pdf" });
-            if (irUploadError) throw irUploadError;
+            const { error: decisionError } = await window.supabaseClient
+                .from(IR_TABLE)
+                .update({
+                    bc_vpo_decision: "vpo",
+                    bc_vpo_decision_at: new Date().toISOString(),
+                })
+                .eq("id", insertedIr.id);
+            if (decisionError) throw decisionError;
 
-            const { data: irFileRow, error: irFileError } = await window.supabaseClient
-                .from(PROJECT_FILES_TABLE)
+            try {
+                const reportForPdf = {
+                    report_date: reportDate,
+                    price,
+                    buildings,
+                    unit_numbers: "N/A",
+                    person_making_report: "N/A",
+                    reason_for_report: reasonForReport,
+                    change_in_scope: null,
+                    who_caused_issue: "N/A",
+                    attachments: [],
+                };
+                const baseBytes = await window.IncidentReportPdf.buildIncidentReportBasePdfBytes(reportForPdf, currentProject, irNumber);
+                const irFileName = `Incident Report - ${irNumber}.pdf`;
+                const irStoragePath = `${currentProject.id}/construction/incident_report/${Date.now()}-${irFileName}`;
+
+                const { error: irUploadError } = await window.supabaseClient.storage
+                    .from(PROJECT_DOCS_BUCKET)
+                    .upload(irStoragePath, new Blob([baseBytes], { type: "application/pdf" }), { cacheControl: "3600", upsert: true, contentType: "application/pdf" });
+                if (irUploadError) throw irUploadError;
+
+                const { data: irFileRow, error: irFileError } = await window.supabaseClient
+                    .from(PROJECT_FILES_TABLE)
+                    .insert({
+                        project_id: currentProject.id,
+                        category: "construction",
+                        subfolder: "incident_report",
+                        bucket: PROJECT_DOCS_BUCKET,
+                        storage_path: irStoragePath,
+                        file_name: irFileName,
+                        source: "incident_report",
+                        incident_report_id: insertedIr.id,
+                        uploaded_by_name: staffName,
+                    })
+                    .select()
+                    .single();
+                if (irFileError) throw irFileError;
+
+                const { error: irLinkError } = await window.supabaseClient
+                    .from(IR_TABLE)
+                    .update({ project_file_id: irFileRow.id })
+                    .eq("id", insertedIr.id);
+                if (irLinkError) throw irLinkError;
+            } catch (irPdfErr) {
+                // Non-fatal -- see the comment above. Form Logs' "IR ID" column
+                // just falls back to its own "not filed yet" unlinked state for
+                // this row (same as a real IR whose filing failed) rather than
+                // this failing the whole migrated record.
+                console.warn(`Couldn't generate/file a summary Incident Report PDF for the shell IR behind ${row.oldId}:`, irPdfErr);
+            }
+
+            const { data: insertedVpo, error: vpoError } = await window.supabaseClient
+                .from(VPO_TABLE)
                 .insert({
-                    project_id: currentProject.id,
-                    category: "construction",
-                    subfolder: "incident_report",
-                    bucket: PROJECT_DOCS_BUCKET,
-                    storage_path: irStoragePath,
-                    file_name: irFileName,
-                    source: "incident_report",
                     incident_report_id: insertedIr.id,
-                    uploaded_by_name: staffName,
+                    project_id: currentProject.id,
+                    vpo_number: row.oldId,
+                    building_number: buildings,
+                    building_seq: null,
+                    project_total_at_creation: null,
+                    vendor_id: null,
+                    vendor_name: vendorName,
+                    project_name: currentProject.name || null,
+                    report_date: reportDate,
+                    unit_numbers: "N/A",
+                    person_making_report: "N/A",
+                    reason_for_report: reasonForReport,
+                    change_in_scope: null,
+                    price,
+                    created_by_id: staffId,
+                    created_by_name: staffName,
                 })
                 .select()
                 .single();
-            if (irFileError) throw irFileError;
-
-            const { error: irLinkError } = await window.supabaseClient
-                .from(IR_TABLE)
-                .update({ project_file_id: irFileRow.id })
-                .eq("id", insertedIr.id);
-            if (irLinkError) throw irLinkError;
-        } catch (irPdfErr) {
-            // Non-fatal -- see the comment above. Form Logs' "IR ID" column
-            // just falls back to its own "not filed yet" unlinked state for
-            // this row (same as a real IR whose filing failed) rather than
-            // this failing the whole migrated record.
-            console.warn(`Couldn't generate/file a summary Incident Report PDF for the shell IR behind ${row.oldId}:`, irPdfErr);
+            if (vpoError) throw vpoError;
+            vpoRow = insertedVpo;
+        } catch (createErr) {
+            // The shell IR never became a real VPO -- delete it so it
+            // doesn't sit on Account Activity forever as a stuck "needs
+            // approval" ghost. Best-effort: if the cleanup delete itself
+            // fails, the original error is still what the row's
+            // Status/retry should show, not the cleanup failure.
+            try {
+                await window.supabaseClient.from(IR_TABLE).delete().eq("id", insertedIr.id);
+            } catch (cleanupErr) {
+                console.error(`Also failed to clean up the stranded shell IR for ${row.oldId}:`, cleanupErr);
+            }
+            throw createErr;
         }
-
-        const { data: vpoRow, error: vpoError } = await window.supabaseClient
-            .from(VPO_TABLE)
-            .insert({
-                incident_report_id: insertedIr.id,
-                project_id: currentProject.id,
-                vpo_number: row.oldId,
-                building_number: buildings,
-                building_seq: null,
-                project_total_at_creation: null,
-                vendor_id: null,
-                vendor_name: vendorName,
-                project_name: currentProject.name || null,
-                report_date: reportDate,
-                unit_numbers: "N/A",
-                person_making_report: "N/A",
-                reason_for_report: reasonForReport,
-                change_in_scope: null,
-                price,
-                created_by_id: staffId,
-                created_by_name: staffName,
-            })
-            .select()
-            .single();
-        if (vpoError) throw vpoError;
 
         try {
             const fileBytes = new Uint8Array(await row.file.arrayBuffer());
@@ -1159,91 +1186,105 @@
             .single();
         if (insertIrError) throw insertIrError;
 
-        const { data: approvedIr, error: approveError } = await window.supabaseClient
-            .rpc("finalize_incident_report_approval", { p_id: insertedIr.id });
-        if (approveError) throw approveError;
-        const irNumber = approvedIr.ir_number;
-
-        const { error: decisionError } = await window.supabaseClient
-            .from(IR_TABLE)
-            .update({
-                bc_vpo_decision: "bc",
-                bc_vpo_decision_at: new Date().toISOString(),
-            })
-            .eq("id", insertedIr.id);
-        if (decisionError) throw decisionError;
-
+        // Same cleanup-on-failure shape as createLegacyVpoFromRow() above --
+        // see its comment for why: a failure anywhere in here must not leave
+        // the shell IR committed and orphaned at pending_approval.
+        let bcRow;
         try {
-            const reportForPdf = {
-                report_date: reportDate,
-                price,
-                buildings,
-                unit_numbers: "N/A",
-                person_making_report: "N/A",
-                reason_for_report: reasonForReport,
-                change_in_scope: null,
-                who_caused_issue: "N/A",
-                attachments: [],
-            };
-            const baseBytes = await window.IncidentReportPdf.buildIncidentReportBasePdfBytes(reportForPdf, currentProject, irNumber);
-            const irFileName = `Incident Report - ${irNumber}.pdf`;
-            const irStoragePath = `${currentProject.id}/construction/incident_report/${Date.now()}-${irFileName}`;
+            const { data: approvedIr, error: approveError } = await window.supabaseClient
+                .rpc("finalize_incident_report_approval", { p_id: insertedIr.id });
+            if (approveError) throw approveError;
+            const irNumber = approvedIr.ir_number;
 
-            const { error: irUploadError } = await window.supabaseClient.storage
-                .from(PROJECT_DOCS_BUCKET)
-                .upload(irStoragePath, new Blob([baseBytes], { type: "application/pdf" }), { cacheControl: "3600", upsert: true, contentType: "application/pdf" });
-            if (irUploadError) throw irUploadError;
+            const { error: decisionError } = await window.supabaseClient
+                .from(IR_TABLE)
+                .update({
+                    bc_vpo_decision: "bc",
+                    bc_vpo_decision_at: new Date().toISOString(),
+                })
+                .eq("id", insertedIr.id);
+            if (decisionError) throw decisionError;
 
-            const { data: irFileRow, error: irFileError } = await window.supabaseClient
-                .from(PROJECT_FILES_TABLE)
+            try {
+                const reportForPdf = {
+                    report_date: reportDate,
+                    price,
+                    buildings,
+                    unit_numbers: "N/A",
+                    person_making_report: "N/A",
+                    reason_for_report: reasonForReport,
+                    change_in_scope: null,
+                    who_caused_issue: "N/A",
+                    attachments: [],
+                };
+                const baseBytes = await window.IncidentReportPdf.buildIncidentReportBasePdfBytes(reportForPdf, currentProject, irNumber);
+                const irFileName = `Incident Report - ${irNumber}.pdf`;
+                const irStoragePath = `${currentProject.id}/construction/incident_report/${Date.now()}-${irFileName}`;
+
+                const { error: irUploadError } = await window.supabaseClient.storage
+                    .from(PROJECT_DOCS_BUCKET)
+                    .upload(irStoragePath, new Blob([baseBytes], { type: "application/pdf" }), { cacheControl: "3600", upsert: true, contentType: "application/pdf" });
+                if (irUploadError) throw irUploadError;
+
+                const { data: irFileRow, error: irFileError } = await window.supabaseClient
+                    .from(PROJECT_FILES_TABLE)
+                    .insert({
+                        project_id: currentProject.id,
+                        category: "construction",
+                        subfolder: "incident_report",
+                        bucket: PROJECT_DOCS_BUCKET,
+                        storage_path: irStoragePath,
+                        file_name: irFileName,
+                        source: "incident_report",
+                        incident_report_id: insertedIr.id,
+                        uploaded_by_name: staffName,
+                    })
+                    .select()
+                    .single();
+                if (irFileError) throw irFileError;
+
+                const { error: irLinkError } = await window.supabaseClient
+                    .from(IR_TABLE)
+                    .update({ project_file_id: irFileRow.id })
+                    .eq("id", insertedIr.id);
+                if (irLinkError) throw irLinkError;
+            } catch (irPdfErr) {
+                console.warn(`Couldn't generate/file a summary Incident Report PDF for the shell IR behind ${row.oldId}:`, irPdfErr);
+            }
+
+            const { data: insertedBc, error: bcError } = await window.supabaseClient
+                .from(BC_TABLE)
                 .insert({
-                    project_id: currentProject.id,
-                    category: "construction",
-                    subfolder: "incident_report",
-                    bucket: PROJECT_DOCS_BUCKET,
-                    storage_path: irStoragePath,
-                    file_name: irFileName,
-                    source: "incident_report",
                     incident_report_id: insertedIr.id,
-                    uploaded_by_name: staffName,
+                    project_id: currentProject.id,
+                    bc_number: row.oldId,
+                    vendor_to_charge_id: null,
+                    vendor_to_charge_name: vendorToChargeName,
+                    vendor_to_cr_back_id: null,
+                    vendor_to_cr_back_name: vendorToCrBackName,
+                    project_name: currentProject.name || null,
+                    report_date: reportDate,
+                    price,
+                    buildings,
+                    unit_numbers: "N/A",
+                    person_making_report: "N/A",
+                    reason_for_report: reasonForReport,
+                    change_in_scope: null,
+                    created_by_id: staffId,
+                    created_by_name: staffName,
                 })
                 .select()
                 .single();
-            if (irFileError) throw irFileError;
-
-            const { error: irLinkError } = await window.supabaseClient
-                .from(IR_TABLE)
-                .update({ project_file_id: irFileRow.id })
-                .eq("id", insertedIr.id);
-            if (irLinkError) throw irLinkError;
-        } catch (irPdfErr) {
-            console.warn(`Couldn't generate/file a summary Incident Report PDF for the shell IR behind ${row.oldId}:`, irPdfErr);
+            if (bcError) throw bcError;
+            bcRow = insertedBc;
+        } catch (createErr) {
+            try {
+                await window.supabaseClient.from(IR_TABLE).delete().eq("id", insertedIr.id);
+            } catch (cleanupErr) {
+                console.error(`Also failed to clean up the stranded shell IR for ${row.oldId}:`, cleanupErr);
+            }
+            throw createErr;
         }
-
-        const { data: bcRow, error: bcError } = await window.supabaseClient
-            .from(BC_TABLE)
-            .insert({
-                incident_report_id: insertedIr.id,
-                project_id: currentProject.id,
-                bc_number: row.oldId,
-                vendor_to_charge_id: null,
-                vendor_to_charge_name: vendorToChargeName,
-                vendor_to_cr_back_id: null,
-                vendor_to_cr_back_name: vendorToCrBackName,
-                project_name: currentProject.name || null,
-                report_date: reportDate,
-                price,
-                buildings,
-                unit_numbers: "N/A",
-                person_making_report: "N/A",
-                reason_for_report: reasonForReport,
-                change_in_scope: null,
-                created_by_id: staffId,
-                created_by_name: staffName,
-            })
-            .select()
-            .single();
-        if (bcError) throw bcError;
 
         try {
             const fileBytes = new Uint8Array(await row.file.arrayBuffer());
