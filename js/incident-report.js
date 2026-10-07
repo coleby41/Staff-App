@@ -452,10 +452,21 @@
         if (messageEl) { messageEl.textContent = "Saving…"; messageEl.className = "auth-message"; }
 
         try {
+            // upsert, not update -- a project can land in this popup before
+            // it has an incident_report_settings row of its own yet (see
+            // sql/supabase-fix-form-settings-missing-row.sql). A plain
+            // .update() against a project_id with no row matches zero rows
+            // (RLS filters zero rows the same way a genuinely missing row
+            // does), and the follow-on .select().single() then throws a 406
+            // instead of actually saving anything -- that was this error.
+            // default_approver_name is resolved client-side and sent along
+            // too rather than relying only on the update-stamp trigger,
+            // since that trigger doesn't fire on the insert half of an
+            // upsert.
+            const approverName = allStaff.find(s => String(s.id) === String(approverId))?.full_name || null;
             const { data, error } = await window.supabaseClient
                 .from(SETTINGS_TABLE)
-                .update({ default_approver_id: approverId })
-                .eq("project_id", projectId)
+                .upsert({ project_id: projectId, default_approver_id: approverId, default_approver_name: approverName }, { onConflict: "project_id" })
                 .select("default_approver_id, default_approver_name")
                 .single();
             if (error) throw error;
@@ -473,7 +484,17 @@
             if (messageEl) { messageEl.textContent = "Saved."; messageEl.className = "auth-message success"; }
         } catch (error) {
             console.error("Failed to save default approver:", error);
-            if (messageEl) { messageEl.textContent = "Something went wrong saving this. Please try again."; messageEl.className = "auth-message error"; }
+            // 42501 = Postgres "insufficient_privilege" -- RLS blocked this
+            // because the signed-in user isn't IT/Super Admin at the
+            // database level, not a bug. Everything else is a genuine
+            // unexpected failure.
+            const deniedByDb = error?.code === "42501";
+            if (messageEl) {
+                messageEl.textContent = deniedByDb
+                    ? "You don't have permission to do this."
+                    : "Something went wrong saving this. Please try again.";
+                messageEl.className = "auth-message error";
+            }
         } finally {
             if (saveBtn) saveBtn.disabled = false;
         }
