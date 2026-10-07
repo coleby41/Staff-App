@@ -44,7 +44,8 @@
     // same way either way; only ones missing `existing` get uploaded.
     let pendingAttachments = [];
     let attachmentIdSeq = 0;
-    let currentApproverSetting = null; // { default_approver_id, default_approver_name } for whichever project is currently selected
+    let currentApproverSetting = null; // { default_approver_id, default_approver_name } for whichever project is picked on the FORM itself (irProjectSelect) -- drives the no-approver banner/submit gate
+    let fsApproverSetting = null; // same shape, but for whichever project is picked INSIDE the Form Settings popup (irFsProjectSelect) -- independent of the form's own project picker, see 2026-10-07 "see all project settings" fix
 
     function incidentReportsCan(permissionKey) {
         return window.Permissions ? window.Permissions.hasPermission(permissionKey) : true;
@@ -366,8 +367,47 @@
         // picked -- on a blank/new form there's nothing to be missing yet.
         if (banner) banner.classList.toggle("hidden", !projectId || hasApprover);
         if (submitBtn) submitBtn.disabled = !hasApprover || !incidentReportsCan("incident_reports.submit");
+    }
 
+    /* ---------- Form Settings popup: project picker ---------- */
+    //
+    // The popup picks its OWN project independently of the form's own
+    // irProjectSelect above -- per Coleby: "I should be able to see all the
+    // project settings regarding the form in that popup, I should not
+    // [have to] select it on the form." Opening Form Settings with a
+    // project already chosen on the form just starts the popup on that
+    // same project as a convenience; changing the popup's own picker never
+    // writes back to the form, and vice versa.
+
+    function populateFsProjectSelect() {
+        const select = document.getElementById("irFsProjectSelect");
+        if (!select) return;
+        const previous = select.value;
+        select.innerHTML = `<option value="">Select a project…</option>` +
+            allProjects.map(p => `<option value="${irEscapeHtml(p.id)}">${irEscapeHtml(p.name || "Untitled project")}</option>`).join("");
+        // Keep whatever was already chosen inside the popup across reopens;
+        // only default to the form's own project the very first time (when
+        // the popup has never had a selection of its own yet).
+        const formProjectId = document.getElementById("irProjectSelect")?.value || "";
+        select.value = previous || formProjectId || "";
+    }
+
+    async function loadFsApproverSetting(projectId) {
+        if (!projectId) { fsApproverSetting = null; return; }
+        const { data, error } = await window.supabaseClient
+            .from(SETTINGS_TABLE)
+            .select("default_approver_id, default_approver_name")
+            .eq("project_id", projectId)
+            .maybeSingle();
+        if (error) { console.warn("Couldn't load approver setting:", error); return; }
+        fsApproverSetting = data || null;
+    }
+
+    async function refreshFormSettingsForSelectedProject() {
+        const projectId = document.getElementById("irFsProjectSelect")?.value || null;
+        await loadFsApproverSetting(projectId);
         updateFormSettingsApprovalTab();
+        updateFormSettingsTemplateTab();
     }
 
     /* ---------- Form Settings popup: Approval Settings tab ---------- */
@@ -377,7 +417,7 @@
         const noProjectEl = document.getElementById("irFsApprovalNoProject");
         const formEl = document.getElementById("irFsApprovalForm");
         const allowed = canManageApprovalSettings();
-        const projectId = document.getElementById("irProjectSelect")?.value;
+        const projectId = document.getElementById("irFsProjectSelect")?.value;
 
         if (lockedEl) lockedEl.classList.toggle("hidden", allowed);
         if (!allowed) { noProjectEl?.classList.add("hidden"); formEl?.classList.add("hidden"); return; }
@@ -390,8 +430,8 @@
         if (!select) return;
         const active = allStaff.filter(s => s.active !== false);
         select.innerHTML = active.map(s => `<option value="${irEscapeHtml(s.id)}">${irEscapeHtml(s.full_name || "Staff")}</option>`).join("");
-        if (currentApproverSetting && currentApproverSetting.default_approver_id) {
-            select.value = currentApproverSetting.default_approver_id;
+        if (fsApproverSetting && fsApproverSetting.default_approver_id) {
+            select.value = fsApproverSetting.default_approver_id;
         }
     }
 
@@ -399,7 +439,7 @@
         const select = document.getElementById("irFsApproverSelect");
         const messageEl = document.getElementById("irFsApproverMessage");
         const saveBtn = document.getElementById("irFsSaveApproverBtn");
-        const projectId = document.getElementById("irProjectSelect")?.value;
+        const projectId = document.getElementById("irFsProjectSelect")?.value;
 
         if (!canManageApprovalSettings()) {
             if (messageEl) { messageEl.textContent = "You don't have permission to do this."; messageEl.className = "auth-message error"; }
@@ -420,8 +460,16 @@
                 .single();
             if (error) throw error;
 
-            currentApproverSetting = data;
-            updateApproverUi();
+            fsApproverSetting = data;
+            updateFormSettingsApprovalTab();
+            // If the project being edited here is also the one currently
+            // selected on the form itself, keep that in sync too so its
+            // banner/submit button reflect the change immediately rather
+            // than only catching up on the next project-picker change.
+            if (projectId === document.getElementById("irProjectSelect")?.value) {
+                currentApproverSetting = data;
+                updateApproverUi();
+            }
             if (messageEl) { messageEl.textContent = "Saved."; messageEl.className = "auth-message success"; }
         } catch (error) {
             console.error("Failed to save default approver:", error);
@@ -459,7 +507,7 @@
         const file = inputEl.files && inputEl.files[0];
         inputEl.value = "";
         if (!file) return;
-        const projectId = document.getElementById("irProjectSelect")?.value;
+        const projectId = document.getElementById("irFsProjectSelect")?.value;
         if (!projectId) return;
 
         const statusEl = document.getElementById(kind === "bc" ? "irFsBcTemplateStatusText" : "irFsVpoTemplateStatusText");
@@ -489,7 +537,7 @@
         const noProjectEl = document.getElementById("irFsTemplateNoProject");
         const bodyEl = document.getElementById("irFsTemplateBody");
         const allowed = canManageTemplateSettings();
-        const projectId = document.getElementById("irProjectSelect")?.value;
+        const projectId = document.getElementById("irFsProjectSelect")?.value;
 
         if (lockedEl) lockedEl.classList.toggle("hidden", allowed);
         if (!allowed) { noProjectEl?.classList.add("hidden"); bodyEl?.classList.add("hidden"); return; }
@@ -523,9 +571,9 @@
         const messageEl = document.getElementById("irFsApproverMessage");
         if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
 
+        populateFsProjectSelect();
         switchFormSettingsTab(canManageApprovalSettings() ? "approval" : "template");
-        updateFormSettingsApprovalTab();
-        updateFormSettingsTemplateTab();
+        refreshFormSettingsForSelectedProject();
 
         document.getElementById("irFormSettingsOverlay")?.classList.remove("hidden");
         document.body.classList.add("popup-active");
@@ -542,20 +590,22 @@
         document.getElementById("irFormSettingsOverlay")?.addEventListener("click", (event) => {
             if (event.target.id === "irFormSettingsOverlay") closeFormSettingsPopup();
         });
+        document.getElementById("irFsProjectSelect")?.addEventListener("change", refreshFormSettingsForSelectedProject);
         document.getElementById("irFsApprovalTabBtn")?.addEventListener("click", () => switchFormSettingsTab("approval"));
         document.getElementById("irFsTemplateTabBtn")?.addEventListener("click", () => switchFormSettingsTab("template"));
         document.getElementById("irFsSaveApproverBtn")?.addEventListener("click", saveFormSettingsApprover);
         document.getElementById("irFsBcTemplateUploadInput")?.addEventListener("change", (event) => handleFormSettingsTemplateUpload("bc", event.target));
         document.getElementById("irFsVpoTemplateUploadInput")?.addEventListener("change", (event) => handleFormSettingsTemplateUpload("vpo", event.target));
 
-        // Settings are per-project now -- reload them whenever the project
-        // picker changes (setting .value programmatically, e.g. from
-        // loadReportForEdit(), does NOT fire this; that path reloads
-        // explicitly itself instead, see initIncidentReportPage() below).
+        // The form's own project picker still only drives the form's own
+        // no-approver banner/submit gate -- the popup's Approval/Template
+        // tabs are driven entirely by their own irFsProjectSelect above
+        // (setting .value programmatically, e.g. from loadReportForEdit(),
+        // does NOT fire this; that path reloads explicitly itself instead,
+        // see initIncidentReportPage() below).
         document.getElementById("irProjectSelect")?.addEventListener("change", async (event) => {
             await loadApproverSetting(event.target.value || null);
             updateApproverUi();
-            updateFormSettingsTemplateTab();
         });
 
         updateFormSettingsButtonVisibility();

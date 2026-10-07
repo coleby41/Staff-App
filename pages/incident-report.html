@@ -615,11 +615,18 @@
             <div>
                 <p class="aa-files-popup-eyebrow">The Leeward Group</p>
                 <h2>Form Settings</h2>
-                <p class="aa-files-popup-subtitle">Applies to whichever project is selected on the form above.</p>
+                <p class="aa-files-popup-subtitle">Pick a project below to see or change its approver and Word templates — independent of whichever project (if any) is selected on the form itself.</p>
             </div>
         </div>
 
         <div class="aa-corporate-popup-body">
+
+            <label class="auth-field">
+                Project
+                <select id="irFsProjectSelect">
+                    <option value="">Select a project…</option>
+                </select>
+            </label>
 
             <div class="dash-tabs">
                 <button type="button" class="dash-tab active" id="irFsApprovalTabBtn">Approval Settings</button>
@@ -629,7 +636,7 @@
             <!-- Approval Settings tab -->
             <div id="irFsApprovalPane">
                 <p class="auth-message error hidden" id="irFsApprovalLocked">You don't have permission to manage approval settings.</p>
-                <p class="auth-inline-copy hidden" id="irFsApprovalNoProject">Select a project on the form above first.</p>
+                <p class="auth-inline-copy hidden" id="irFsApprovalNoProject">Select a project above first.</p>
                 <div class="hidden" id="irFsApprovalForm">
                     <p class="auth-inline-copy">Whoever's picked here approves every incident report submitted for
                         this project from now on. A report already in progress keeps whoever it was submitted with.</p>
@@ -647,7 +654,7 @@
             <!-- Word Template Settings tab -->
             <div class="hidden" id="irFsTemplatePane">
                 <p class="auth-message error hidden" id="irFsTemplateLocked">You don't have permission to manage template settings.</p>
-                <p class="auth-inline-copy hidden" id="irFsTemplateNoProject">Select a project on the form above first.</p>
+                <p class="auth-inline-copy hidden" id="irFsTemplateNoProject">Select a project above first.</p>
                 <div class="hidden" id="irFsTemplateBody">
                     <p class="auth-inline-copy">Upload a Word template specific to this project — it's used instead
                         of the company default (or the built-in template) whenever a Back Charge or VPO is filed for

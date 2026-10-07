@@ -40,6 +40,18 @@
    you're looking at someone else's view, not your own.
 =========================== */
 
+// A null/omitted `permission` means "no view-gate exists for this tab yet
+// -- always visible to everyone" (computeAccessibleKeys() below treats a
+// falsy permission that way), NOT "visible to nobody." Incident Report and
+// Account Activity are both like this: anyone signed in can see/use them
+// today (per js/incident-report.js's own header comment), so there's never
+// been a general.view_* permission for either one -- but right-click
+// editing is driven purely by being LISTED here (see
+// wireRightClickEditors() below), independent of that permission field, so
+// both still need an entry to get a working right-click menu for their own
+// page-scoped permissions (incident_reports.submit/approve/
+// set_default_approver/manage_template_settings/view_all_activity, etc.) --
+// fixed 2026-10-07, they were simply missing from this list before.
 const NAV_ITEMS = [
     { key: "dashboard", selector: 'a[href="/pages/dashboard.html"]', permission: "general.view_dashboard", pageLabel: "Dashboard" },
     { key: "excel_workbook", selector: 'a[href="/pages/excel-workbook.html"]', permission: "general.view_excel_workbook_templates", pageLabel: "Excel Workbook Templates" },
@@ -51,7 +63,9 @@ const NAV_ITEMS = [
     { key: "create_account", selector: '.subnav a[href="/pages/admin-users.html"]', permission: "general.create_staff_account", pageLabel: "Create Account" },
     { key: "staff_users", selector: 'a[href="/pages/staff-users.html"]', permission: "general.view_staff_users", pageLabel: "Staff Users" },
     { key: "workgroups", selector: 'a[href="/pages/workgroups.html"]', permission: "general.manage_workgroups", pageLabel: "Workgroups" },
-    { key: "project_overview", selector: 'a[href="/pages/project-home.html"]', permission: "general.view_project_overview", pageLabel: "Project Overview" }
+    { key: "project_overview", selector: 'a[href="/pages/project-home.html"]', permission: "general.view_project_overview", pageLabel: "Project Overview" },
+    { key: "incident_report", selector: 'a[href="/pages/incident-report.html"]', permission: null, pageLabel: "Incident Report" },
+    { key: "account_activity", selector: 'a[href="/pages/account-activity.html"]', permission: null, pageLabel: "Account Activity" }
 ];
 
 // Bare, extensionless page name -> the NAV_ITEMS entry that page represents,
@@ -70,7 +84,9 @@ const PATH_TO_NAV_KEY = {
     "admin-users": "create_account",
     "staff-users": "staff_users",
     "workgroups": "workgroups",
-    "project-home": "project_overview"
+    "project-home": "project_overview",
+    "incident-report": "incident_report",
+    "account-activity": "account_activity"
 };
 
 // A few pages already have their own "restricted view" markup (built before
@@ -89,7 +105,12 @@ function navAccessCurrentFileName() {
 function computeAccessibleKeys() {
     const keys = new Set();
     NAV_ITEMS.forEach(item => {
-        if (window.Permissions.hasPermission(item.permission)) keys.add(item.key);
+        // No permission field = no view-gate for this tab yet -- always
+        // visible (see the NAV_ITEMS comment above). Passing a falsy key
+        // straight to hasPermission() would actually do the opposite (it'd
+        // come back false for everyone but Super Admin once permissions
+        // have loaded), so this has to be checked before calling it.
+        if (!item.permission || window.Permissions.hasPermission(item.permission)) keys.add(item.key);
     });
     return keys;
 }
