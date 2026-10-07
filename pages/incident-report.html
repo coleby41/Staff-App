@@ -701,6 +701,22 @@
 <script src="/js/permission-editor.js"></script>
 <script src="/js/nav-access.js"></script>
 <script src="/js/nav-approvals-badge.js"></script>
+
+<!-- pizzip + docxtemplater fill the BC/VPO .docx templates (the
+     {FIELD_NAME} tags) -- see js/bc-vpo-docs.js. window.PizZip and
+     window.docxtemplater (the constructor itself, not a namespace) are
+     the globals docxtemplater's own browser quickstart documents. Same
+     two libraries account-activity.html and project-form-logs.html load,
+     pinned to the same versions for consistency. Added 2026-10-07 -- the
+     Form Settings popup's Word Template Settings tab calls
+     window.BcVpoDocs directly from this page too (uploadTemplate/
+     getTemplateStatus), but this page never actually loaded bc-vpo-docs.js
+     or its two dependencies, so window.BcVpoDocs was undefined here the
+     whole time. -->
+<script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.7/dist/pizzip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.47.1/build/docxtemplater.min.js"></script>
+<script src="/js/bc-vpo-docs.js"></script>
+
 <script src="/js/incident-report.js"></script>
 
 <script>
