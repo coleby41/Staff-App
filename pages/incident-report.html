@@ -452,29 +452,23 @@
                 report is approved it's automatically numbered and filed to the project's Incident Report folder.
             </p>
         </div>
+        <!-- Shown only to whoever's workgroup has at least one of the two
+             Form Settings permissions (checked in updateFormSettingsButtonVisibility());
+             hidden entirely otherwise, same as the old Default Approver
+             card used to be. -->
+        <div class="hero-actions">
+            <button type="button" class="auth-button auth-button--secondary hidden" id="irFormSettingsBtn">
+                Form Settings
+            </button>
+        </div>
     </section>
 
-    <!-- Super Admin / IT only — the ONE default approver every incident
-         report routes to automatically at submission. Set once, changed
-         only when it needs to change; there is no per-report assignment. -->
-    <div class="card ir-approver-card hidden" id="irApproverCard">
-        <div class="ir-approver-row">
-            <div>
-                <p class="ir-approver-label">Default Approver</p>
-                <p class="ir-approver-value" id="irApproverValue">Not set</p>
-            </div>
-            <button type="button" class="workbook-btn" id="irSetApproverBtn">Set Approver</button>
-        </div>
-        <p class="auth-inline-copy ir-approver-hint">Only Super Admin and IT can see this. Whoever is set here
-            approves every incident report submitted from now on — set it once and you're done.</p>
-    </div>
-
-    <!-- Shown to non-admins only, only while no default approver has been
-         set yet (submission is blocked at the database level in that case
-         anyway — this just explains why). -->
+    <!-- Shown to anyone once a project's selected, only while that project
+         has no default approver set yet (submission is blocked at the
+         database level in that case anyway — this just explains why). -->
     <p class="auth-message error ir-no-approver-banner hidden" id="irNoApproverBanner">
-        No approver is set up for incident reports yet. Ask a Super Admin or IT staff member to set one before you
-        can submit.
+        No approver is set up for incident reports yet for this project. Ask a Super Admin or IT staff member to
+        set one from Form Settings before you can submit.
     </p>
 
     <!-- Shown only when this page was opened to fix and resubmit a
@@ -609,31 +603,77 @@
 
 </main>
 
-<!-- Set Approver — Super Admin / IT only. Sets the ONE default approver
-     for every incident report, one time; there's no per-report version of
-     this popup. -->
-<div class="popup-overlay hidden" id="irSetApproverOverlay">
-    <div class="popup">
-        <div class="modal-icon-header">
-            <span class="modal-icon" aria-hidden="true"></span>
+<!-- Form Settings — per-project. Approval Settings (who approves incident
+     reports for whichever project is picked above) and Word Template
+     Settings (this project's BC/VPO Word template) each live on their own
+     tab, each gated by its own permission so a workgroup can have one tab
+     without the other -- see canManageApprovalSettings() /
+     canManageTemplateSettings() in js/incident-report.js. -->
+<div class="popup-overlay hidden" id="irFormSettingsOverlay">
+    <div class="popup popup--corporate">
+        <div class="aa-files-popup-header">
             <div>
-                <h2>Set Default Approver</h2>
-                <p class="auth-inline-copy">Only Super Admin and IT can see or use this. Set this once — every
-                    incident report submitted from now on routes straight to whoever you pick here. A report already
-                    in progress keeps whoever it was submitted with.</p>
+                <p class="aa-files-popup-eyebrow">The Leeward Group</p>
+                <h2>Form Settings</h2>
+                <p class="aa-files-popup-subtitle">Applies to whichever project is selected on the form above.</p>
             </div>
         </div>
 
-        <label class="auth-field">
-            Approver
-            <select id="irSetApproverSelect"></select>
-        </label>
+        <div class="aa-corporate-popup-body">
 
-        <p class="auth-message" id="irSetApproverMessage" role="status"></p>
+            <div class="dash-tabs">
+                <button type="button" class="dash-tab active" id="irFsApprovalTabBtn">Approval Settings</button>
+                <button type="button" class="dash-tab" id="irFsTemplateTabBtn">Word Template Settings</button>
+            </div>
 
-        <div class="popup-buttons">
-            <button type="button" class="auth-button auth-button--secondary" id="irCancelSetApproverBtn">Cancel</button>
-            <button type="button" class="auth-button" id="irSaveSetApproverBtn">Save</button>
+            <!-- Approval Settings tab -->
+            <div id="irFsApprovalPane">
+                <p class="auth-message error hidden" id="irFsApprovalLocked">You don't have permission to manage approval settings.</p>
+                <p class="auth-inline-copy hidden" id="irFsApprovalNoProject">Select a project on the form above first.</p>
+                <div class="hidden" id="irFsApprovalForm">
+                    <p class="auth-inline-copy">Whoever's picked here approves every incident report submitted for
+                        this project from now on. A report already in progress keeps whoever it was submitted with.</p>
+                    <label class="auth-field">
+                        Approver
+                        <select id="irFsApproverSelect"></select>
+                    </label>
+                    <p class="auth-message" id="irFsApproverMessage" role="status"></p>
+                    <div class="popup-buttons">
+                        <button type="button" class="auth-button" id="irFsSaveApproverBtn">Save</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Word Template Settings tab -->
+            <div class="hidden" id="irFsTemplatePane">
+                <p class="auth-message error hidden" id="irFsTemplateLocked">You don't have permission to manage template settings.</p>
+                <p class="auth-inline-copy hidden" id="irFsTemplateNoProject">Select a project on the form above first.</p>
+                <div class="hidden" id="irFsTemplateBody">
+                    <p class="auth-inline-copy">Upload a Word template specific to this project — it's used instead
+                        of the company default (or the built-in template) whenever a Back Charge or VPO is filed for
+                        this project. A copy is also filed into this project's Contracts &amp; Procurement / Project
+                        Form Downloadable folder.</p>
+
+                    <p class="auth-inline-copy"><strong>Back Charge template</strong></p>
+                    <div class="aa-bc-vpo-template-status">
+                        <span id="irFsBcTemplateStatusText">Checking template…</span>
+                        <label class="aa-bc-vpo-template-upload-label" for="irFsBcTemplateUploadInput">Replace template</label>
+                        <input type="file" id="irFsBcTemplateUploadInput" accept=".docx" class="hidden" />
+                    </div>
+
+                    <p class="auth-inline-copy"><strong>VPO template</strong></p>
+                    <div class="aa-bc-vpo-template-status">
+                        <span id="irFsVpoTemplateStatusText">Checking template…</span>
+                        <label class="aa-bc-vpo-template-upload-label" for="irFsVpoTemplateUploadInput">Replace template</label>
+                        <input type="file" id="irFsVpoTemplateUploadInput" accept=".docx" class="hidden" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="irFsCloseBtn">Close</button>
+            </div>
+
         </div>
     </div>
 </div>

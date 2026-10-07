@@ -869,28 +869,13 @@
                 // No project or company-default template uploaded yet -- falls
                 // back to the built-in template shipped with the app itself
                 // (see js/bc-vpo-docs.js's KIND.bundledPath), so this is just
-                // informational, not a blocker.
-                statusEl.textContent = `Using the built-in ${label} template (${status.fileName}) — upload your own below to replace it.`;
+                // informational, not a blocker. Uploading one now happens
+                // from Form Settings on the Incident Report page, not here.
+                statusEl.textContent = `Using the built-in ${label} template (${status.fileName}) — upload a project-specific one from Form Settings on the Incident Report page to replace it.`;
             }
         } catch (err) {
             console.warn(`Couldn't check the ${kind} template status:`, err);
             statusEl.textContent = "Couldn't check the template status.";
-        }
-    }
-
-    async function handleBcVpoTemplateUpload(kind, projectId, inputEl) {
-        const file = inputEl.files && inputEl.files[0];
-        inputEl.value = "";
-        if (!file) return;
-
-        const statusEl = document.getElementById(kind === "bc" ? "aaBcTemplateStatusText" : "aaVpoTemplateStatusText");
-        if (statusEl) statusEl.textContent = "Uploading…";
-        try {
-            await window.BcVpoDocs.uploadTemplate(kind, projectId, file, state.myStaffId, state.myName);
-            await refreshBcVpoTemplateStatus(kind, projectId);
-        } catch (err) {
-            console.error(`Failed to upload the ${kind} template:`, err);
-            if (statusEl) statusEl.textContent = err.message || "Upload failed — please try again.";
         }
     }
 
@@ -1193,19 +1178,11 @@
         document.getElementById("aaBcOverlay")?.addEventListener("click", (event) => {
             if (event.target.id === "aaBcOverlay") closeBcPopup();
         });
-        document.getElementById("aaBcTemplateUploadInput")?.addEventListener("change", (event) => {
-            const report = state.pendingBcVpoReport;
-            if (report) handleBcVpoTemplateUpload("bc", report.project_id, event.target);
-        });
 
         document.getElementById("aaVpoCancelBtn")?.addEventListener("click", closeVpoPopup);
         document.getElementById("aaVpoConfirmBtn")?.addEventListener("click", confirmVpo);
         document.getElementById("aaVpoOverlay")?.addEventListener("click", (event) => {
             if (event.target.id === "aaVpoOverlay") closeVpoPopup();
-        });
-        document.getElementById("aaVpoTemplateUploadInput")?.addEventListener("change", (event) => {
-            const report = state.pendingBcVpoReport;
-            if (report) handleBcVpoTemplateUpload("vpo", report.project_id, event.target);
         });
     }
 

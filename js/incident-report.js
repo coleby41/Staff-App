@@ -5,14 +5,19 @@
    "right now just anyone, we'll work on this later" — narrowing this to a
    workgroup is a follow-up, not something this file needs to guess at).
 
-   The approver is set ONE TIME, globally, by Super Admin/IT — a "Set
-   Approver" button above the form, visible only to them, that reads/writes
-   the single-row incident_report_settings table (Coleby: "I want to set it
-   one time and be done with it"). Every report submitted after that is
-   routed automatically to whoever is set there (stamped by the
-   set_incident_report_defaults() trigger — see
-   sql/supabase-incident-reports-setup.sql — not by this file); if nobody
-   has set one yet, submission is blocked with a clear message.
+   The approver is set PER PROJECT (2026-10-07, reversed from the original
+   single company-wide setting) via the "Form Settings" button above the
+   form's project picker — its Approval Settings tab reads/writes that
+   project's own row in incident_report_settings (now keyed by project_id,
+   see sql/supabase-form-settings-per-project.sql). Every report submitted
+   for a project is routed automatically to whoever is set for THAT
+   project (stamped by the set_incident_report_defaults() trigger — see
+   sql/supabase-incident-reports-setup.sql/supabase-form-settings-per-project.sql
+   — not by this file); if nobody has set one yet for the selected
+   project, submission is blocked with a clear message. Form Settings'
+   other tab, Word Template Settings, is the per-project BC/VPO Word
+   template upload (moved here from an inline control that used to live on
+   the BC/VPO popups in js/account-activity.js) — see js/bc-vpo-docs.js.
 
    On submit: inserts a row into incident_reports (already
    `pending_approval`, already assigned, by the time it comes back),
@@ -39,11 +44,18 @@
     // same way either way; only ones missing `existing` get uploaded.
     let pendingAttachments = [];
     let attachmentIdSeq = 0;
-    let isAdmin = false;
-    let currentApproverSetting = null; // { default_approver_id, default_approver_name }
+    let currentApproverSetting = null; // { default_approver_id, default_approver_name } for whichever project is currently selected
 
     function incidentReportsCan(permissionKey) {
         return window.Permissions ? window.Permissions.hasPermission(permissionKey) : true;
+    }
+
+    function canManageApprovalSettings() {
+        return incidentReportsCan("incident_reports.set_default_approver");
+    }
+
+    function canManageTemplateSettings() {
+        return incidentReportsCan("incident_reports.manage_template_settings");
     }
 
     // Set once loadReportForEdit() finds a valid rejected report to edit —
@@ -333,67 +345,68 @@
         allStaff = data || [];
     }
 
-    async function loadApproverSetting() {
+    async function loadApproverSetting(projectId) {
+        if (!projectId) { currentApproverSetting = null; return; }
         const { data, error } = await window.supabaseClient
             .from(SETTINGS_TABLE)
             .select("default_approver_id, default_approver_name")
-            .eq("id", true)
+            .eq("project_id", projectId)
             .maybeSingle();
         if (error) { console.warn("Couldn't load approver setting:", error); return; }
         currentApproverSetting = data || null;
     }
 
     function updateApproverUi() {
-        const card = document.getElementById("irApproverCard");
-        const valueEl = document.getElementById("irApproverValue");
         const banner = document.getElementById("irNoApproverBanner");
         const submitBtn = document.getElementById("irSubmitBtn");
+        const projectId = document.getElementById("irProjectSelect")?.value;
         const hasApprover = !!(currentApproverSetting && currentApproverSetting.default_approver_id);
 
-        if (card) card.classList.toggle("hidden", !isAdmin);
-        if (valueEl) {
-            valueEl.textContent = hasApprover ? currentApproverSetting.default_approver_name || "Staff" : "Not set";
-        }
-        const setBtn = document.getElementById("irSetApproverBtn");
-        if (setBtn) setBtn.textContent = hasApprover ? "Change Approver" : "Set Approver";
-
-        if (banner) banner.classList.toggle("hidden", hasApprover || isAdmin);
+        // Only nag about a missing approver once a project's actually
+        // picked -- on a blank/new form there's nothing to be missing yet.
+        if (banner) banner.classList.toggle("hidden", !projectId || hasApprover);
         if (submitBtn) submitBtn.disabled = !hasApprover || !incidentReportsCan("incident_reports.submit");
+
+        updateFormSettingsApprovalTab();
     }
 
-    function openSetApproverPopup() {
-        const select = document.getElementById("irSetApproverSelect");
+    /* ---------- Form Settings popup: Approval Settings tab ---------- */
+
+    function updateFormSettingsApprovalTab() {
+        const lockedEl = document.getElementById("irFsApprovalLocked");
+        const noProjectEl = document.getElementById("irFsApprovalNoProject");
+        const formEl = document.getElementById("irFsApprovalForm");
+        const allowed = canManageApprovalSettings();
+        const projectId = document.getElementById("irProjectSelect")?.value;
+
+        if (lockedEl) lockedEl.classList.toggle("hidden", allowed);
+        if (!allowed) { noProjectEl?.classList.add("hidden"); formEl?.classList.add("hidden"); return; }
+
+        if (noProjectEl) noProjectEl.classList.toggle("hidden", !!projectId);
+        if (formEl) formEl.classList.toggle("hidden", !projectId);
+        if (!projectId) return;
+
+        const select = document.getElementById("irFsApproverSelect");
         if (!select) return;
         const active = allStaff.filter(s => s.active !== false);
         select.innerHTML = active.map(s => `<option value="${irEscapeHtml(s.id)}">${irEscapeHtml(s.full_name || "Staff")}</option>`).join("");
         if (currentApproverSetting && currentApproverSetting.default_approver_id) {
             select.value = currentApproverSetting.default_approver_id;
         }
-
-        const messageEl = document.getElementById("irSetApproverMessage");
-        if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
-
-        document.getElementById("irSetApproverOverlay")?.classList.remove("hidden");
-        document.body.classList.add("popup-active");
     }
 
-    function closeSetApproverPopup() {
-        document.getElementById("irSetApproverOverlay")?.classList.add("hidden");
-        document.body.classList.remove("popup-active");
-    }
+    async function saveFormSettingsApprover() {
+        const select = document.getElementById("irFsApproverSelect");
+        const messageEl = document.getElementById("irFsApproverMessage");
+        const saveBtn = document.getElementById("irFsSaveApproverBtn");
+        const projectId = document.getElementById("irProjectSelect")?.value;
 
-    async function saveApproverSetting() {
-        const select = document.getElementById("irSetApproverSelect");
-        const messageEl = document.getElementById("irSetApproverMessage");
-        const saveBtn = document.getElementById("irSaveSetApproverBtn");
-
-        if (!incidentReportsCan("incident_reports.set_default_approver")) {
+        if (!canManageApprovalSettings()) {
             if (messageEl) { messageEl.textContent = "You don't have permission to do this."; messageEl.className = "auth-message error"; }
             return;
         }
-
         const approverId = select?.value;
-        if (!approverId) return;
+        if (!approverId || !projectId) return;
 
         if (saveBtn) saveBtn.disabled = true;
         if (messageEl) { messageEl.textContent = "Saving…"; messageEl.className = "auth-message"; }
@@ -402,14 +415,14 @@
             const { data, error } = await window.supabaseClient
                 .from(SETTINGS_TABLE)
                 .update({ default_approver_id: approverId })
-                .eq("id", true)
+                .eq("project_id", projectId)
                 .select("default_approver_id, default_approver_name")
                 .single();
             if (error) throw error;
 
             currentApproverSetting = data;
             updateApproverUi();
-            closeSetApproverPopup();
+            if (messageEl) { messageEl.textContent = "Saved."; messageEl.className = "auth-message success"; }
         } catch (error) {
             console.error("Failed to save default approver:", error);
             if (messageEl) { messageEl.textContent = "Something went wrong saving this. Please try again."; messageEl.className = "auth-message error"; }
@@ -418,10 +431,134 @@
         }
     }
 
-    function initApproverSettingUi() {
-        document.getElementById("irSetApproverBtn")?.addEventListener("click", openSetApproverPopup);
-        document.getElementById("irCancelSetApproverBtn")?.addEventListener("click", closeSetApproverPopup);
-        document.getElementById("irSaveSetApproverBtn")?.addEventListener("click", saveApproverSetting);
+    /* ---------- Form Settings popup: Word Template Settings tab ---------- */
+
+    const BC_VPO_LABEL = { bc: "Back Charge", vpo: "VPO" };
+
+    async function refreshFormSettingsTemplateStatus(kind, projectId) {
+        const statusEl = document.getElementById(kind === "bc" ? "irFsBcTemplateStatusText" : "irFsVpoTemplateStatusText");
+        if (!statusEl || !projectId) return;
+        const label = BC_VPO_LABEL[kind];
+        statusEl.textContent = "Checking template…";
+        try {
+            const status = await window.BcVpoDocs.getTemplateStatus(kind, projectId);
+            if (status.source === "project") {
+                statusEl.textContent = `Using this project's ${label} template (${status.fileName}).`;
+            } else if (status.source === "default") {
+                statusEl.textContent = `Using the company default ${label} template (${status.fileName}) — upload one below to use a project-specific one instead.`;
+            } else {
+                statusEl.textContent = `Using the built-in ${label} template (${status.fileName}) — upload one below to replace it for this project.`;
+            }
+        } catch (err) {
+            console.warn(`Couldn't check the ${kind} template status:`, err);
+            statusEl.textContent = "Couldn't check the template status.";
+        }
+    }
+
+    async function handleFormSettingsTemplateUpload(kind, inputEl) {
+        const file = inputEl.files && inputEl.files[0];
+        inputEl.value = "";
+        if (!file) return;
+        const projectId = document.getElementById("irProjectSelect")?.value;
+        if (!projectId) return;
+
+        const statusEl = document.getElementById(kind === "bc" ? "irFsBcTemplateStatusText" : "irFsVpoTemplateStatusText");
+        if (statusEl) statusEl.textContent = "Uploading…";
+        try {
+            const profile = getIrStaffProfile();
+            const staffId = profile?.id || null;
+            const staffName = profile?.full_name || profile?.username || "Staff";
+            await window.BcVpoDocs.uploadTemplate(kind, projectId, file, staffId, staffName);
+            try {
+                await window.BcVpoDocs.fileTemplateCopyIntoProjectFiles(kind, projectId, file, staffName);
+            } catch (fileErr) {
+                // Non-fatal -- the real template upload above already
+                // succeeded and is what BC/VPO creation actually uses; this
+                // copy into Project Files is just for visibility.
+                console.warn(`Uploaded the ${kind} template, but couldn't also file a copy into Project Files:`, fileErr);
+            }
+            await refreshFormSettingsTemplateStatus(kind, projectId);
+        } catch (err) {
+            console.error(`Failed to upload the ${kind} template:`, err);
+            if (statusEl) statusEl.textContent = err.message || "Upload failed — please try again.";
+        }
+    }
+
+    function updateFormSettingsTemplateTab() {
+        const lockedEl = document.getElementById("irFsTemplateLocked");
+        const noProjectEl = document.getElementById("irFsTemplateNoProject");
+        const bodyEl = document.getElementById("irFsTemplateBody");
+        const allowed = canManageTemplateSettings();
+        const projectId = document.getElementById("irProjectSelect")?.value;
+
+        if (lockedEl) lockedEl.classList.toggle("hidden", allowed);
+        if (!allowed) { noProjectEl?.classList.add("hidden"); bodyEl?.classList.add("hidden"); return; }
+
+        if (noProjectEl) noProjectEl.classList.toggle("hidden", !!projectId);
+        if (bodyEl) bodyEl.classList.toggle("hidden", !projectId);
+        if (!projectId) return;
+
+        refreshFormSettingsTemplateStatus("bc", projectId);
+        refreshFormSettingsTemplateStatus("vpo", projectId);
+    }
+
+    /* ---------- Form Settings popup: shell (button, tabs, open/close) ---------- */
+
+    function updateFormSettingsButtonVisibility() {
+        const btn = document.getElementById("irFormSettingsBtn");
+        if (btn) btn.classList.toggle("hidden", !canManageApprovalSettings() && !canManageTemplateSettings());
+    }
+
+    function switchFormSettingsTab(tab) {
+        // Reuses the existing .dash-tab/.active tab-bar look (same classes
+        // as the Project Details/All Contacts tabs on Accounts) rather than
+        // introducing a new tab component just for this popup.
+        document.getElementById("irFsApprovalTabBtn")?.classList.toggle("active", tab === "approval");
+        document.getElementById("irFsTemplateTabBtn")?.classList.toggle("active", tab === "template");
+        document.getElementById("irFsApprovalPane")?.classList.toggle("hidden", tab !== "approval");
+        document.getElementById("irFsTemplatePane")?.classList.toggle("hidden", tab !== "template");
+    }
+
+    function openFormSettingsPopup() {
+        const messageEl = document.getElementById("irFsApproverMessage");
+        if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
+
+        switchFormSettingsTab(canManageApprovalSettings() ? "approval" : "template");
+        updateFormSettingsApprovalTab();
+        updateFormSettingsTemplateTab();
+
+        document.getElementById("irFormSettingsOverlay")?.classList.remove("hidden");
+        document.body.classList.add("popup-active");
+    }
+
+    function closeFormSettingsPopup() {
+        document.getElementById("irFormSettingsOverlay")?.classList.add("hidden");
+        document.body.classList.remove("popup-active");
+    }
+
+    function initFormSettingsUi() {
+        document.getElementById("irFormSettingsBtn")?.addEventListener("click", openFormSettingsPopup);
+        document.getElementById("irFsCloseBtn")?.addEventListener("click", closeFormSettingsPopup);
+        document.getElementById("irFormSettingsOverlay")?.addEventListener("click", (event) => {
+            if (event.target.id === "irFormSettingsOverlay") closeFormSettingsPopup();
+        });
+        document.getElementById("irFsApprovalTabBtn")?.addEventListener("click", () => switchFormSettingsTab("approval"));
+        document.getElementById("irFsTemplateTabBtn")?.addEventListener("click", () => switchFormSettingsTab("template"));
+        document.getElementById("irFsSaveApproverBtn")?.addEventListener("click", saveFormSettingsApprover);
+        document.getElementById("irFsBcTemplateUploadInput")?.addEventListener("change", (event) => handleFormSettingsTemplateUpload("bc", event.target));
+        document.getElementById("irFsVpoTemplateUploadInput")?.addEventListener("change", (event) => handleFormSettingsTemplateUpload("vpo", event.target));
+
+        // Settings are per-project now -- reload them whenever the project
+        // picker changes (setting .value programmatically, e.g. from
+        // loadReportForEdit(), does NOT fire this; that path reloads
+        // explicitly itself instead, see initIncidentReportPage() below).
+        document.getElementById("irProjectSelect")?.addEventListener("change", async (event) => {
+            await loadApproverSetting(event.target.value || null);
+            updateApproverUi();
+            updateFormSettingsTemplateTab();
+        });
+
+        updateFormSettingsButtonVisibility();
     }
 
     /* ---------- notify the assigned approver that a report is waiting ---------- */
@@ -691,19 +828,20 @@
         if (window.Permissions) {
             try { await window.Permissions.initPermissions(); } catch { /* incidentReportsCan() fails open regardless */ }
         }
-        isAdmin = incidentReportsCan("incident_reports.set_default_approver");
 
         renderTodayDate();
         initCurrencyInput();
         initAttachmentPicker();
-        initApproverSettingUi();
+        initFormSettingsUi();
         initAllRichTextEditors();
 
-        await Promise.all([loadIrProjects(), loadIrStaff(), loadApproverSetting()]);
-        updateApproverUi();
+        await Promise.all([loadIrProjects(), loadIrStaff()]);
 
         const editId = new URLSearchParams(window.location.search).get("edit");
         if (editId) await loadReportForEdit(editId);
+
+        await loadApproverSetting(document.getElementById("irProjectSelect")?.value || null);
+        updateApproverUi();
 
         const form = document.getElementById("incidentReportForm");
         if (form) form.addEventListener("submit", handleSubmit);

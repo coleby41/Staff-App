@@ -411,10 +411,69 @@ window.BcVpoDocs = (function () {
         return { projectFileId: filedRow.id, filedAt: nowIso, fileName, templateSource: templateStatus.source };
     }
 
+    // Files a COPY of a just-uploaded project-specific BC/VPO Word template
+    // into Project Files (Contracts & Procurement > Project Form
+    // Downloadable), so staff can browse to and download the current
+    // template without opening Form Settings. Called right after
+    // uploadTemplate() succeeds (js/incident-report.js's Form Settings
+    // popup); independent of it on purpose -- a failure here is non-fatal
+    // to the caller (the real template upload already succeeded and is
+    // what BC/VPO creation actually resolves against; this copy is only
+    // for visibility). Always replaces any previous copy for this kind
+    // under a fixed file name, rather than accumulating one per upload, so
+    // there's always exactly one current BC and one current VPO template
+    // showing in that folder.
+    async function fileTemplateCopyIntoProjectFiles(kind, projectId, file, staffName) {
+        const label = kind === "bc" ? "BC" : "VPO";
+        const fileName = `${label} Word Template.docx`;
+        const category = "contracts_procurement";
+        // Matches the subfolder key already present in js/project-fields.js's
+        // PROJECT_FILE_CATEGORIES taxonomy for Contracts & Procurement.
+        const subfolder = "Project Forms Downloadable";
+        const storagePath = `${projectId}/${category}/${subfolder}/${Date.now()}-${fileName}`;
+        const contentType = file.type || "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+        const fileBytes = new Uint8Array(await file.arrayBuffer());
+        const { error: uploadError } = await window.supabaseClient.storage
+            .from(PROJECT_DOCS_BUCKET)
+            .upload(storagePath, new Blob([fileBytes], { type: contentType }), {
+                cacheControl: "3600",
+                upsert: true,
+                contentType,
+            });
+        if (uploadError) throw uploadError;
+
+        // Replace rather than accumulate -- remove any prior filed copy for
+        // this project/kind before inserting the new project_files row.
+        const { error: deleteError } = await window.supabaseClient
+            .from("project_files")
+            .delete()
+            .eq("project_id", projectId)
+            .eq("category", category)
+            .eq("subfolder", subfolder)
+            .eq("file_name", fileName);
+        if (deleteError) console.warn(`Couldn't remove the previous filed ${label} template copy:`, deleteError);
+
+        const { error: fileError } = await window.supabaseClient
+            .from("project_files")
+            .insert({
+                project_id: projectId,
+                category,
+                subfolder,
+                bucket: PROJECT_DOCS_BUCKET,
+                storage_path: storagePath,
+                file_name: fileName,
+                source: "upload",
+                uploaded_by_name: staffName || null,
+            });
+        if (fileError) throw fileError;
+    }
+
     return {
         getTemplateStatus,
         uploadTemplate,
         fillAndFile,
         fileExistingDocument,
+        fileTemplateCopyIntoProjectFiles,
     };
 })();
