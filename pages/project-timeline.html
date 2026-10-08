@@ -29,6 +29,13 @@
 
     <div class="header-left">
 
+        <!-- Phone-only nav button (hidden above 820px via .menu-btn--mobile-only).
+             These project pages use the collapse tab instead of a hamburger on
+             desktop, but on a phone the sidebar is a hidden drawer, so without
+             this there's no way to reach the other project tabs. script.js
+             picks it up by id like every other page's #menuBtn. -->
+        <button class="menu-btn menu-btn--mobile-only" id="menuBtn" aria-label="Toggle navigation">☰</button>
+
         <div class="project-switcher" id="projectSwitcher">
             <button type="button" class="project-switcher-toggle" id="projectSwitcherToggle">
                 <div>
@@ -165,6 +172,25 @@
          cards, no extra dashboard widgets — the Gantt is the workspace.
          ==================================================================== -->
 
+    <!-- Phone warning: the schedule is a drag-and-drop Gantt workspace
+         (task list beside the chart) that can't be used on a phone-width
+         screen, so below 768px it's hidden and this notice shows instead.
+         Uses the shared .mobile-unavailable component (styles.css).
+         --contents keeps the wrapper out of the desktop flex layout
+         (body.timeline-page .main-content -> #schedWorkspace) entirely. -->
+    <div class="mobile-unavailable mobile-unavailable--contents">
+
+        <div class="mobile-unavailable__notice">
+            <span class="mobile-unavailable__notice-icon" aria-hidden="true">⚠️</span>
+            <div class="mobile-unavailable__notice-body">
+                <strong>Schedule needs a bigger screen</strong>
+                <p>The project timeline is a drag-and-drop Gantt chart that isn't practical on a phone. Switch to a tablet, laptop, or desktop to view or edit the schedule.</p>
+                <a class="mobile-unavailable__notice-cta" href="/pages/project-home.html">Back to Project Overview</a>
+            </div>
+        </div>
+
+        <div class="mobile-unavailable__content">
+
     <div class="sched-toolbar" id="schedToolbar" style="display:none;">
 
         <div class="sched-toolbar-row sched-toolbar-row--phases">
@@ -279,6 +305,9 @@
 
         </div>
     </div>
+
+        </div><!-- /.mobile-unavailable__content -->
+    </div><!-- /.mobile-unavailable -->
 
     <div class="gantt-hover-card hidden" id="ganttHoverCard">
         <div class="gantt-hover-card-title" id="ganttHoverCardTitle"></div>

@@ -1322,6 +1322,10 @@ async function openFillFormModal(record, existingSubmission) {
 
     initFillFormAttachments(record, existingSubmission);
 
+    // Phone layout: PDF-overlay forms get swapped for a "needs a bigger
+    // screen" notice below 768px (see .fill-form--pdf in styles.css).
+    document.getElementById("fillForm")?.classList.toggle("fill-form--pdf", Boolean(record.pdf_path));
+
     document.getElementById("fillFormModalOverlay")?.classList.remove("hidden");
     document.body.classList.add("popup-active");
 

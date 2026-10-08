@@ -13923,3 +13923,324 @@ body.gm-page {
     .pm-row { flex-wrap: wrap; }
     .pm-role-select { flex: 1 1 auto; }
 }
+
+/* ============================================================
+   MOBILE PASS (2026-10-08)
+
+   One sweep through every page at phone width (390px, plus 360px for
+   small Androids), fixing what actually broke. Everything here is scoped
+   to a media query or a single page's id, so desktop layouts don't move.
+   Breakpoints match the ones already in use: 820px is where the sidebar
+   becomes a drawer (script.js SIDEBAR_MOBILE_BREAKPOINT), 768px is the
+   .mobile-unavailable cutoff, 640px is the single-column card cutoff.
+============================================================ */
+
+/* ---------- Phone-only menu button (project pages) ----------
+   projects.html and the project sub-pages use the sidebar collapse tab
+   on desktop instead of a hamburger, so they had no #menuBtn at all, and
+   on a phone (where the sidebar is a hidden drawer) there was no way to
+   get to the other project tabs. Those pages now carry a #menuBtn with
+   this modifier, shown only at drawer widths. */
+.menu-btn--mobile-only {
+  display: none;
+}
+
+@media (max-width: 820px) {
+  .menu-btn--mobile-only {
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  /* The desktop collapse tab hangs off the sidebar's right edge, which
+     on a phone is off-screen. It ended up floating over the header. The
+     drawer + menu button replace it here. */
+  .sidebar-collapse-toggle {
+    display: none !important;
+  }
+
+  /* Project name in the header was 1.4rem and wrapped to three lines,
+     making the header taller than --header-height so it covered the top
+     of the page. Keep it on one line and let it truncate instead. */
+  .header-left {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .project-switcher {
+    min-width: 0;
+  }
+
+  .project-switcher-toggle {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .project-switcher-toggle > div {
+    min-width: 0;
+  }
+
+  .project-switcher-toggle .brand-title {
+    font-size: 1.05rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .project-breadcrumb {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .header-right {
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Breadcrumb is redundant with the drawer's own nav at this size,
+     and dropping it buys the project name the room it needs. */
+  .project-breadcrumb {
+    display: none;
+  }
+}
+
+/* ---------- Popups ----------
+   .popup has no max-height, so a tall form popup (e.g. the Add Contact /
+   Organization / Gov Office popups on Accounts / Contacts) ran off the
+   top and bottom of a phone screen with no way to scroll to its buttons.
+   Let the overlay itself scroll; margin:auto keeps short popups centered
+   and pins tall ones to the top instead of clipping them. */
+@media (max-width: 820px) {
+  .popup-overlay {
+    align-items: flex-start;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px 0;
+  }
+
+  .popup-overlay > .popup {
+    margin: auto;
+    flex-shrink: 0;
+  }
+
+  .popup {
+    padding: 20px 18px;
+  }
+}
+
+/* ---------- Dashboard ----------
+   The 1fr columns used here size to their content's min-width, so the
+   no-wrap task titles in My Tasks pushed the wide cards ~90px past the
+   edge of the screen. minmax(0, 1fr) lets them shrink and truncate. */
+@media (max-width: 1200px) {
+  .dashboard-bottom-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .dashboard-top-grid { grid-template-columns: minmax(0, 1fr); }
+
+  .dashboard-top-grid > *,
+  .dashboard-bottom-grid > * {
+    min-width: 0;
+  }
+}
+
+/* ---------- Vendors toolbar ----------
+   The search + "More Actions" pill kept its 260px min-width on phones
+   (the existing 480px override sits above the base rule in this file,
+   so the base rule won), pushing the button off-screen. */
+@media (max-width: 480px) {
+  .vendor-search-actions-group {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+    flex: 0 0 auto;
+    align-self: stretch;
+  }
+
+  .vendor-search-actions-group .workbook-search-input {
+    width: auto;
+    flex: 1 1 0;
+  }
+
+  .vendor-search-actions-group .vendor-toolbar-menu-btn {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+/* ---------- Tab strips ----------
+   .dash-tabs (Accounts / Contacts, payroll, etc.) didn't wrap or
+   scroll, so the fourth tab ran off the screen. Scroll sideways like a
+   native tab bar instead. */
+@media (max-width: 640px) {
+  .dash-tabs {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .dash-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .dash-tab {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+
+/* ---------- Tables ----------
+   Tables already scroll sideways inside .table-wrap, but at a 480px
+   minimum the wider ones (Form Logs: ID / IR ID / Vendor / Date /
+   Comment / Amount / Actions) squeezed every column down to one or two
+   words per line. Let them be as wide as they need and scroll. */
+@media (max-width: 640px) {
+  /* Size each table to its content (never narrower than the screen),
+     capping any one column at 220px so long comments wrap instead of
+     making one giant column. Short columns (IDs, dates) stay on one line. */
+  .table-wrap > .dash-queue-table {
+    width: max-content;
+    min-width: 100%;
+  }
+
+  .table-wrap > .dash-queue-table th,
+  .table-wrap > .dash-queue-table td {
+    max-width: 220px;
+  }
+}
+
+/* ---------- My Tasks: Open / All toggle ----------
+   This reuses the icon view-toggle, whose buttons are 38px squares,
+   too narrow for the words "Open" / "All" (the label overlapped the
+   indicator at every screen size). Widen just this instance. */
+#taskFilterToggle .view-toggle-btn {
+  width: 52px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+#taskFilterToggle .view-toggle-indicator {
+  width: 52px;
+}
+
+#taskFilterToggle.view-toggle--list .view-toggle-indicator {
+  transform: translateX(52px);
+}
+
+@media (max-width: 640px) {
+  /* Title + toggle + "Add new task" in one row didn't fit. */
+  .card-header:has(#taskFilterToggle) {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+}
+
+/* ---------- Workgroups: add-workgroup row ---------- */
+@media (max-width: 480px) {
+  #addWorkgroupForm {
+    flex-wrap: wrap;
+  }
+
+  #addWorkgroupForm input,
+  #addWorkgroupForm button {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+  }
+}
+
+/* ---------- "Needs a bigger screen" additions ----------
+   .mobile-unavailable--contents: for wrapping a section that sits inside
+   a desktop flex/grid chain (the project timeline). The wrapper and its
+   __content box drop out of layout entirely above the cutoff, so the
+   desktop page lays out exactly as before. Below the cutoff the shared
+   rules above still hide __content and show the notice. */
+.mobile-unavailable--contents,
+.mobile-unavailable--contents > .mobile-unavailable__content {
+  display: contents;
+}
+
+/* PDF-overlay forms in the fill-out popup (form-template.html). The
+   notice is hidden by the shared .mobile-unavailable__notice rule until
+   form-builder.js marks the form as PDF-based and the screen is narrow. */
+@media (max-width: 768px) {
+  #fillForm.fill-form--pdf .fill-form-pdf-mobile-notice {
+    display: flex;
+  }
+
+  #fillForm.fill-form--pdf > :not(.fill-form-pdf-mobile-notice) {
+    display: none !important;
+  }
+}
+
+/* ---------- General phone polish ---------- */
+@media (max-width: 640px) {
+  /* iOS zooms the page in on focus for any input under 16px. */
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /* Long unbroken strings (emails, file names, IDs) shouldn't push cards
+     wider than the screen. */
+  .card,
+  .popup {
+    overflow-wrap: break-word;
+  }
+}
+
+/* ---------- Staff Users (staff-users.html) ----------
+   The edit form's single 1fr column sized to its inputs' min-width
+   once a user with long values was selected, pushing the details panel
+   ~30px past the right edge. Page styles are inline in staff-users.html,
+   so these use the body class for specificity. */
+@media (max-width: 900px) {
+  body.staff-directory-page .directory-panel {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  body.staff-directory-page .directory-form__row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  body.staff-directory-page .directory-form__row > *,
+  body.staff-directory-page .directory-details input,
+  body.staff-directory-page .directory-details select,
+  body.staff-directory-page .directory-details textarea {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+/* ---------- Single-column grids that couldn't shrink ----------
+   Same 1fr vs minmax(0, 1fr) issue as the dashboard: at 360px (small
+   Android phones) these grew a few px past the screen edge because a
+   long value inside set the column's minimum width. */
+/* Accounts / Contacts: the two-column layout overflowed at tablet
+   widths (~1024px) for the same reason. Same 1.6 : 1 ratio as before. */
+.accounts-details-layout { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
+
+@media (max-width: 980px) {
+  .accounts-details-layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .pd-grid { grid-template-columns: minmax(0, 1fr); }
+  .auth-shell { grid-template-columns: minmax(0, 1fr); }
+  .auth-shell > * { min-width: 0; }
+}
+
+/* Accounts / Contacts: contact cards were a fixed 2-up grid, which in the
+   narrow right-hand column at tablet widths (~1024px) made each card
+   ~150px wide and pushed them off the page. Fit as many 160px+ cards as
+   the column has room for instead: 2-up on a wide screen, 1-up when
+   narrow. */
+.account-contact-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(160px, 100%), 1fr));
+}

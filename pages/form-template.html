@@ -561,6 +561,21 @@ VPO forms and BC forms are moving to the Incident Report page and will be comple
         <p class="auth-inline-copy" id="fillFormDescription"></p>
 
         <form class="auth-form" id="fillForm">
+            <!-- Phone warning for PDF-based forms only: their inputs are overlaid
+                 on the real PDF page, which shrinks to ~40% on a phone and leaves
+                 the fields too small to tap or read. form-builder.js toggles
+                 .fill-form--pdf on #fillForm; below 768px that class hides the
+                 form and shows this notice. Plain question-list forms are fine
+                 on a phone and are unaffected. -->
+            <div class="mobile-unavailable__notice fill-form-pdf-mobile-notice">
+                <span class="mobile-unavailable__notice-icon" aria-hidden="true">⚠️</span>
+                <div class="mobile-unavailable__notice-body">
+                    <strong>This form needs a bigger screen</strong>
+                    <p>It's filled out directly on the PDF, and the fields are too small to use on a phone. Open it on a tablet, laptop, or desktop to fill it out.</p>
+                    <button type="button" class="mobile-unavailable__notice-cta" onclick="document.getElementById('cancelFillFormBtn').click()">Close</button>
+                </div>
+            </div>
+
             <!-- Legacy forms (no source PDF): plain generic-question inputs. -->
             <div id="fillFormFieldsContainer"></div>
 
