@@ -14244,3 +14244,355 @@ body.gm-page {
 .account-contact-grid {
   grid-template-columns: repeat(auto-fill, minmax(min(160px, 100%), 1fr));
 }
+
+/* ============================================================
+   PHONE APP LAYOUT (2026-10-08) — max-width: 768px only
+
+   Makes the portal feel like a native app on phones instead of a
+   squished website. Nothing in here applies above 768px, so desktop and
+   tablets are untouched.
+
+   1. Native scrolling: on desktop the page never scrolls; .main-content
+      is its own scroll box. On a phone that inner box is what made
+      scrolling feel sticky (no iOS momentum feel, no tap-status-bar-to-
+      top, address bar never collapses). Here the document scrolls instead
+      and the header stays fixed on top.
+   2. Bottom tab bar (.mobile-tabbar, built by js/mobile-app.js from the
+      sidebar's own links) replaces the header ☰; "More" opens the drawer.
+   3. Tighter, smaller: slimmer header, compact banners, less padding,
+      44px+ tap targets.
+   4. Popups open as bottom sheets.
+============================================================ */
+
+/* Bar is phone-only; hidden everywhere else. */
+.mobile-tabbar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+
+  :root {
+    --header-height: 56px;
+    --mobile-tabbar-height: 62px;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  a, button, input, select, textarea, label {
+    touch-action: manipulation; /* no double-tap-zoom delay */
+  }
+
+  /* ---------- 1. Native document scrolling ---------- */
+  html, body {
+    height: auto;
+  }
+
+  body {
+    overflow-x: hidden;
+    overflow-y: auto;
+    min-height: 100%;
+  }
+
+  .main-content,
+  .main-content.expanded {
+    margin-left: 0;
+    margin-top: var(--header-height);
+    height: auto;
+    overflow: visible;
+    padding: 16px 14px calc(var(--mobile-tabbar-height) + 24px + env(safe-area-inset-bottom));
+  }
+
+  /* Freeze the page behind an open popup / drawer (the page scrolls now,
+     not .main-content). */
+  body.popup-active,
+  body:has(.sidebar-backdrop.visible) {
+    overflow: hidden;
+  }
+
+  /* script.js fades every .card in as it scrolls into view; on a phone
+     that reads as content popping in mid-scroll. Show cards immediately. */
+  .card {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  /* Blur behind a fixed header is expensive to repaint on every scroll
+     frame on phones; a solid header scrolls noticeably smoother. */
+  .header {
+    backdrop-filter: none;
+    background: var(--surface);
+  }
+
+  /* ---------- 2. Header: slim app bar ---------- */
+  .header {
+    height: var(--header-height);
+    padding: 0 12px;
+    gap: 10px;
+  }
+
+  .brand-mark {
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .brand-mark__icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+  }
+
+  .brand-title {
+    font-size: 0.95rem;
+    white-space: nowrap;
+  }
+
+  .brand-subtitle {
+    display: none;
+  }
+
+  /* The bottom bar's "More" opens the drawer, so the header ☰ is
+     redundant on pages that have the bar. */
+  body.has-mobile-tabbar #menuBtn {
+    display: none !important;
+  }
+
+  /* Name is already shown as initials in the brand icon; keep just the
+     bell (its dropdown still has Sign out / Change Password). */
+  .header-user-pill {
+    padding: 0;
+    background: none;
+  }
+
+  #headerUserName {
+    display: none;
+  }
+
+  /* ---------- 2b. Bottom tab bar ---------- */
+  .mobile-tabbar {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: calc(var(--z-mobile-nav-backdrop) - 10); /* under the drawer + its scrim */
+    height: calc(var(--mobile-tabbar-height) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 16px rgba(10, 24, 36, 0.06);
+  }
+
+  .mobile-tab {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border: none;
+    background: none;
+    padding: 6px 2px 4px;
+    color: var(--text-soft);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .mobile-tab-icon {
+    width: 22px;
+    height: 22px;
+    border-radius: 0;
+    background: currentColor;
+    opacity: 1;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+  }
+
+  /* Three-dots icon for More (other tabs reuse the sidebar's icons). */
+  .mobile-tab-icon--more {
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='5' cy='12' r='2'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3Ccircle cx='19' cy='12' r='2'/%3E%3C/svg%3E") center/contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='5' cy='12' r='2'/%3E%3Ccircle cx='12' cy='12' r='2'/%3E%3Ccircle cx='19' cy='12' r='2'/%3E%3C/svg%3E") center/contain no-repeat;
+  }
+
+  .mobile-tab-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .mobile-tab.is-active {
+    color: var(--accent);
+  }
+
+  .mobile-tab.is-active .mobile-tab-label {
+    font-weight: 700;
+  }
+
+  .mobile-tab:active {
+    opacity: 0.6;
+  }
+
+  /* ---------- 2c. Drawer ("More") ----------
+     Full-height panel over everything incl. the tab bar, bigger rows. */
+  .sidebar {
+    width: min(84vw, 320px);
+    padding: 16px 12px calc(20px + env(safe-area-inset-bottom));
+  }
+
+  .nav-item {
+    padding: 13px 14px;
+    font-size: 0.98rem;
+  }
+
+  .nav-item:hover,
+  .nav-item.active {
+    transform: none;
+  }
+
+  /* ---------- 3. Sizing: page titles, banners, cards ---------- */
+  .main-content > h1 {
+    margin: 4px 2px 12px;
+    font-size: 1.5rem;
+    line-height: 1.2;
+  }
+
+  /* Banners were taking most of the first screen. Compact strip: eyebrow
+     + title, description hidden, any action buttons kept. */
+  .hero-section {
+    padding: 14px 16px;
+    margin-bottom: 14px;
+    border-radius: 14px;
+    gap: 10px;
+    flex-wrap: wrap;
+    box-shadow: none;
+  }
+
+  .hero-section .eyebrow {
+    margin-bottom: 4px;
+    font-size: 0.66rem;
+    letter-spacing: 0.14em;
+  }
+
+  .hero-section h1,
+  .hero-section h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    line-height: 1.25;
+  }
+
+  .hero-section p:not(.eyebrow) {
+    display: none;
+  }
+
+  .card {
+    padding: 16px;
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(10, 24, 36, 0.06);
+  }
+
+  /* Most pages stack cards with 20–24px gaps sized for desktop. */
+  .main-content > .card,
+  .main-content > section,
+  .main-content > div > .card {
+    margin-bottom: 12px;
+  }
+
+  .dashboard-top-grid,
+  .dashboard-bottom-grid {
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .card-title {
+    font-size: 1.02rem;
+  }
+
+  /* ---------- 3b. Tap targets ---------- */
+  .auth-button,
+  .workbook-btn,
+  .hero-button,
+  .popup-buttons > button,
+  .popup-buttons > a {
+    min-height: 44px;
+  }
+
+  .notification-bell,
+  .menu-btn {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  /* ---------- 4. Popups as bottom sheets ---------- */
+  .popup-overlay {
+    align-items: flex-end;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .popup-overlay > .popup {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 92vh;
+    max-height: 92dvh;
+    margin: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    border-radius: 20px 20px 0 0;
+    border-bottom: none;
+    padding: 22px 16px calc(18px + env(safe-area-inset-bottom));
+    animation: mobile-sheet-up 0.22s ease-out;
+  }
+
+  /* Popups that manage their own inner scrolling (header + scrolling body)
+     keep doing so; they just get the sheet shape. */
+  .popup-overlay > .popup--corporate,
+  .popup-overlay > .popup--preview {
+    padding: 0 0 env(safe-area-inset-bottom);
+    overflow: hidden;
+  }
+
+  /* Grab handle so it reads as a sheet. */
+  .popup-overlay > .popup::before {
+    content: "";
+    display: block;
+    width: 38px;
+    height: 4px;
+    margin: -10px auto 12px;
+    border-radius: 2px;
+    background: var(--border);
+  }
+
+  .popup-overlay > .popup--corporate::before,
+  .popup-overlay > .popup--preview::before {
+    display: none;
+  }
+
+  /* Toasts sit above the tab bar instead of behind it. */
+  body.has-mobile-tabbar .toast-stack {
+    right: 16px;
+    bottom: calc(var(--mobile-tabbar-height) + 12px + env(safe-area-inset-bottom));
+  }
+}
+
+@keyframes mobile-sheet-up {
+  from { transform: translateY(40px); opacity: 0.4; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  .popup-overlay > .popup { animation: none; }
+}
