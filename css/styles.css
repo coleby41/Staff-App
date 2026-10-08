@@ -14596,3 +14596,76 @@ body.gm-page {
 @media (max-width: 768px) and (prefers-reduced-motion: reduce) {
   .popup-overlay > .popup { animation: none; }
 }
+
+/* ---------- Phone: notification panel over a blurred page ----------
+   Tapping the bell on a phone opens the notifications as a full-width
+   panel under the header, and blurs (but doesn't darken) everything
+   behind it. CSS-only: keys off the .active class script.js already
+   toggles on #notificationDropdown. Tapping the blurred area closes it
+   via script.js's existing "click outside .notification-wrapper" handler.
+
+   Stacking: the blur layer (body::after) sits at --z-nav, just under the
+   header (--z-nav + 1), so the header + bell + panel stay sharp while the
+   page under them blurs. The tab bar normally sits higher than that, so
+   it's dropped under the blur while the panel is open. */
+@media (max-width: 768px) {
+  body:has(.notification-dropdown.active) {
+    overflow: hidden;
+  }
+
+  body:has(.notification-dropdown.active)::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-nav);
+    background: transparent;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    animation: notif-blur-in 0.2s ease-out;
+  }
+
+  body:has(.notification-dropdown.active) .mobile-tabbar {
+    z-index: calc(var(--z-nav) - 1);
+  }
+
+  /* The wrapper is position:relative; the panel needs to measure from the
+     screen instead so it can span the full width. (The header's own
+     backdrop-filter is already off on phones, which would otherwise trap
+     position:fixed inside the header box.) */
+  .notification-dropdown {
+    position: fixed;
+    top: calc(var(--header-height) + 8px);
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-width: none;
+    max-height: calc(100vh - var(--header-height) - 24px);
+    max-height: calc(100dvh - var(--header-height) - 24px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    border-radius: 18px;
+    box-shadow: 0 16px 40px rgba(7, 20, 30, 0.18);
+  }
+
+  .notification-dropdown.active {
+    animation: notif-panel-in 0.2s ease-out;
+  }
+}
+
+@keyframes notif-blur-in {
+  from { -webkit-backdrop-filter: blur(0); backdrop-filter: blur(0); }
+  to   { -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+}
+
+@keyframes notif-panel-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  body:has(.notification-dropdown.active)::after,
+  .notification-dropdown.active {
+    animation: none;
+  }
+}
