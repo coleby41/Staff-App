@@ -15359,3 +15359,190 @@ body.install-guide-open {
   color: var(--text-soft);
   cursor: pointer;
 }
+
+/* ---------- Phone: "Customize tab bar" (js/mobile-app.js CUSTOMIZE) ---------- */
+@media (max-width: 768px) {
+  .mobile-sheet-customize-link-wrap {
+    display: flex;
+    justify-content: center;
+    padding: 0 18px calc(14px + env(safe-area-inset-bottom));
+    flex-shrink: 0;
+  }
+
+  /* The link replaces the foot's own bottom safe-area padding. */
+  .mobile-sheet-foot:has(+ .mobile-sheet-customize-link-wrap) {
+    padding-bottom: 6px;
+  }
+
+  .mobile-sheet-customize-link {
+    border: none;
+    background: none;
+    padding: 8px 6px;
+    color: var(--accent);
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+
+  .mobile-sheet-back {
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 18px;
+    background: var(--bg);
+    color: var(--text);
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
+  .mobile-sheet-sub.is-warning {
+    color: var(--danger);
+  }
+
+  /* Live preview of the bar being built. */
+  .mobile-sheet-preview {
+    display: flex;
+    gap: 6px;
+    margin: 12px 14px 4px;
+    padding: 6px;
+    border-radius: 999px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .mobile-sheet-preview-tab {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+    padding: 7px 4px;
+    border-radius: 999px;
+    background: var(--surface);
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: var(--accent-strong);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-sheet-preview-tab--more {
+    background: transparent;
+    color: var(--text-soft);
+  }
+
+  /* Pick rows */
+  .mobile-sheet-pick {
+    width: 100%;
+    border: none;
+    background: none;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .mobile-sheet-pick .mobile-sheet-row-label small {
+    display: block;
+    font-size: 0.74rem;
+    font-weight: 500;
+    color: var(--text-soft);
+  }
+
+  .mobile-sheet-pick-mark {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: grid;
+    place-items: center;
+    font-size: 0.78rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .mobile-sheet-pick.is-picked .mobile-sheet-pick-mark {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: white;
+  }
+
+  .mobile-sheet-btn--primary {
+    border: none;
+    background: var(--accent);
+    color: white;
+  }
+
+  .mobile-sheet-btn:disabled {
+    opacity: 0.5;
+  }
+}
+
+/* ---------- Phone: resizable More sheet (half / full) ----------
+   js/mobile-app.js sets the sheet's height (half the screen on open, 92%
+   when expanded) and resizes it live while the handle is dragged. The
+   list scrolls inside; Change Password / Sign out / Customize / version
+   sit at the end of that scrolling list. */
+@media (max-width: 768px) {
+  .mobile-sheet {
+    max-height: 92vh;
+    max-height: 92dvh;
+    transition:
+      transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1),
+      height 0.26s cubic-bezier(0.2, 0.8, 0.2, 1),
+      visibility 0s linear 0.26s;
+  }
+
+  body.mobile-sheet-open .mobile-sheet {
+    transition:
+      transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1),
+      height 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .mobile-sheet.is-dragging,
+  body.mobile-sheet-open .mobile-sheet.is-dragging {
+    transition: none;
+  }
+
+  /* Bigger grab area for the handle; no browser scroll gestures on it or
+     the header, so a drag always resizes the sheet. */
+  .mobile-sheet-handle {
+    padding: 12px 0 8px;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .mobile-sheet-handle span {
+    width: 42px;
+    height: 5px;
+    border-radius: 3px;
+    background: #c9d2db;
+  }
+
+  .mobile-sheet-head {
+    touch-action: none;
+  }
+
+  /* Change Password / Sign out, now inside the scrolling list. */
+  .mobile-sheet-actions {
+    display: flex;
+    gap: 10px;
+    margin: 18px 6px 0;
+  }
+
+  .mobile-sheet-body .mobile-sheet-customize-link-wrap {
+    padding: 14px 0 0;
+  }
+
+  .mobile-sheet-version {
+    padding: 6px 0 calc(36px + env(safe-area-inset-bottom));
+    text-align: center;
+    font-size: 0.74rem;
+    color: var(--text-soft);
+    letter-spacing: 0.02em;
+  }
+}
