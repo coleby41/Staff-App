@@ -70,6 +70,15 @@
 
     let tabPages = new Set();
 
+    // Is the current page one of the sidebar's links, i.e. a page the More
+    // sheet covers? Covers grouped links (Company docs, IT Tools) too.
+    // Deliberately ignores visibility: if you're ON the page, it counts,
+    // even while a permission script still has its link hidden.
+    function isInMoreSheet() {
+        return [...sidebar.querySelectorAll("a.nav-item:not(.nav-parent), a.subnav-item")].some(a =>
+            baseName(a.dataset.navPage || a.getAttribute("href")) === currentPage);
+    }
+
     const bar = document.createElement("nav");
     bar.className = "mobile-tabbar";
     bar.setAttribute("aria-label", "Main");
@@ -102,8 +111,13 @@
             </a>`;
         }).join("");
 
+        // On a page that's reached through the More sheet (not on the bar),
+        // More gets the active bubble instead of nothing being highlighted.
+        const onTabPage = tabs.some(({ def }) => baseName(def.page) === currentPage);
+        const moreActive = !onTabPage && isInMoreSheet();
+
         bar.innerHTML = html + `
-            <button type="button" class="mobile-tab mobile-tab--more" aria-label="More pages">
+            <button type="button" class="mobile-tab mobile-tab--more${moreActive ? " is-active" : ""}" aria-label="More pages"${moreActive ? ' aria-current="page"' : ""}>
                 <span class="mobile-tab-icon mobile-tab-icon--more" aria-hidden="true"></span>
                 <span class="mobile-tab-label">More</span>
             </button>`;
@@ -339,6 +353,55 @@
 
     // Rotating/resizing up past phone width while it's open: just close it.
     window.addEventListener("resize", () => { if (window.innerWidth > 768) closeSheet(); });
+
+    /* ===========================
+       SCROLL LOCK (phones)
+       While the More sheet, the notification panel, or any popup is open,
+       the page behind must not move. iPhone Safari ignores overflow:hidden
+       on <body> for touch scrolling, so the reliable way is to pin <body>
+       with position:fixed at the current scroll offset, then put the page
+       back exactly where it was on close. Scrolling INSIDE the sheet /
+       panel / popup still works (they're their own scroll areas).
+    =========================== */
+    let lockedScrollY = null;
+
+    function setScrollLocked(locked) {
+        const body = document.body;
+        if (locked && lockedScrollY === null) {
+            lockedScrollY = window.scrollY;
+            body.style.position = "fixed";
+            body.style.top = `-${lockedScrollY}px`;
+            body.style.left = "0";
+            body.style.right = "0";
+            body.style.width = "100%";
+            document.documentElement.classList.add("is-scroll-locked");
+        } else if (!locked && lockedScrollY !== null) {
+            const y = lockedScrollY;
+            lockedScrollY = null;
+            body.style.position = "";
+            body.style.top = "";
+            body.style.left = "";
+            body.style.right = "";
+            body.style.width = "";
+            document.documentElement.classList.remove("is-scroll-locked");
+            window.scrollTo(0, y);
+        }
+    }
+
+    function syncScrollLock() {
+        const body = document.body;
+        const somethingOpen =
+            body.classList.contains("mobile-sheet-open") ||
+            body.classList.contains("popup-active") ||
+            Boolean(document.querySelector(".notification-dropdown.active"));
+        setScrollLocked(somethingOpen && window.innerWidth <= 768);
+    }
+
+    const lockObserver = new MutationObserver(syncScrollLock);
+    lockObserver.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    const notifDropdown = document.getElementById("notificationDropdown");
+    if (notifDropdown) lockObserver.observe(notifDropdown, { attributes: true, attributeFilter: ["class"] });
+    window.addEventListener("resize", syncScrollLock);
 
     // Re-render when the sidebar changes (nav-access.js hiding items after
     // permissions load, project-shell.js filling in ?id= hrefs). Debounced so

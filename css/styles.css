@@ -15090,3 +15090,13 @@ body.gm-page {
     background: var(--bg);
   }
 }
+
+/* Phone scroll lock (js/mobile-app.js pins <body> while the More sheet,
+   notifications or a popup is open): also stop Safari's rubber-band
+   bounce from dragging the pinned page around. */
+@media (max-width: 768px) {
+  html.is-scroll-locked,
+  html.is-scroll-locked body {
+    overscroll-behavior: none;
+  }
+}
