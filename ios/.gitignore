@@ -1,0 +1,7 @@
+# Xcode per-user and build files
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+.swiftpm/
+*.xcworkspace/xcuserdata/
