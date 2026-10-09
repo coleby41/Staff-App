@@ -212,6 +212,17 @@
         </a>`;
     }
 
+    // "Install the app" row (js/install-app.js decides if it applies:
+    // phones only, and hidden once installed / running as the app).
+    function installRow() {
+        const show = !!(window.LeewardInstall && window.LeewardInstall.available());
+        return `<button type="button" class="mobile-sheet-row mobile-sheet-row--install" data-install-app data-action="install"${show ? "" : " hidden"}>
+            <span class="mobile-sheet-row-icon"><span class="install-nav-icon" aria-hidden="true"></span></span>
+            <span class="mobile-sheet-row-label">Install the app</span>
+            ${CHEVRON}
+        </button>`;
+    }
+
     function buildCompanySheet() {
         const profile = getProfile();
         const name = profile?.full_name || profile?.username || "Signed in";
@@ -246,6 +257,7 @@
                 <button type="button" class="mobile-sheet-close" aria-label="Close menu">${CLOSE_ICON}</button>
             </div>
             <div class="mobile-sheet-body">
+                ${installRow()}
                 ${sections.map(sec => `
                     ${sec.title ? `<div class="mobile-sheet-section">${esc(sec.title)}</div>` : ""}
                     ${sec.items.join("")}
@@ -287,6 +299,7 @@
                 <div class="mobile-sheet-divider"></div>
                 ${row("/pages/dashboard.html", "Company Dashboard", "home-nav-icon", "", { muted: true })}
                 ${row("/pages/project-home.html", "All Projects", "projects-nav-icon", "", { muted: true })}
+                ${installRow()}
             </div>`;
     }
 
@@ -322,6 +335,8 @@
             else document.getElementById("changePasswordBtn")?.click();
         } else if (action === "signout") {
             if (typeof window.signOutUser === "function") window.signOutUser();
+        } else if (action === "install") {
+            closeSheet();
         } else if (action === "switch") {
             closeSheet();
             // Let this tap finish first, or project-shell.js's "click outside
