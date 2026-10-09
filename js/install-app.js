@@ -14,6 +14,10 @@
 
    Loaded on login.html and every page with the sidebar. js/mobile-app.js
    adds the same button to the More menu via window.LeewardInstall.
+
+   The Dashboard also gets a closable banner at the top (see
+   updateBanner()). Once closed it stays closed on that device
+   (localStorage), so it never nags.
 =========================== */
 (function () {
     "use strict";
@@ -40,6 +44,55 @@
     function refresh() {
         var show = available();
         document.querySelectorAll("[data-install-app]").forEach(function (el) { el.hidden = !show; });
+        updateBanner(show);
+    }
+
+    /* ---------- Dashboard banner ---------- */
+
+    var BANNER_DISMISSED_KEY = "installBannerDismissed";
+    var banner = null;
+
+    function onDashboard() {
+        var page = (window.location.pathname.split("/").pop() || "").replace(/\.html$/i, "");
+        return page === "dashboard";
+    }
+
+    function bannerDismissed() {
+        try { return localStorage.getItem(BANNER_DISMISSED_KEY) === "1"; } catch (e) { return false; }
+    }
+
+    function updateBanner(show) {
+        if (!onDashboard()) return;
+        var wanted = show && !bannerDismissed();
+        if (!wanted) {
+            if (banner) banner.hidden = true;
+            return;
+        }
+        if (!banner) {
+            var main = document.querySelector(".main-content");
+            if (!main) return;
+            banner = document.createElement("div");
+            banner.className = "install-banner";
+            banner.setAttribute("role", "region");
+            banner.setAttribute("aria-label", "Install the app");
+            banner.innerHTML =
+                '<img class="install-banner-icon" src="/assets/icons/apple-touch-icon.png" alt="">' +
+                '<div class="install-banner-text">' +
+                    '<strong>Get the Leeward Staff app</strong>' +
+                    '<span>Add it to your home screen.</span>' +
+                '</div>' +
+                '<button type="button" class="install-banner-btn" data-install-app>Install</button>' +
+                '<button type="button" class="install-banner-close" aria-label="Close">' +
+                    '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6 6 18"/></svg>' +
+                '</button>';
+            banner.querySelector(".install-banner-close").addEventListener("click", function () {
+                try { localStorage.setItem(BANNER_DISMISSED_KEY, "1"); } catch (e) {}
+                banner.hidden = true;
+            });
+            main.insertBefore(banner, main.firstChild);
+        }
+        banner.hidden = false;
+        banner.querySelector("[data-install-app]").hidden = false;
     }
 
     window.addEventListener("beforeinstallprompt", function (event) {
