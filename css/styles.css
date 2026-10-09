@@ -14993,3 +14993,86 @@ body.gm-page {
     transition: none;
   }
 }
+
+/* ---------- Phone: floating "glass" tab bar ----------
+   Restyles .mobile-tabbar (above) after iOS 26's floating tab bar: a
+   pill that floats off the screen edges, frosted/translucent so page
+   content blurs through it as you scroll, and a raised glass bubble
+   behind the active tab. Look only; markup and behavior are unchanged. */
+@media (max-width: 768px) {
+  :root {
+    --mobile-tabbar-height: 64px;
+    --mobile-tabbar-gap: 10px; /* space between the bar and the screen edges */
+  }
+
+  .mobile-tabbar {
+    left: 12px;
+    right: 12px;
+    bottom: calc(var(--mobile-tabbar-gap) + env(safe-area-inset-bottom));
+    height: var(--mobile-tabbar-height);
+    padding: 5px;
+    gap: 2px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.75);
+    background: rgba(250, 251, 253, 0.72);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(24px) saturate(180%);
+    box-shadow:
+      0 10px 30px rgba(10, 24, 36, 0.14),
+      0 2px 6px rgba(10, 24, 36, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  .mobile-tab {
+    border-radius: 999px;
+    color: var(--text);
+    gap: 3px;
+    padding: 4px 2px;
+    transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.12s ease;
+  }
+
+  .mobile-tab-icon {
+    width: 21px;
+    height: 21px;
+  }
+
+  .mobile-tab-label {
+    font-size: 0.66rem;
+  }
+
+  /* The active tab's raised glass bubble. */
+  .mobile-tab.is-active {
+    color: var(--accent);
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow:
+      0 2px 8px rgba(10, 24, 36, 0.10),
+      inset 0 0 0 1px rgba(10, 24, 36, 0.06),
+      inset 0 1px 0 rgba(255, 255, 255, 1);
+  }
+
+  .mobile-tab:active {
+    opacity: 1;
+    transform: scale(0.94);
+  }
+
+  /* Page content scrolls behind the floating bar, so leave room for the
+     bar plus its gap at the bottom. */
+  .main-content,
+  .main-content.expanded {
+    padding-bottom: calc(var(--mobile-tabbar-height) + var(--mobile-tabbar-gap) + 28px + env(safe-area-inset-bottom));
+  }
+
+  body.has-mobile-tabbar .toast-stack {
+    bottom: calc(var(--mobile-tabbar-height) + var(--mobile-tabbar-gap) + 12px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Browsers without backdrop-filter: a solid bar instead of a see-through
+   one, so the labels stay readable over busy content. */
+@media (max-width: 768px) {
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .mobile-tabbar {
+      background: rgba(250, 251, 253, 0.97);
+    }
+  }
+}
