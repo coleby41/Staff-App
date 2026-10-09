@@ -11,8 +11,8 @@
        nav-access.js / permissions (same visibility rules, no duplication)
      - project pages keep their ?id=... automatically, because
        project-shell.js has already rewritten those sidebar hrefs
-   "More" opens the existing sidebar drawer via #menuBtn (script.js), so
-   everything not on the bar is still one tap away.
+   "More" opens a bottom sheet (see MORE SHEET below) listing every other
+   page this person can see, again read live from the sidebar.
 =========================== */
 (function () {
     "use strict";
@@ -68,6 +68,8 @@
         return true;
     }
 
+    let tabPages = new Set();
+
     const bar = document.createElement("nav");
     bar.className = "mobile-tabbar";
     bar.setAttribute("aria-label", "Main");
@@ -87,6 +89,7 @@
             picked.push({ def, link });
         }
         const tabs = picked;
+        tabPages = new Set(tabs.map(t => baseName(t.def.page)));
 
         const html = tabs.map(({ def, link }) => {
             const iconEl = link.querySelector('span[class$="-nav-icon"], span[class*="-nav-icon "]');
@@ -105,10 +108,237 @@
                 <span class="mobile-tab-label">More</span>
             </button>`;
 
-        bar.querySelector(".mobile-tab--more").addEventListener("click", () => {
-            document.getElementById("menuBtn")?.click();
-        });
+        bar.querySelector(".mobile-tab--more").addEventListener("click", openSheet);
     }
+
+    /* ===========================
+       MORE SHEET
+       Slides up from the bottom over a blurred (not darkened) page.
+       - Company pages: who you are, then every visible sidebar page that
+         isn't already on the tab bar as a list, grouped the same way the
+         sidebar groups them (Company docs, IT Tools...), then Change
+         Password / Sign out.
+       - Project pages: the current project with a Switch button, the
+         project pages not on the tab bar as a list, then links back out to
+         the company side.
+       Built fresh on every open, so it always matches what nav-access.js
+       currently shows and the current ?id= hrefs.
+       Closes on: ✕, tapping the blurred area, Escape, swiping it down.
+    =========================== */
+
+    function esc(str) {
+        return String(str ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    function linkLabel(link) {
+        return (link.querySelector(".nav-text")?.textContent || link.textContent || "").replace(/\s+/g, " ").trim();
+    }
+
+    function linkIconClass(link, fallbackLink) {
+        const icon = link.querySelector('span[class$="-nav-icon"], span[class*="-nav-icon "]')
+            || fallbackLink?.querySelector('span[class$="-nav-icon"], span[class*="-nav-icon "]');
+        return icon ? icon.className : "docs-nav-icon";
+    }
+
+    function linkBadge(link) {
+        const badge = link.querySelector(".nav-item-badge");
+        if (!badge || getComputedStyle(badge).display === "none") return "";
+        const n = badge.textContent.trim();
+        return n ? `<span class="mobile-sheet-badge">${esc(n)}</span>` : "";
+    }
+
+    function linkTarget(link) {
+        return link.getAttribute("target") === "_blank" ? ' target="_blank" rel="noopener"' : "";
+    }
+
+    function getProfile() {
+        if (window.currentSupabaseProfile) return window.currentSupabaseProfile;
+        try { return JSON.parse(localStorage.getItem("staffProfile") || "null"); } catch { return null; }
+    }
+
+    const scrim = document.createElement("div");
+    scrim.className = "mobile-sheet-scrim";
+    scrim.setAttribute("aria-hidden", "true");
+
+    const sheet = document.createElement("section");
+    sheet.className = "mobile-sheet";
+    sheet.setAttribute("role", "dialog");
+    sheet.setAttribute("aria-modal", "true");
+    sheet.setAttribute("aria-label", "More pages");
+    sheet.setAttribute("aria-hidden", "true");
+
+    document.body.appendChild(scrim);
+    document.body.appendChild(sheet);
+
+    const CLOSE_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg>`;
+    const CHEVRON = `<svg class="mobile-sheet-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>`;
+
+    const EXTERNAL = `<svg class="mobile-sheet-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"></path><path d="M20 4l-9 9"></path><path d="M18 14v6H4V6h6"></path></svg>`;
+
+    // One sidebar link as a list row (icon, label, badge, chevron).
+    // Subnav items have no icon of their own, so they borrow their group's.
+    function linkRow(link, iconFrom) {
+        const href = link.getAttribute("href") || "#";
+        const active = baseName(href) === currentPage;
+        const external = link.getAttribute("target") === "_blank";
+        return `<a class="mobile-sheet-row${active ? " is-active" : ""}" href="${esc(href)}"${linkTarget(link)}>
+            <span class="mobile-sheet-row-icon"><span class="${linkIconClass(link, iconFrom)}" aria-hidden="true"></span></span>
+            <span class="mobile-sheet-row-label">${esc(linkLabel(link))}</span>
+            ${linkBadge(link)}
+            ${external ? EXTERNAL : CHEVRON}
+        </a>`;
+    }
+
+    function row(href, label, iconClass, extra, opts = {}) {
+        const active = baseName(href) === currentPage;
+        return `<a class="mobile-sheet-row${opts.muted ? " mobile-sheet-row--muted" : ""}${active ? " is-active" : ""}" href="${esc(href)}">
+            <span class="mobile-sheet-row-icon"><span class="${iconClass}" aria-hidden="true"></span></span>
+            <span class="mobile-sheet-row-label">${esc(label)}</span>
+            ${extra || CHEVRON}
+        </a>`;
+    }
+
+    function buildCompanySheet() {
+        const profile = getProfile();
+        const name = profile?.full_name || profile?.username || "Signed in";
+        const groups = Array.isArray(profile?.workgroup) ? profile.workgroup.join(" · ") : (profile?.workgroup || "");
+        const initials = (document.getElementById("brandInitials")?.textContent || name.split(/\s+/).map(w => w[0]).join("").slice(0, 2)).trim();
+
+        // Walk the sidebar in order: loose links collect into "Pages";
+        // each collapsible group (Company docs, IT Tools...) is its own section.
+        const nav = sidebar.querySelector(".sidebar-nav") || sidebar;
+        const sections = [];
+        const loose = [];
+        for (const el of nav.children) {
+            if (el.matches("a.nav-item")) {
+                if (!isLinkVisible(el) || tabPages.has(baseName(el.dataset.navPage || el.getAttribute("href")))) continue;
+                loose.push(linkRow(el));
+            } else if (el.matches(".nav-item-group") && isLinkVisible(el)) {
+                const parent = el.querySelector(".nav-parent");
+                const items = [...el.querySelectorAll("a.subnav-item")].filter(isLinkVisible).map(a => linkRow(a, parent));
+                if (items.length) sections.push({ title: parent ? linkLabel(parent) : "", items });
+            }
+        }
+        if (loose.length) sections.unshift({ title: "Pages", items: loose });
+
+        return `
+            <div class="mobile-sheet-handle"><span></span></div>
+            <div class="mobile-sheet-head">
+                <div class="mobile-sheet-avatar">${esc(initials)}</div>
+                <div class="mobile-sheet-who">
+                    <div class="mobile-sheet-name">${esc(name)}</div>
+                    ${groups ? `<div class="mobile-sheet-sub">${esc(groups)}</div>` : ""}
+                </div>
+                <button type="button" class="mobile-sheet-close" aria-label="Close menu">${CLOSE_ICON}</button>
+            </div>
+            <div class="mobile-sheet-body">
+                ${sections.map(sec => `
+                    ${sec.title ? `<div class="mobile-sheet-section">${esc(sec.title)}</div>` : ""}
+                    ${sec.items.join("")}
+                `).join("")}
+            </div>
+            <div class="mobile-sheet-foot">
+                <button type="button" class="mobile-sheet-btn" data-action="password">Change Password</button>
+                <button type="button" class="mobile-sheet-btn mobile-sheet-btn--danger" data-action="signout">Sign out</button>
+            </div>`;
+    }
+
+    function buildProjectSheet() {
+        const projectName = (document.getElementById("headerProjectName")?.textContent || "Project").trim();
+        const nav = sidebar.querySelector(".sidebar-nav") || sidebar;
+        const rows = [...nav.querySelectorAll("a.nav-item")]
+            .filter(a => isLinkVisible(a) && !tabPages.has(baseName(a.dataset.navPage || a.getAttribute("href"))))
+            .map(a => {
+                const page = baseName(a.dataset.navPage || a.getAttribute("href"));
+                // The schedule is desktop-only on phones (see project-timeline.html).
+                const extra = page === "project-timeline" ? `<span class="mobile-sheet-pill">Desktop</span>` : "";
+                return row(a.getAttribute("href") || "#", linkLabel(a), linkIconClass(a), extra);
+            });
+
+        return `
+            <div class="mobile-sheet-handle"><span></span></div>
+            <div class="mobile-sheet-head mobile-sheet-head--project">
+                <div class="mobile-sheet-project">
+                    <span class="mobile-sheet-avatar mobile-sheet-avatar--project"><span class="projects-nav-icon" aria-hidden="true"></span></span>
+                    <div class="mobile-sheet-who">
+                        <div class="mobile-sheet-sub mobile-sheet-eyebrow">Current project</div>
+                        <div class="mobile-sheet-name">${esc(projectName)}</div>
+                    </div>
+                    <button type="button" class="mobile-sheet-switch" data-action="switch">Switch</button>
+                </div>
+                <button type="button" class="mobile-sheet-close" aria-label="Close menu">${CLOSE_ICON}</button>
+            </div>
+            <div class="mobile-sheet-body">
+                ${rows.join("")}
+                <div class="mobile-sheet-divider"></div>
+                ${row("/pages/dashboard.html", "Company Dashboard", "home-nav-icon", "", { muted: true })}
+                ${row("/pages/project-home.html", "All Projects", "projects-nav-icon", "", { muted: true })}
+            </div>`;
+    }
+
+    let lastFocus = null;
+
+    function openSheet() {
+        sheet.innerHTML = isProjectPage ? buildProjectSheet() : buildCompanySheet();
+        lastFocus = document.activeElement;
+        document.getElementById("notificationDropdown")?.classList.remove("active");
+        document.body.classList.add("mobile-sheet-open");
+        sheet.setAttribute("aria-hidden", "false");
+        sheet.style.transform = "";
+        sheet.querySelector(".mobile-sheet-close")?.focus({ preventScroll: true });
+    }
+
+    function closeSheet() {
+        if (!document.body.classList.contains("mobile-sheet-open")) return;
+        document.body.classList.remove("mobile-sheet-open");
+        sheet.setAttribute("aria-hidden", "true");
+        sheet.style.transform = "";
+        lastFocus?.focus?.({ preventScroll: true });
+    }
+
+    scrim.addEventListener("click", closeSheet);
+    document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
+
+    sheet.addEventListener("click", e => {
+        if (e.target.closest(".mobile-sheet-close")) return closeSheet();
+        const action = e.target.closest("[data-action]")?.dataset.action;
+        if (action === "password") {
+            closeSheet();
+            if (typeof window.openChangePasswordModal === "function") window.openChangePasswordModal();
+            else document.getElementById("changePasswordBtn")?.click();
+        } else if (action === "signout") {
+            if (typeof window.signOutUser === "function") window.signOutUser();
+        } else if (action === "switch") {
+            closeSheet();
+            // Let this tap finish first, or project-shell.js's "click outside
+            // closes it" handler would shut the dropdown right away.
+            setTimeout(() => document.getElementById("projectSwitcherToggle")?.click(), 0);
+        }
+    });
+
+    // Swipe down on the handle/header to dismiss.
+    let dragStartY = null;
+    sheet.addEventListener("touchstart", e => {
+        if (!e.target.closest(".mobile-sheet-handle, .mobile-sheet-head")) return;
+        dragStartY = e.touches[0].clientY;
+        sheet.classList.add("is-dragging");
+    }, { passive: true });
+    sheet.addEventListener("touchmove", e => {
+        if (dragStartY === null) return;
+        const dy = Math.max(0, e.touches[0].clientY - dragStartY);
+        sheet.style.transform = `translateY(${dy}px)`;
+    }, { passive: true });
+    sheet.addEventListener("touchend", e => {
+        if (dragStartY === null) return;
+        const dy = (e.changedTouches[0]?.clientY ?? dragStartY) - dragStartY;
+        dragStartY = null;
+        sheet.classList.remove("is-dragging");
+        if (dy > 90) closeSheet();
+        else sheet.style.transform = "";
+    });
+
+    // Rotating/resizing up past phone width while it's open: just close it.
+    window.addEventListener("resize", () => { if (window.innerWidth > 768) closeSheet(); });
 
     // Re-render when the sidebar changes (nav-access.js hiding items after
     // permissions load, project-shell.js filling in ?id= hrefs). Debounced so

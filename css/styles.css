@@ -14669,3 +14669,327 @@ body.gm-page {
     animation: none;
   }
 }
+
+/* ---------- Phone: "More" bottom sheet (js/mobile-app.js) ----------
+   Replaces the left drawer on phones. Slides up over a blurred, NOT
+   darkened page (same look as the phone notification panel). Sits above
+   the header and tab bar, below real popups (--z-modal-backdrop). */
+.mobile-sheet,
+.mobile-sheet-scrim {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-sheet-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-mobile-nav-backdrop);
+    background: transparent;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+  }
+
+  .mobile-sheet {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: var(--z-mobile-nav);
+    max-height: 88vh;
+    max-height: 88dvh;
+    background: var(--surface);
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -12px 40px rgba(7, 20, 30, 0.16);
+    transform: translateY(105%);
+    visibility: hidden;
+    transition: transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 0.26s;
+  }
+
+  body.mobile-sheet-open {
+    overflow: hidden;
+  }
+
+  body.mobile-sheet-open .mobile-sheet-scrim {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  body.mobile-sheet-open .mobile-sheet {
+    transform: translateY(0);
+    visibility: visible;
+    transition: transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .mobile-sheet.is-dragging {
+    transition: none;
+  }
+
+  .mobile-sheet-handle {
+    display: flex;
+    justify-content: center;
+    padding: 10px 0 4px;
+    flex-shrink: 0;
+  }
+
+  .mobile-sheet-handle span {
+    width: 38px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+  }
+
+  .mobile-sheet-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 18px 14px;
+    border-bottom: 1px solid #eef1f4;
+    flex-shrink: 0;
+  }
+
+  .mobile-sheet-head--project {
+    padding: 8px 14px 12px;
+    gap: 8px;
+  }
+
+  .mobile-sheet-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--accent);
+    color: white;
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .mobile-sheet-avatar--project {
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+  }
+
+  .mobile-sheet-avatar--project span {
+    width: 20px;
+    height: 20px;
+    background: currentColor;
+  }
+
+  .mobile-sheet-who {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mobile-sheet-name {
+    font-weight: 700;
+    font-size: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-sheet-sub {
+    font-size: 0.82rem;
+    color: var(--text-soft);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-sheet-eyebrow {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .mobile-sheet-project {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: #f2f6f9;
+  }
+
+  .mobile-sheet-switch {
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--accent);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .mobile-sheet-close {
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 18px;
+    background: var(--bg);
+    color: var(--text-soft);
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
+  .mobile-sheet-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding: 4px 12px 12px;
+  }
+
+  .mobile-sheet-section {
+    padding: 14px 6px 6px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+  }
+
+  /* Account Activity's count, inline at the end of its row. */
+  .mobile-sheet-badge {
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    box-sizing: border-box;
+    border-radius: 10px;
+    background: var(--danger);
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+  }
+
+  /* List rows */
+  .mobile-sheet-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 48px;
+    padding: 8px;
+    border-radius: 12px;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-weight: 500;
+  }
+
+  .mobile-sheet-row:active {
+    background: var(--bg);
+  }
+
+  .mobile-sheet-row.is-active {
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .mobile-sheet-row-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+  }
+
+  .mobile-sheet-row-icon > span {
+    width: 18px;
+    height: 18px;
+    border-radius: 0;
+    background: currentColor;
+    opacity: 1;
+  }
+
+  .mobile-sheet-row--muted .mobile-sheet-row-icon {
+    background: #eef0f3;
+    color: #3d4b59;
+  }
+
+  .mobile-sheet-row-label {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mobile-sheet-chevron {
+    color: #9aa6b2;
+    flex-shrink: 0;
+  }
+
+  .mobile-sheet-pill {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 8px;
+    background: var(--warning-soft);
+    color: #8a5418;
+  }
+
+  .mobile-sheet-divider {
+    height: 1px;
+    margin: 8px;
+    background: #eef1f4;
+  }
+
+  .mobile-sheet-foot {
+    display: flex;
+    gap: 10px;
+    padding: 10px 18px calc(14px + env(safe-area-inset-bottom));
+    border-top: 1px solid #eef1f4;
+    flex-shrink: 0;
+  }
+
+  .mobile-sheet-btn {
+    flex: 1;
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .mobile-sheet-btn--danger {
+    border: none;
+    background: var(--danger-soft);
+    color: #9e3b3b;
+  }
+
+  /* Project pages have no footer, so the list itself needs the safe-area
+     padding at the bottom. */
+  .mobile-sheet-head--project ~ .mobile-sheet-body {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  .mobile-sheet,
+  body.mobile-sheet-open .mobile-sheet,
+  .mobile-sheet-scrim {
+    transition: none;
+  }
+}
