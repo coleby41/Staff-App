@@ -15076,3 +15076,17 @@ body.gm-page {
     }
   }
 }
+
+/* ---------- Phone: no white strip under the tab bar ----------
+   Safari paints the strip around the iPhone home indicator (and the
+   area behind its own toolbar / overscroll) with the page's background
+   COLOR. body's background is a gradient, which has no color for Safari
+   to sample, so it fell back to white and left a white band under the
+   floating tab bar. A solid color (the same --bg the gradient ends on)
+   makes that strip match the page. */
+@media (max-width: 768px) {
+  html,
+  body {
+    background: var(--bg);
+  }
+}
