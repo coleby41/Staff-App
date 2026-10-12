@@ -176,8 +176,8 @@
        Slides up from the bottom over a blurred (not darkened) page.
        - Company pages: who you are, then every visible sidebar page that
          isn't already on the tab bar as a list, grouped the same way the
-         sidebar groups them (Company docs, IT Tools...), then Change
-         Password / Sign out.
+         sidebar groups them (Company docs, IT Tools...), then the
+         Customize tab bar link and the version.
        - Project pages: the current project with a Switch button, the
          project pages not on the tab bar as a list, then links back out to
          the company side.
@@ -320,10 +320,6 @@
                     ${sec.title ? `<div class="mobile-sheet-section">${esc(sec.title)}</div>` : ""}
                     ${sec.items.join("")}
                 `).join("")}
-                <div class="mobile-sheet-actions">
-                    <button type="button" class="mobile-sheet-btn" data-action="password">Change Password</button>
-                    <button type="button" class="mobile-sheet-btn mobile-sheet-btn--danger" data-action="signout">Sign out</button>
-                </div>
                 <div class="mobile-sheet-customize-link-wrap">
                     <button type="button" class="mobile-sheet-customize-link" data-action="customize">Customize tab bar</button>
                 </div>
