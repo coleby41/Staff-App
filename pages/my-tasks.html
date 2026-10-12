@@ -244,6 +244,21 @@
 <script src="/js/dashboard/dashboard.js"></script>
 
 <script>
+/* Sign out (header bell menu) — same as every other page. */
+const signOutButton = document.getElementById("signOutButton");
+if (signOutButton) {
+    signOutButton.addEventListener("click", function (event) {
+        event.stopPropagation();
+        if (typeof window.signOutUser === "function") {
+            window.signOutUser();
+        } else {
+            console.error("signOutUser() is not available");
+        }
+    });
+}
+</script>
+
+<script>
 /* ============================================================================
    Full task manager for this page. Reuses the same public.tasks table as
    the dashboard card, but shows all tasks (not just top 4) with an
