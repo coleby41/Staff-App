@@ -15546,3 +15546,494 @@ body.install-guide-open {
     letter-spacing: 0.02em;
   }
 }
+
+/* ===========================
+   PROJECT PHOTOS (phones only, project Overview page)
+   Camera button + options + built-in camera + review sheet.
+   Markup is built by js/project-photos.js.
+=========================== */
+.photo-fab,
+.photo-scrim,
+.photo-menu,
+.photo-sheet {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .photo-fab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    right: 18px;
+    bottom: calc(var(--mobile-tabbar-height) + var(--mobile-tabbar-gap) + 18px + env(safe-area-inset-bottom));
+    z-index: calc(var(--z-mobile-nav-backdrop) - 20); /* under the tab bar's own layer, the drawer and every sheet */
+    width: 60px;
+    height: 60px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 10px 24px rgba(8, 92, 152, 0.38), 0 2px 6px rgba(10, 24, 36, 0.18);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+  }
+
+  .photo-fab:active { transform: scale(0.94); }
+
+  .photo-fab-icon { display: flex; }
+  .photo-fab-icon--close { display: none; }
+
+  body.photo-menu-open .photo-fab {
+    z-index: calc(var(--z-mobile-nav) + 10);
+    background: #fff;
+    color: var(--text);
+    box-shadow: 0 10px 24px rgba(10, 24, 36, 0.18);
+  }
+  body.photo-menu-open .photo-fab-icon--camera { display: none; }
+  body.photo-menu-open .photo-fab-icon--close { display: flex; }
+
+  /* Hidden while the More sheet or a photo sheet is open. */
+  body.mobile-sheet-open .photo-fab,
+  body.photo-sheet-open .photo-fab {
+    visibility: hidden;
+  }
+
+  /* Blur behind, never darken (same as the notification panel). */
+  .photo-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-mobile-nav-backdrop);
+    background: rgba(242, 244, 247, 0.2);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+  }
+
+  body.photo-menu-open .photo-scrim,
+  body.photo-sheet-open .photo-scrim {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .photo-menu {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+    position: fixed;
+    right: 18px;
+    bottom: calc(var(--mobile-tabbar-height) + var(--mobile-tabbar-gap) + 92px + env(safe-area-inset-bottom));
+    z-index: calc(var(--z-mobile-nav) + 10);
+    opacity: 0;
+    transform: translateY(12px);
+    pointer-events: none;
+    visibility: hidden;
+    transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 0.22s;
+  }
+
+  body.photo-menu-open .photo-menu {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+    visibility: visible;
+    transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .photo-menu-opt {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-height: 64px;
+    padding: 12px 18px 12px 12px;
+    border: 0;
+    border-radius: 18px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    box-shadow: 0 12px 30px rgba(10, 24, 36, 0.16), 0 1px 3px rgba(10, 24, 36, 0.08);
+    cursor: pointer;
+  }
+
+  .photo-menu-opt strong { display: block; font-size: 15px; font-weight: 600; }
+  .photo-menu-opt small { display: block; margin-top: 2px; font-size: 12px; color: var(--text-soft); }
+
+  .photo-menu-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .photo-menu-icon svg { width: 22px; height: 22px; }
+
+  /* ---------- sheet (camera + review) ---------- */
+  .photo-sheet {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: var(--z-mobile-nav);
+    max-height: 94vh;
+    max-height: 94dvh;
+    padding: 0 18px calc(20px + env(safe-area-inset-bottom));
+    box-sizing: border-box;
+    background: var(--surface);
+    color: var(--text);
+    border-radius: 26px 26px 0 0;
+    box-shadow: 0 -10px 40px rgba(10, 24, 36, 0.16);
+    transform: translateY(105%);
+    visibility: hidden;
+    transition: transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 0.26s;
+  }
+
+  body.photo-sheet-open .photo-sheet {
+    transform: none;
+    visibility: visible;
+    transition: transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .photo-sheet.is-uploading .photo-review-body,
+  .photo-sheet.is-uploading .photo-btn--soft,
+  .photo-sheet.is-uploading .photo-sheet-cancel {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .photo-sheet.is-uploading .photo-btn--primary { pointer-events: none; }
+
+  .photo-sheet-handle { display: flex; justify-content: center; padding: 10px 0 6px; flex: none; }
+  .photo-sheet-handle span { width: 40px; height: 5px; border-radius: 3px; background: #cfd6dd; }
+
+  .photo-sheet-head { display: flex; align-items: center; gap: 10px; padding: 6px 0 14px; flex: none; }
+  .photo-sheet-head > div { flex: 1; min-width: 0; }
+  .photo-sheet-head h2 { margin: 0; font-size: 18px; font-weight: 700; color: var(--text); }
+  .photo-sheet-head p { margin: 1px 0 0; font-size: 12px; color: var(--text-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .photo-sheet-cancel {
+    border: 0;
+    background: none;
+    padding: 8px 4px;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent);
+    cursor: pointer;
+  }
+
+  .photo-sheet[data-view="camera"] .photo-sheet-cancel { color: var(--text-soft); }
+
+  /* camera */
+  .photo-viewfinder {
+    position: relative;
+    flex: none;
+    height: min(380px, 48dvh);
+    border-radius: 18px;
+    overflow: hidden;
+    background: #26313a;
+    touch-action: none;
+  }
+
+  .photo-viewfinder video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transform-origin: center;
+  }
+
+  .photo-viewfinder-msg {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 24px;
+    text-align: center;
+    color: #d5dce2;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .photo-viewfinder-msg[hidden] { display: none; }
+
+  .photo-fallback {
+    border: 0;
+    border-radius: 22px;
+    padding: 12px 18px;
+    background: #fff;
+    color: var(--accent-strong);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .photo-vf-btn {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: 38px;
+    height: 38px;
+    border: 0;
+    border-radius: 50%;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.4);
+    color: #fff;
+    cursor: pointer;
+  }
+
+  .photo-vf-btn[hidden] { display: none; }
+  .photo-vf-btn.is-on { background: #ffd34d; color: #14263a; }
+
+  .photo-vf-count,
+  .photo-vf-zoom {
+    position: absolute;
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.45);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 10px;
+    pointer-events: none;
+  }
+
+  .photo-vf-count { top: 12px; right: 12px; }
+  .photo-vf-count[hidden] { display: none; }
+  .photo-vf-zoom { bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 13px; font-weight: 700; padding: 5px 11px; }
+
+  .photo-vf-flash {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .photo-vf-flash.is-on { animation: photo-shutter-flash 0.25s ease-out; }
+
+  @keyframes photo-shutter-flash {
+    from { opacity: 0.85; }
+    to { opacity: 0; }
+  }
+
+  .photo-camera-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 14px;
+    flex: none;
+  }
+
+  .photo-thumbs { display: flex; width: 84px; }
+  .photo-thumbs img {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    object-fit: cover;
+    border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(10, 24, 36, 0.2);
+    background: #dfe6ec;
+  }
+  .photo-thumbs img + img { margin-left: -26px; }
+
+  .photo-camera-center { display: flex; align-items: center; gap: 14px; }
+
+  .photo-shutter {
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    border: 4px solid var(--accent);
+    background: #fff;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .photo-shutter span {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--accent);
+    transition: transform 0.1s ease;
+  }
+
+  .photo-shutter:active span { transform: scale(0.9); }
+  .photo-shutter:disabled { opacity: 0.4; }
+
+  .photo-zoom {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    width: 48px;
+    height: 132px;
+    padding: 4px 0;
+    box-sizing: border-box;
+    border-radius: 24px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+  }
+
+  .photo-zoom button {
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 50%;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    color: var(--text);
+    box-shadow: 0 1px 3px rgba(10, 24, 36, 0.12);
+    cursor: pointer;
+  }
+
+  .photo-zoom button:disabled { opacity: 0.35; }
+  .photo-zoom-value { font-size: 13px; font-weight: 700; color: var(--accent); }
+
+  .photo-camera-done { width: 84px; display: flex; justify-content: flex-end; }
+
+  .photo-done {
+    height: 46px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 23px;
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* review */
+  .photo-review-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .photo-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+  }
+
+  .photo-info > span:last-child { min-width: 0; }
+  .photo-info small { display: block; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: var(--text-soft); }
+  .photo-info strong { display: block; margin-top: 1px; font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .photo-info-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .photo-grid-item {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #dfe6ec;
+  }
+
+  .photo-grid-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  .photo-remove {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 26px;
+    height: 26px;
+    border: 0;
+    border-radius: 50%;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(20, 38, 58, 0.72);
+    color: #fff;
+    cursor: pointer;
+  }
+
+  .photo-error {
+    margin: 6px 0 0;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--danger-soft);
+    color: var(--danger);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .photo-review-actions { display: flex; gap: 10px; padding-top: 18px; flex: none; }
+
+  .photo-btn {
+    flex: 1;
+    height: 52px;
+    border: 0;
+    border-radius: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .photo-btn--soft { background: var(--accent-soft); color: var(--accent-strong); }
+  .photo-btn--primary { flex: 1.4; background: var(--accent); color: #fff; }
+}
+
+@media (max-width: 768px) {
+  /* Extra room at the end of the page so the camera button never covers the last card. */
+  body.has-photo-fab .main-content,
+  body.has-photo-fab .main-content.expanded {
+    padding-bottom: calc(var(--mobile-tabbar-height) + var(--mobile-tabbar-gap) + 100px + env(safe-area-inset-bottom));
+  }
+}

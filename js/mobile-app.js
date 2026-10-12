@@ -613,6 +613,8 @@
         const somethingOpen =
             body.classList.contains("mobile-sheet-open") ||
             body.classList.contains("popup-active") ||
+            body.classList.contains("photo-menu-open") ||
+            body.classList.contains("photo-sheet-open") ||
             Boolean(document.querySelector(".notification-dropdown.active"));
         setScrollLocked(somethingOpen && window.innerWidth <= 768);
     }
