@@ -218,9 +218,20 @@
 
     // "Version 1.0.1-RC-BETA": read from the sidebar footer so the menu
     // always shows whatever the sidebar does.
+    // "Version x - Report Bug": the version text plus the sidebar's own
+    // Report Bug link (if the page has one).
     function versionHtml() {
-        const text = (sidebar.querySelector(".version")?.textContent || "").replace(/\s+/g, " ").trim();
-        return text ? `<div class="mobile-sheet-version">${esc(text)}</div>` : "";
+        const el = sidebar.querySelector(".version");
+        if (!el) return "";
+        const link = el.querySelector("a[href]");
+        const clone = el.cloneNode(true);
+        clone.querySelectorAll("a").forEach(a => a.remove());
+        const text = clone.textContent.replace(/\s+/g, " ").replace(/\s*-\s*$/, "").trim();
+        if (!text) return "";
+        const linkHtml = link
+            ? ` - <a class="mobile-sheet-version-link" href="${esc(link.getAttribute("href"))}" target="_blank" rel="noopener">${esc(link.textContent.trim() || "Report Bug")}</a>`
+            : "";
+        return `<div class="mobile-sheet-version">${esc(text)}${linkHtml}</div>`;
     }
 
     function getProfile() {

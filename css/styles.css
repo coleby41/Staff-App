@@ -16037,3 +16037,24 @@ body.install-guide-open {
     padding-bottom: calc(var(--mobile-tabbar-height) + var(--mobile-tabbar-gap) + 100px + env(safe-area-inset-bottom));
   }
 }
+
+/* Bell menu footer: Change Password next to Sign out (was below them). */
+.notification-footer .notification-change-password-btn {
+  flex: 1;
+  width: auto;
+}
+
+/* "Version x - Report Bug" — the bug link lives on the version line. */
+.version-report-bug,
+.mobile-sheet-version-link {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  white-space: nowrap;
+}
+
+.version-report-bug:hover,
+.mobile-sheet-version-link:hover {
+  color: var(--accent);
+}
