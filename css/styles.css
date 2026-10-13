@@ -12967,6 +12967,23 @@ body.week-cal-dragging {
   font-size: 0.76rem;
 }
 
+/* Fields must never be wider than their column. Without this, a grid
+   column grows to fit the longest option in the Project dropdown (a long
+   project name), pushing every field in the grid past the card/screen. */
+.ir-field-grid > *,
+.ir-field-stack > * { min-width: 0; }
+.ir-form-card .auth-field input,
+.ir-form-card .auth-field select:not(.ir-rt-block),
+#irFormSettingsOverlay .auth-field select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+.ir-field-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+@media (max-width: 560px) {
+  .ir-field-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* ---- Incident Report: mobile ---- */
 @media (max-width: 640px) {
   .ir-form-card { padding: 16px; }
