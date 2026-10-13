@@ -12958,6 +12958,62 @@ body.week-cal-dragging {
   background: var(--danger-soft, rgba(220, 53, 69, 0.08));
 }
 
+/* Toolbar's Paragraph dropdown sits inside an .auth-field <label>, so the
+   generic ".auth-field select" rule (12px/14px padding) was out-ranking
+   .ir-rt-block and blowing it up to full input size. */
+.auth-field .ir-rt-block {
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 0.76rem;
+}
+
+/* ---- Incident Report: mobile ---- */
+@media (max-width: 640px) {
+  .ir-form-card { padding: 16px; }
+
+  /* 16px+ stops iOS Safari from auto-zooming the page on focus. */
+  .ir-form-card .auth-field input,
+  .ir-form-card .auth-field select:not(.ir-rt-block),
+  .ir-form-card .ir-richtext-body,
+  #irFormSettingsOverlay .auth-field select {
+    font-size: 16px;
+  }
+
+  /* One swipeable row instead of an awkward two-line wrap. */
+  .ir-richtext-toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .ir-richtext-toolbar::-webkit-scrollbar { display: none; }
+  .ir-rt-btn,
+  .ir-rt-block,
+  .ir-rt-sep { flex-shrink: 0; }
+  .ir-rt-btn { height: 32px; min-width: 34px; }
+
+  .ir-attach-btn { width: 100%; justify-content: center; }
+  .ir-attachment-row { padding: 8px 10px; }
+
+  .hero-section--construction .hero-actions,
+  .hero-section--construction #irFormSettingsBtn { width: 100%; }
+
+  /* Form Settings popup */
+  #irFormSettingsOverlay .popup--corporate { width: min(96vw, 560px); max-height: 90vh; }
+  #irFormSettingsOverlay .aa-files-popup-header { padding: 16px 18px; }
+  #irFormSettingsOverlay .aa-corporate-popup-body { padding: 16px 18px 20px; }
+  #irFormSettingsOverlay .dash-tab {
+    flex: 1 1 0;
+    text-align: center;
+    line-height: 1.25;
+  }
+  #irFormSettingsOverlay .aa-bc-vpo-template-status {
+    flex-wrap: wrap;
+    gap: 6px 12px;
+  }
+  #irFormSettingsOverlay .popup-buttons .auth-button { width: 100%; }
+}
+
 /* Small muted chip next to a project's name wherever it's displayed with
    its Project Code (see js/projects-page.js's card render). */
 .project-code-chip {
