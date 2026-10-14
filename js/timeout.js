@@ -1,10 +1,11 @@
 /**
  * idle-timeout.js
  * ----------------
- * Signs the user out after 5 minutes of inactivity — UNLESS they ticked
+ * Signs the user out after 5 minutes of inactivity — except on phones (and
+ * the installed home-screen app), and on any device where they ticked
  * "Remember this device" on the login page (localStorage "rememberDevice"
- * = "1", set by js/login.js). A remembered device stays signed in until
- * they sign out themselves.
+ * = "1", set by js/login.js). Those stay signed in until they sign out
+ * themselves.
  *
  * Inactivity is measured from a "last activity" timestamp in localStorage
  * (shared by every open tab), not from a timer that started when the page
@@ -31,8 +32,16 @@
     try { return localStorage.getItem(REMEMBER_KEY) === "1"; } catch (e) { return false; }
   }
 
-  // A remembered device never times out.
-  if (isRemembered()) return;
+  // Phones (and the installed home-screen app) never time out — staff stay
+  // signed in on their phone until they sign out themselves.
+  function isPhone() {
+    const mq = q => window.matchMedia && window.matchMedia(q).matches;
+    return mq("(display-mode: standalone)") || window.navigator.standalone === true ||
+      (mq("(pointer: coarse)") && Math.min(screen.width, screen.height) <= 820);
+  }
+
+  // A remembered device, or a phone, never times out.
+  if (isRemembered() || isPhone()) return;
 
   let idleTimer = null;
   let warningTimer = null;

@@ -1,12 +1,14 @@
-// Pre-tick "Remember this device" with this device's last choice. The
-// installed home-screen app defaults to ticked (it's someone's own phone).
+// Pre-tick "Remember this device" with this device's last choice. Phones and
+// the installed home-screen app are always ticked — they never time out.
 (function () {
   const remember = document.getElementById('rememberMe');
   if (!remember) return;
   let saved = null;
   try { saved = localStorage.getItem('rememberDevice'); } catch (e) { /* ignore */ }
   const standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
-  remember.checked = saved === '1' || (saved === null && standalone);
+  const phone = standalone || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) <= 820);
+  // Phones always stay signed in (see timeout.js), so the box is ticked there.
+  remember.checked = phone || saved === '1';
 })();
 
 const loginStep = document.getElementById('loginStep');
