@@ -622,6 +622,8 @@
             body.classList.contains("popup-active") ||
             body.classList.contains("photo-menu-open") ||
             body.classList.contains("photo-sheet-open") ||
+            body.classList.contains("inv-form-open") ||
+            body.classList.contains("acct-search-open") ||
             Boolean(document.querySelector(".notification-dropdown.active"));
         setScrollLocked(somethingOpen && window.innerWidth <= 768);
     }

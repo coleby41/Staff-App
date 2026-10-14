@@ -660,7 +660,10 @@
 
         const rowsHtml = pageFiles.map(file => {
             const isFormFiled = file.source === "form_submission";
-            const canManage = canDeleteFile(file); // same "uploader or leadership" policy gates both rename and delete
+            // Same "uploader or leadership" policy gates both rename and delete.
+            // Invoice files always show both so the popup can explain they're
+            // managed on the Accounting page.
+            const canManage = file.source === "invoice" || canDeleteFile(file);
             const meta = getFileTypeMeta(file.file_name);
 
             const dataCellsHtml = columnLayout.order.map(key => fileCellHtml(key, file, meta, isFormFiled)).join("");
@@ -1305,7 +1308,38 @@
         document.getElementById("confirmDeleteFileBtn").disabled = !deleteFileConfirmReady();
     }
 
+    // Invoice PDFs are managed on the Accounting page (their file name and the
+    // invoice row stay in sync there), so they can't be renamed or deleted here.
+    function showInvoiceFileLockedPopup(action) {
+        let overlay = document.getElementById("invoiceFileLockedOverlay");
+        if (!overlay) {
+            overlay = document.createElement("div");
+            overlay.className = "popup-overlay hidden";
+            overlay.id = "invoiceFileLockedOverlay";
+            overlay.innerHTML = `
+                <div class="popup" role="alertdialog" aria-modal="true" aria-labelledby="invoiceFileLockedTitle">
+                    <h2 id="invoiceFileLockedTitle">This is an invoice</h2>
+                    <p class="auth-inline-copy" id="invoiceFileLockedText"></p>
+                    <div class="popup-buttons">
+                        <button type="button" class="auth-button auth-button--secondary" id="invoiceFileLockedOkBtn">OK</button>
+                        <a class="auth-button" id="invoiceFileLockedGoBtn" href="#">Go to Accounting</a>
+                    </div>
+                </div>`;
+            document.body.appendChild(overlay);
+            const close = () => overlay.classList.add("hidden");
+            overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
+            overlay.querySelector("#invoiceFileLockedOkBtn").addEventListener("click", close);
+            document.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+        }
+        overlay.querySelector("#invoiceFileLockedText").textContent =
+            `Invoice files can't be ${action} on the Files page. Open the Accounting page's Invoices tab to edit or delete this invoice — deleting it there removes the file too.`;
+        overlay.querySelector("#invoiceFileLockedGoBtn").href =
+            `/pages/project-accounting.html?id=${encodeURIComponent(currentProject ? currentProject.id : "")}#invoices`;
+        overlay.classList.remove("hidden");
+    }
+
     function openDeleteFileConfirm(file) {
+        if (file && file.source === "invoice") { showInvoiceFileLockedPopup("deleted"); return; }
         pendingDeleteFile = file;
         document.getElementById("deleteFileConfirmName").textContent = file.file_name || "this file";
         const input = document.getElementById("deleteFileConfirmNameInput");
@@ -1359,6 +1393,7 @@
     }
 
     function openRenameFileModal(file) {
+        if (file && file.source === "invoice") { showInvoiceFileLockedPopup("renamed"); return; }
         pendingRenameFile = file;
         const { base, ext } = splitFileNameExt(file.file_name);
         const input = document.getElementById("renameFileInput");

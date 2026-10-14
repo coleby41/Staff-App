@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Installable "Add to Home Screen" app (manifest.webmanifest + assets/icons/). -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Leeward Staff">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <title>Accounting | The Leeward Group</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+    <!-- Vercel Web Analytics -->
+    <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+
+<body>
+
+<!-- Header/sidebar shell shared by every project-dashboard page
+     (project-shell.js). Keep this block in sync across projects.html,
+     project-files.html, project-timeline.html, project-to-do.html,
+     project-accounting.html, project-site-plans.html, project-contract.html
+     if you change it here. -->
+
+<header class="header">
+
+    <div class="header-left">
+
+        <!-- Phone-only nav button (hidden above 820px via .menu-btn--mobile-only).
+             These project pages use the collapse tab instead of a hamburger on
+             desktop, but on a phone the sidebar is a hidden drawer, so without
+             this there's no way to reach the other project tabs. script.js
+             picks it up by id like every other page's #menuBtn. -->
+        <button class="menu-btn menu-btn--mobile-only" id="menuBtn" aria-label="Toggle navigation">☰</button>
+
+        <div class="project-switcher" id="projectSwitcher">
+            <button type="button" class="project-switcher-toggle" id="projectSwitcherToggle">
+                <div>
+                    <div class="brand-title" id="headerProjectName">Loading…</div>
+                    <div class="project-breadcrumb" id="headerProjectBreadcrumb">
+                        <a href="/pages/project-home.html">Home</a> → …
+                    </div>
+                </div>
+                <span class="project-switcher-caret">⌄</span>
+            </button>
+            <div class="project-switcher-dropdown hidden" id="projectSwitcherDropdown"></div>
+        </div>
+
+    </div>
+
+    <div class="header-center">
+        <h1 class="header-page-name" id="headerPageName">Accounting</h1>
+    </div>
+
+    <div class="header-right">
+        <div class="header-user-area">
+            <div class="header-user-pill" id="headerUserPill">
+                <span id="headerUserName">Staff</span>
+                <div class="notification-wrapper">
+                    <button class="notification-bell" id="notificationBell" aria-label="Notifications">
+                        <span class="notification-bell-icon"></span>
+                        <span class="notification-count">0</span>
+                    </button>
+                    <div class="notification-dropdown" id="notificationDropdown">
+                        <div class="notification-header">
+                            <span>Notifications</span>
+                            <button class="mark-read-btn">Mark as read</button>
+                        </div>
+                        <div id="notificationList"></div>
+                        <div id="notificationEmpty" class="notification-item" style="display:none;">
+                            <p>No notifications yet.</p>
+                        </div>
+                        <div class="notification-footer">
+                            <button type="button" class="notification-change-password-btn" id="changePasswordBtn">
+                                <span class="notification-change-password-btn-icon" aria-hidden="true"></span>
+                                Change Password
+                            </button>
+                            <button class="auth-button auth-button--secondary header-signout" id="signOutButton" type="button">Sign out</button>
+                        </div>
+</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</header>
+
+<aside class="sidebar" id="sidebar">
+
+    <div class="sidebar-search-wrap">
+        <input type="text" id="sidebarSearchInput" class="sidebar-search-input" placeholder="Search this project…" autocomplete="off">
+        <kbd class="sidebar-search-shortcut-hint" id="sidebarSearchShortcutHint">⌘F</kbd>
+        <div class="sidebar-search-results hidden" id="sidebarSearchResults"></div>
+        <!-- Icon-only stand-in shown only once the sidebar collapses to its
+             68px rail (body.sidebar-collapsed in styles.css hides the input/
+             hint/results above but keeps this) — clicking it expands the
+             sidebar and focuses the real search input, same as ⌘F/Ctrl+F. -->
+        <button type="button" class="sidebar-search-collapsed-btn" id="sidebarSearchCollapsedBtn" aria-label="Search this project" title="Search this project">
+            <span class="sidebar-search-collapsed-icon" aria-hidden="true"></span>
+        </button>
+    </div>
+
+    <nav class="sidebar-nav">
+
+        <a href="#" class="nav-item" data-nav-page="/pages/projects.html">
+            <span class="projects-nav-icon"></span>
+            <span class="nav-text">Overview</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-files.html">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">Project Files</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-form-logs.html">
+            <span class="form-logs-nav-icon"></span>
+            <span class="nav-text">Form Logs</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-timeline.html">
+            <span class="timeline-nav-icon"></span>
+            <span class="nav-text">Project Timeline</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-todo.html">
+            <span class="todo-nav-icon"></span>
+            <span class="nav-text">To-do</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-accounts.html">
+            <span class="accounts-nav-icon"></span>
+            <span class="nav-text">Accounts / Contacts</span>
+        </a>
+
+        <hr style="border:.5px solid rgba(255,255,255,0.14); margin:10px 0;">
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-accounting.html">
+            <span class="finance-nav-icon"></span>
+            <span class="nav-text">Accounting</span>
+        </a>
+
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="footer-pill" id="sidebarGroupPill"></div>
+        <div class="sidebar-brand">Leeward Group</div>
+        <div class="version">Version 1.0.1-RC-BETA - <a class="version-report-bug" href="https://tally.so/r/QKyGj8" target="_blank" rel="noopener">Report Bug</a></div>
+    </div>
+</aside>
+
+<main class="main-content">
+
+    <section class="hero-section">
+        <div>
+            <p class="eyebrow">Project Dashboard</p>
+            <h1>Accounting</h1>
+            <p>Invoices for this project — what's owed, what's paid, and the files behind them.</p>
+        </div>
+    </section>
+
+    <div class="dash-tabs acct-tabs" role="tablist" id="acctTabs">
+        <button type="button" class="dash-tab active" role="tab" data-acct-tab="home" aria-selected="true">Home</button>
+        <button type="button" class="dash-tab" role="tab" data-acct-tab="invoices" aria-selected="false">Invoices <span class="project-tab-count" id="acctInvoiceCount">0</span></button>
+    </div>
+
+    <section id="acctHomePanel" class="acct-panel">
+        <div class="acct-wip" role="status">
+            <span class="acct-wip-icon" aria-hidden="true"></span>
+            <div>
+                <strong>Work in progress</strong>
+                <p>The Accounting home page is still being built. Invoices are ready now under the Invoices tab.</p>
+            </div>
+        </div>
+    </section>
+
+    <section id="acctInvoicesPanel" class="acct-panel" hidden>
+        <div class="acct-toolbar">
+            <label class="acct-search">
+                <span class="acct-search-icon" aria-hidden="true"></span>
+                <input type="search" id="acctSearchInput" placeholder="Search vendor, invoice #, date or amount" aria-label="Search invoices" autocomplete="off">
+            </label>
+            <div class="acct-filter" role="group" aria-label="Filter invoices">
+                <button type="button" class="acct-filter-btn is-on" data-acct-filter="all">All</button>
+                <button type="button" class="acct-filter-btn" data-acct-filter="unpaid">Not paid</button>
+                <button type="button" class="acct-filter-btn" data-acct-filter="paid">Paid</button>
+            </div>
+            <button type="button" class="auth-button acct-add-btn" id="acctAddInvoiceBtn">+ Add invoice</button>
+        </div>
+
+        <div id="acctPageMessage" class="workbook-page-message" style="display:none;"></div>
+        <div class="workbook-loading" id="acctLoading"><p>Loading invoices…</p></div>
+        <div class="workbook-empty" id="acctEmpty" style="display:none;"><p>No invoices yet. Use <strong>+ Add invoice</strong>, or the camera button on the project Overview on your phone.</p></div>
+        <div class="workbook-empty" id="acctNoMatch" style="display:none;"><p>No invoices match.</p></div>
+
+        <div class="acct-table-wrap" id="acctTableWrap" hidden>
+            <table class="acct-table">
+                <thead>
+                    <tr>
+                        <th>File name</th>
+                        <th>Vendor</th>
+                        <th>Invoice #</th>
+                        <th>Date</th>
+                        <th class="acct-num">Total due</th>
+                        <th>Status</th>
+                        <th class="acct-actions-col"><span class="visually-hidden">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody id="acctTableBody"></tbody>
+            </table>
+        </div>
+
+        <div class="acct-cards" id="acctCards"></div>
+    </section>
+
+</main>
+
+
+<!-- Invoice preview (desktop). On phones the PDF opens in the phone's own viewer instead. -->
+<div class="popup-overlay hidden" id="acctPreviewOverlay">
+    <div class="popup popup--preview">
+        <div class="file-preview-header">
+            <h2 id="acctPreviewTitle">Invoice</h2>
+            <div class="acct-preview-actions">
+                <button type="button" class="workbook-btn" id="acctPreviewDownloadBtn">Download</button>
+                <button type="button" class="file-preview-close-btn" id="acctPreviewCloseBtn" aria-label="Close preview">✕</button>
+            </div>
+        </div>
+        <div class="file-preview-body" id="acctPreviewBody"></div>
+    </div>
+</div>
+
+
+<!-- Delete invoice confirmation — type the full file name to confirm. -->
+<div class="popup-overlay hidden" id="acctDeleteOverlay">
+    <div class="popup popup--danger">
+        <div class="delete-confirm-header">
+            <span class="delete-confirm-icon" aria-hidden="true"></span>
+            <h2 id="acctDeleteTitle">Delete this invoice?</h2>
+        </div>
+
+        <div class="delete-confirm-warning-box">
+            <p>This removes the invoice and permanently deletes its file from 07 Financial › Invoices. This can't be undone.</p>
+        </div>
+
+        <label class="auth-field delete-confirm-name-field">
+            <span>Type <strong id="acctDeleteName"></strong> below to confirm</span>
+            <input type="text" id="acctDeleteNameInput" autocomplete="off" autocapitalize="off" spellcheck="false">
+        </label>
+
+        <p class="auth-message" id="acctDeleteMessage"></p>
+
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="acctDeleteCancelBtn">Cancel</button>
+            <button type="button" class="auth-button auth-button--red" id="acctDeleteConfirmBtn" disabled>Delete invoice and file</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- Change Password modal — opened from the "Change Password" action in
+     the notification center dropdown (see /js/change-password.js). Same
+     corporate popup styling (.modal-icon-header/.popup) used by the
+     app's other non-destructive modals. -->
+<div class="popup-overlay hidden" id="changePasswordModalOverlay">
+    <div class="popup">
+        <div class="workbook-preview-header">
+            <div class="modal-icon-header" style="margin-bottom:0;">
+                <span class="modal-icon modal-icon--lock" aria-hidden="true"></span>
+                <div>
+                    <h2>Change Password</h2>
+                    <p class="auth-inline-copy">Enter your current password, then choose a new one.</p>
+                </div>
+            </div>
+            <button type="button" class="menu-btn" id="closeChangePasswordBtn" aria-label="Close">✕</button>
+        </div>
+
+        <form class="auth-form" id="changePasswordForm">
+            <label class="auth-field">
+                Current password
+                <input type="password" id="changePasswordCurrentInput" name="currentPassword" required autocomplete="current-password" placeholder="Enter your current password">
+            </label>
+
+            <label class="auth-field">
+                New password
+                <input type="password" id="changePasswordNewInput" name="newPassword" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters">
+            </label>
+
+            <label class="auth-field">
+                Confirm new password
+                <input type="password" id="changePasswordConfirmInput" name="confirmPassword" required minlength="8" autocomplete="new-password" placeholder="Re-enter your new password">
+            </label>
+
+            <p class="auth-message" id="changePasswordMessage" role="status"></p>
+
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="cancelChangePasswordBtn">Cancel</button>
+                <button type="submit" class="auth-button" id="submitChangePasswordBtn">Update Password</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="/js/supabase-auth.js"></script>
+<script src="/js/toast.js"></script>
+<script src="/js/morning-check.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script src="/js/manager-nav.js"></script>
+<script src="/js/script.js"></script>
+<script src="/js/mobile-app.js"></script>
+<script src="/js/install-app.js"></script>
+<script src="/js/timeout.js"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/change-password.js"></script>
+<script src="/js/permissions.js"></script>
+<script src="/js/permission-editor.js"></script>
+<script src="/js/nav-access.js"></script>
+<script src="/js/project-fields.js"></script>
+<script src="/js/project-shell.js"></script>
+<script src="/js/project-invoices.js"></script>
+<script src="/js/project-accounting.js"></script>
+
+<script>
+
+/* ===========================
+   SIGN OUT
+=========================== */
+
+const signOutButton = document.getElementById("signOutButton");
+if (signOutButton) {
+    signOutButton.addEventListener("click", function (event) {
+        event.stopPropagation();
+        if (typeof window.signOutUser === "function") {
+            window.signOutUser();
+        } else {
+            console.error("signOutUser() is not available");
+        }
+    });
+}
+
+/* ===========================
+   HEADER NAME / NAV ACCESS
+   (same pattern as every other page — project-shell.js owns the project
+   name/breadcrumb, this owns the signed-in staff member's own name)
+=========================== */
+
+const userNameElement = document.getElementById("headerUserName");
+
+function updateStaffName(profile) {
+    if (!profile) return;
+    const name = profile.full_name || profile.username || "Staff";
+    if (userNameElement) userNameElement.textContent = name;
+
+    const sidebarGroupPill = document.getElementById("sidebarGroupPill");
+    if (sidebarGroupPill) {
+        const groups = window.getSupabaseUserGroups ? window.getSupabaseUserGroups(profile) : [];
+        sidebarGroupPill.textContent = groups.length
+            ? groups.map(g => g.charAt(0).toUpperCase() + g.slice(1)).join(", ")
+            : "No Group";
+    }
+}
+
+const storedProfile = localStorage.getItem("staffProfile");
+if (storedProfile) {
+    try {
+        updateStaffName(JSON.parse(storedProfile));
+    } catch (error) {
+        console.warn("Unable to parse stored profile:", error);
+    }
+}
+
+window.addEventListener("DOMContentLoaded", function () {
+    const profile = window.currentSupabaseProfile || null;
+    if (profile) updateStaffName(profile);
+});
+
+</script>
+
+</body>
+</html>

@@ -86,6 +86,18 @@
 
                 <div class="pm-list" id="pmList"></div>
                 <p class="pm-empty hidden" id="pmEmpty">No one has been added to this project yet.</p>
+
+                <div class="pm-settings" id="pmSettings">
+                    <h3>Project settings</h3>
+                    <div class="pm-setting">
+                        <div class="pm-setting-text">
+                            <strong>Edit &amp; delete invoices</strong>
+                            <span>Which roles on this project can change or delete invoices on the Accounting page. Super Admin and IT always can. Anyone on the project can view and add invoices.</span>
+                        </div>
+                        <div class="pm-setting-roles" id="pmInvoiceRoles"></div>
+                    </div>
+                    <p class="auth-message" id="pmSettingsMessage" role="status"></p>
+                </div>
             </div>
         `;
         document.body.appendChild(overlay);
@@ -104,6 +116,7 @@
             if (e.target.matches(".pm-role-select")) updateMember(row.dataset.memberId, { role: e.target.value });
             if (e.target.matches(".pm-fin-toggle")) updateMember(row.dataset.memberId, { can_view_financials: e.target.checked });
         });
+        document.getElementById("pmInvoiceRoles").addEventListener("change", saveInvoiceRoles);
         document.getElementById("pmList").addEventListener("click", e => {
             const btn = e.target.closest(".pm-remove-btn");
             if (btn) removeMember(btn.closest("[data-member-id]").dataset.memberId);
@@ -170,6 +183,62 @@
         pmCanEdit = inGroup("Super Admin") || inGroup("IT") || myMembership?.role === "project_admin";
 
         render();
+        loadSettings();
+    }
+
+    /* ---------- project settings: who can edit/delete invoices ---------- */
+
+    let pmInvoiceRoles = null;
+
+    async function loadSettings() {
+        const box = document.getElementById("pmInvoiceRoles");
+        const projectId = pmProjectId;
+        box.innerHTML = `<span class="pm-empty">Loading…</span>`;
+        document.getElementById("pmSettingsMessage").textContent = "";
+        if (!window.ProjectInvoices) { box.innerHTML = ""; return; }
+        try {
+            const settings = await window.ProjectInvoices.loadSettings(projectId);
+            if (projectId !== pmProjectId) return;
+            pmInvoiceRoles = settings.invoice_manage_roles;
+        } catch (err) {
+            console.error("project_settings load failed:", err);
+            if (projectId !== pmProjectId) return;
+            pmInvoiceRoles = window.ProjectInvoices.DEFAULT_MANAGE_ROLES.slice();
+            setSettingsMessage("Couldn't load project settings. Has supabase-project-invoices-setup.sql been run?", true);
+        }
+        renderSettings();
+    }
+
+    function renderSettings() {
+        const box = document.getElementById("pmInvoiceRoles");
+        box.innerHTML = PM_ROLES.map(r => `
+            <label class="pm-setting-role">
+                <input type="checkbox" value="${r.key}"${(pmInvoiceRoles || []).includes(r.key) ? " checked" : ""}${pmCanEdit ? "" : " disabled"}>
+                <span>${esc(r.label)}</span>
+            </label>`).join("");
+    }
+
+    function setSettingsMessage(text, isError) {
+        const el = document.getElementById("pmSettingsMessage");
+        el.textContent = text || "";
+        el.classList.toggle("error", !!isError);
+    }
+
+    async function saveInvoiceRoles() {
+        if (!pmCanEdit || !pmProjectId) return;
+        const roles = Array.from(document.querySelectorAll("#pmInvoiceRoles input:checked")).map(i => i.value);
+        const before = pmInvoiceRoles;
+        pmInvoiceRoles = roles;
+        setSettingsMessage("Saving…");
+        try {
+            await window.ProjectInvoices.saveSettings(pmProjectId, { invoice_manage_roles: roles });
+            setSettingsMessage("Saved.");
+        } catch (err) {
+            console.error("project_settings save failed:", err);
+            pmInvoiceRoles = before;
+            renderSettings();
+            setSettingsMessage("Couldn't save that setting. Please try again.", true);
+        }
     }
 
     function staffForAuthId(authId) {

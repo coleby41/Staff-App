@@ -32,6 +32,8 @@
     let project = null;
     let photos = [];         // { file: File, url: objectURL }
     let source = "camera";   // "camera" | "upload" — which way Review's "add more" button goes
+    let cameraMode = "photos"; // "photos" | "invoice" — invoice pages go to the invoice form, not Review
+    let invoiceResume = false; // true while the invoice form is hidden so more pages can be photographed
     let uploading = false;
 
     // camera state
@@ -43,8 +45,18 @@
     let hardwareZoom = false;
     let torchOn = false;
     let shotSeq = 0;
+    let pendingShots = 0;    // captures still being encoded (toBlob is async)
+
+    function waitForShots() {
+        return new Promise(resolve => {
+            const check = () => (pendingShots > 0 ? setTimeout(check, 40) : resolve());
+            check();
+        });
+    }
 
     const ICONS = {
+        receipt: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 2h14v20l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>',
+        fileUp: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6M9 15l3-3 3 3"/></svg>',
         camera: '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>',
         image: '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>',
         close: '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>',
@@ -81,7 +93,7 @@
 
     /* ---------- markup ---------- */
 
-    let fab, scrim, menu, sheet, libraryInput, fallbackInput;
+    let fab, scrim, menu, sheet, libraryInput, fallbackInput, invoiceInput;
 
     function build() {
         fab = document.createElement("button");
@@ -105,6 +117,14 @@
             '<button type="button" class="photo-menu-opt" role="menuitem" data-photo-action="menu-upload">' +
                 '<span class="photo-menu-icon">' + ICONS.image + '</span>' +
                 '<span><strong>Upload project photos</strong><small>Choose from your photo library</small></span>' +
+            '</button>' +
+            '<button type="button" class="photo-menu-opt" role="menuitem" data-photo-action="menu-take-invoice">' +
+                '<span class="photo-menu-icon photo-menu-icon--invoice">' + ICONS.receipt + '</span>' +
+                '<span><strong>Take project invoices</strong><small>Snap a photo of each page</small></span>' +
+            '</button>' +
+            '<button type="button" class="photo-menu-opt" role="menuitem" data-photo-action="menu-upload-invoice">' +
+                '<span class="photo-menu-icon photo-menu-icon--invoice">' + ICONS.fileUp + '</span>' +
+                '<span><strong>Upload project invoices</strong><small>Photos or PDFs from your phone</small></span>' +
             '</button>';
 
         sheet = document.createElement("section");
@@ -126,7 +146,13 @@
         fallbackInput.setAttribute("capture", "environment");
         fallbackInput.hidden = true;
 
-        document.body.append(fab, scrim, menu, sheet, libraryInput, fallbackInput);
+        invoiceInput = document.createElement("input");
+        invoiceInput.type = "file";
+        invoiceInput.accept = "image/*,application/pdf";
+        invoiceInput.multiple = true;
+        invoiceInput.hidden = true;
+
+        document.body.append(fab, scrim, menu, sheet, libraryInput, fallbackInput, invoiceInput);
         document.body.classList.add("has-photo-fab");
 
         fab.addEventListener("click", () => {
@@ -140,15 +166,30 @@
         menu.addEventListener("click", (e) => {
             const opt = e.target.closest("[data-photo-action]");
             if (!opt) return;
-            if (opt.dataset.photoAction === "menu-take") {
+            const act = opt.dataset.photoAction;
+            if (act === "menu-take-invoice") {
+                closeMenu();
+                cameraMode = "invoice";
+                invoiceResume = false;
+                openCamera();
+            } else if (act === "menu-upload-invoice") {
+                closeMenu();
+                invoiceInput.click();
+            } else if (act === "menu-take") {
                 closeMenu();
                 source = "camera";
+                cameraMode = "photos";
                 openCamera();
             } else {
                 closeMenu();
                 source = "upload";
                 libraryInput.click();
             }
+        });
+        invoiceInput.addEventListener("change", () => {
+            const files = Array.from(invoiceInput.files || []);
+            invoiceInput.value = "";
+            if (files.length) openInvoiceForm(files);
         });
         libraryInput.addEventListener("change", () => {
             const files = Array.from(libraryInput.files || []);
@@ -160,6 +201,7 @@
             const files = Array.from(fallbackInput.files || []);
             fallbackInput.value = "";
             addFiles(files);
+            if (cameraMode === "invoice") { stopCamera(); finishInvoiceCamera(); return; }
             if (photos.length) openReview();
         });
         sheet.addEventListener("click", onSheetClick);
@@ -229,6 +271,16 @@
 
         if (action === "cancel") {
             if (uploading) return;
+            if (cameraMode === "invoice" && invoiceResume) {
+                // Back to the invoice form without adding pages.
+                clearPhotos();
+                closeSheet();
+                invoiceResume = false;
+                cameraMode = "photos";
+                if (window.ProjectInvoices) window.ProjectInvoices.resumeForm([]);
+                return;
+            }
+            cameraMode = "photos";
             closeEverything();
         } else if (action === "shutter") {
             capture();
@@ -239,9 +291,14 @@
         } else if (action === "torch") {
             toggleTorch();
         } else if (action === "done") {
-            stopCamera();
-            if (photos.length) openReview();
-            else closeEverything();
+            btn.disabled = true;
+            waitForShots().then(() => {
+                stopCamera();
+                if (cameraMode === "invoice") finishInvoiceCamera();
+                else if (photos.length) openReview();
+                else closeEverything();
+            });
+            return;
         } else if (action === "more") {
             if (source === "upload") libraryInput.click();
             else openCamera();
@@ -285,7 +342,9 @@
 
     function openCamera() {
         sheet.innerHTML =
-            sheetHead("Take photos", project ? (project.name || "Untitled project") : "") +
+            (cameraMode === "invoice"
+                ? sheetHead("Take invoice photos", "One photo per page · saved as one PDF")
+                : sheetHead("Take photos", project ? (project.name || "Untitled project") : "")) +
             '<div class="photo-viewfinder">' +
                 '<video playsinline muted autoplay></video>' +
                 '<div class="photo-viewfinder-msg">Starting camera…</div>' +
@@ -436,7 +495,9 @@
         const flash = $(".photo-vf-flash", sheet);
         if (flash) { flash.classList.remove("is-on"); void flash.offsetWidth; flash.classList.add("is-on"); }
 
+        pendingShots++;
         canvas.toBlob((blob) => {
+            pendingShots = Math.max(0, pendingShots - 1);
             if (!blob) return;
             shotSeq++;
             const file = new File([blob], "photo-" + stamp() + "-" + shotSeq + ".jpg", { type: "image/jpeg" });
@@ -449,12 +510,48 @@
         const count = $(".photo-vf-count", sheet);
         if (count) {
             count.hidden = !photos.length;
-            count.textContent = photos.length + " taken";
+            count.textContent = cameraMode === "invoice"
+                ? (photos.length === 1 ? "1 page" : photos.length + " pages")
+                : photos.length + " taken";
         }
         const thumbs = $(".photo-thumbs", sheet);
         if (thumbs) {
             thumbs.innerHTML = photos.slice(-3).map(p => '<img src="' + p.url + '" alt="">').join("");
         }
+    }
+
+    /* ---------- invoices (form lives in js/project-invoices.js) ---------- */
+
+    function finishInvoiceCamera() {
+        const files = photos.map(p => p.file);
+        clearPhotos();
+        closeSheet();
+        cameraMode = "photos";
+        if (invoiceResume) {
+            invoiceResume = false;
+            if (window.ProjectInvoices) window.ProjectInvoices.resumeForm(files);
+            return;
+        }
+        if (files.length) openInvoiceForm(files);
+    }
+
+    function openInvoiceForm(files) {
+        if (!window.ProjectInvoices || !project) {
+            toast("Invoices aren't available right now. Please refresh and try again.", "error");
+            return;
+        }
+        window.ProjectInvoices.openForm({
+            project,
+            files,
+            onAddFromCamera: () => {
+                cameraMode = "invoice";
+                invoiceResume = true;
+                openCamera();
+            },
+            onSaved: (inv) => {
+                toast("Invoice " + inv.invoice_number + " saved to " + window.ProjectInvoices.FOLDER_LABEL + ".");
+            }
+        });
     }
 
     /* ---------- review ---------- */
