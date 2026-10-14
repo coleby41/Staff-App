@@ -16739,3 +16739,124 @@ body.inv-form-open { overflow: hidden; }
 .pm-setting-role:has(input:disabled) { cursor: default; opacity: 0.8; }
 .pm-settings .auth-message { margin: 8px 0 0; }
 .pm-popup { overflow-y: auto; }
+
+/* ===========================
+   3D BUTTON TREATMENT — new buttons (photos, invoices, Accounting,
+   Project settings). Same raised look, hover lift and press as the
+   app-wide list above (.auth-button, .workbook-btn, .chip …). Segmented
+   toggles (.acct-filter-btn, .inv-seg-btn) are left flat on purpose, same
+   as .view-toggle-btn.
+=========================== */
+.acct-icon-btn,
+.acct-card-btn,
+.photo-menu-opt,
+.photo-btn,
+.photo-done,
+.photo-zoom button,
+.photo-remove,
+.photo-fallback,
+.photo-vf-btn,
+.inv-btn,
+.inv-page-add,
+.inv-page-remove,
+.inv-back,
+.pm-setting-role {
+  border: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 3px 7px rgba(10, 24, 36, 0.25);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease, background 0.15s ease, opacity 0.15s ease;
+}
+
+.acct-icon-btn:hover,
+.acct-card-btn:hover,
+.photo-menu-opt:hover,
+.photo-btn:hover,
+.photo-done:hover,
+.photo-zoom button:hover,
+.photo-remove:hover,
+.photo-fallback:hover,
+.photo-vf-btn:hover,
+.inv-btn:hover,
+.inv-page-add:hover,
+.inv-page-remove:hover,
+.inv-back:hover,
+.pm-setting-role:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 6px 14px rgba(10, 24, 36, 0.3);
+}
+
+.acct-icon-btn:active,
+.acct-card-btn:active,
+.photo-menu-opt:active,
+.photo-btn:active,
+.photo-done:active,
+.photo-zoom button:active,
+.photo-remove:active,
+.photo-fallback:active,
+.photo-vf-btn:active,
+.inv-btn:active,
+.inv-page-add:active,
+.inv-page-remove:active,
+.inv-back:active,
+.pm-setting-role:active {
+  transform: translateY(1px) scale(0.98);
+  filter: brightness(0.96);
+  box-shadow:
+    inset 0 1px 3px rgba(10, 24, 36, 0.2),
+    0 1px 2px rgba(10, 24, 36, 0.14);
+}
+
+.acct-icon-btn:disabled,
+.photo-zoom button:disabled,
+.inv-btn:disabled {
+  transform: none;
+  filter: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 3px 7px rgba(10, 24, 36, 0.25);
+}
+
+/* Outlined buttons lose their border above, so give them a solid fill. */
+.acct-icon-btn,
+.acct-card-btn { background: var(--surface); }
+.acct-icon-btn--danger,
+.acct-card-btn--danger { background: var(--surface); color: var(--danger); }
+.inv-page-add { background: var(--accent-soft); }
+.pm-setting-role { background: var(--surface-alt); }
+.pm-setting-role:has(input:checked) { background: var(--accent-soft); }
+
+/* Floating bubbles keep their bigger "floating" shadow but get the same
+   highlight, lift and press. */
+.photo-fab,
+.acct-search-fab {
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease, background 0.2s ease, color 0.2s ease;
+}
+
+@media (max-width: 768px) {
+  .photo-fab,
+  body.acct-on-invoices .acct-search-fab {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      0 10px 24px rgba(8, 92, 152, 0.38),
+      0 2px 6px rgba(10, 24, 36, 0.18);
+  }
+
+  body.photo-menu-open .photo-fab {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.6),
+      0 10px 24px rgba(10, 24, 36, 0.18);
+  }
+
+  .photo-fab:hover,
+  body.acct-on-invoices .acct-search-fab:hover { transform: translateY(-1px); filter: brightness(1.05); }
+
+  .photo-fab:active,
+  body.acct-on-invoices .acct-search-fab:active { transform: translateY(1px) scale(0.96); filter: brightness(0.96); }
+}
+
+/* room for the 3D shadow on the page tiles (the strip scrolls sideways) */
+.inv-pages { padding: 2px 2px 8px; }
