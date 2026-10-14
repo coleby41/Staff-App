@@ -16914,3 +16914,54 @@ body.inv-form-open { overflow: hidden; }
 .header:has(.project-switcher-dropdown:not(.hidden)) {
   z-index: calc(var(--z-floating-control) + 1);
 }
+
+/* ===========================
+   Files table: always the full width of its panel, and when the columns
+   are wider than the panel (long names / widened columns) it scrolls
+   sideways INSIDE the white box — with a visible scrollbar — instead of
+   spilling past it. The folder tree beside it never moves.
+=========================== */
+.all-files-list {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.all-files-list-header,
+.all-files-file-row {
+  min-width: min-content; /* rows grow with the columns, so stripes/borders span the whole table */
+}
+
+.all-files-list-header { border-radius: 0; }
+.all-files-file-row:last-child { border-radius: 0; }
+
+/* Always-visible scrollbar "lines" (macOS hides scrollbars by default). */
+.all-files-list::-webkit-scrollbar,
+.acct-table-wrap::-webkit-scrollbar {
+  height: 10px;
+}
+
+.all-files-list::-webkit-scrollbar-track,
+.acct-table-wrap::-webkit-scrollbar-track {
+  background: var(--surface-alt);
+  border-top: 1px solid var(--border);
+}
+
+.all-files-list::-webkit-scrollbar-thumb,
+.acct-table-wrap::-webkit-scrollbar-thumb {
+  background: #b8c4cf;
+  border-radius: 999px;
+  border: 2px solid var(--surface-alt);
+}
+
+.all-files-list::-webkit-scrollbar-thumb:hover,
+.acct-table-wrap::-webkit-scrollbar-thumb:hover {
+  background: #8fa0b0;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .all-files-list,
+  .acct-table-wrap {
+    scrollbar-width: thin;
+    scrollbar-color: #b8c4cf var(--surface-alt);
+  }
+}
