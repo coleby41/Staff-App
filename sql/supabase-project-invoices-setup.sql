@@ -26,10 +26,25 @@
 
 -- 1. project_files: allow source = 'invoice' --------------------------------
 
-alter table public.project_files drop constraint if exists project_files_source_check;
-alter table public.project_files
-  add constraint project_files_source_check
-  check (source in ('upload', 'form_submission', 'invoice'));
+-- Keeps every source already in use (incident_report, back_charge, vpo, and
+-- anything else already stored) and adds 'invoice'.
+do $$
+declare
+  allowed text;
+begin
+  select string_agg(quote_literal(v), ', ' order by v) into allowed
+  from (
+    select unnest(array['upload', 'form_submission', 'incident_report', 'back_charge', 'vpo', 'invoice']) as v
+    union
+    select distinct source from public.project_files where source is not null
+  ) s;
+
+  alter table public.project_files drop constraint if exists project_files_source_check;
+  execute format(
+    'alter table public.project_files add constraint project_files_source_check check (source in (%s))',
+    allowed
+  );
+end $$;
 
 
 -- 2. project_invoices ---------------------------------------------------------
