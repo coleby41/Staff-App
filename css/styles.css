@@ -16906,3 +16906,11 @@ body.inv-form-open { overflow: hidden; }
 
 /* Long forms scroll inside .inv-body; never squash a row to fit. */
 .inv-body > * { flex-shrink: 0; }
+
+/* Project switcher dropdown (header) must cover the sidebar collapse arrow.
+   The dropdown lives inside .header, whose own z-index (just above the nav)
+   is lower than the arrow's --z-floating-control, so while it's open, lift
+   the whole header above the arrow. */
+.header:has(.project-switcher-dropdown:not(.hidden)) {
+  z-index: calc(var(--z-floating-control) + 1);
+}
