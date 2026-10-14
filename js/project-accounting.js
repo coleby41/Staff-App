@@ -73,7 +73,8 @@
         return [
             inv.vendor_name, inv.invoice_number, PI().formatDate(inv.invoice_date), inv.invoice_date,
             PI().formatMoney(inv.total_due), String(inv.total_due), inv.paid ? "paid" : "not paid unpaid",
-            inv.file ? inv.file.file_name : ""
+            inv.file ? inv.file.file_name : "",
+            inv.is_hardware_store ? "hardware store" : "", inv.description || ""
         ].join(" ").toLowerCase();
     }
 
@@ -100,6 +101,12 @@
         return `<span class="acct-pill ${inv.paid ? "acct-pill--paid" : "acct-pill--unpaid"}">${inv.paid ? "Paid" : "Not paid"}</span>`;
     }
 
+    function vendorHtml(inv) {
+        return `<span class="acct-strong">${esc(inv.vendor_name)}</span>` +
+            (inv.is_hardware_store ? ` <span class="acct-tag">Hardware store</span>` : "") +
+            (inv.description ? `<span class="acct-desc">${esc(inv.description)}</span>` : "");
+    }
+
     function fileLink(inv) {
         const name = inv.file ? inv.file.file_name : "(file missing)";
         return `<button type="button" class="acct-file-link" data-acct-action="open" data-id="${inv.id}"${inv.file ? "" : " disabled"}>${ICONS.pdf}<span>${esc(name)}</span></button>`;
@@ -117,7 +124,7 @@
         $("acctTableBody").innerHTML = list.map(inv => `
             <tr>
                 <td>${fileLink(inv)}</td>
-                <td class="acct-strong">${esc(inv.vendor_name)}</td>
+                <td class="acct-vendor-cell">${vendorHtml(inv)}</td>
                 <td>${esc(inv.invoice_number)}</td>
                 <td>${esc(PI().formatDate(inv.invoice_date))}</td>
                 <td class="acct-num acct-strong">${esc(PI().formatMoney(inv.total_due))}</td>
@@ -132,7 +139,7 @@
             <article class="acct-card">
                 <div class="acct-card-top">
                     <div class="acct-card-main">
-                        <div class="acct-strong">${esc(inv.vendor_name)}</div>
+                        <div>${vendorHtml(inv)}</div>
                         <div class="acct-card-sub">#${esc(inv.invoice_number)}${inv.invoice_date ? " · " + esc(PI().formatDate(inv.invoice_date)) : ""}</div>
                     </div>
                     <div class="acct-card-amount">

@@ -262,7 +262,9 @@
         return { ...row, file: file || null, total_due: Number(row.total_due) || 0 };
     }
 
-    async function createInvoice({ project, vendor, invoiceNumber, totalDue, invoiceDate, paid, files }) {
+    // vendor is { id, name } for an approved vendor, or { id: null, name: <store name> }
+    // for a hardware-store purchase (isHardware true, with an optional description).
+    async function createInvoice({ project, vendor, invoiceNumber, totalDue, invoiceDate, paid, files, isHardware, description }) {
         const pdf = await buildPdf(files);
         const name = fileNameFor(project.name, vendor.name, invoiceNumber);
         const pdfFile = new File([pdf], name, { type: "application/pdf" });
@@ -286,8 +288,10 @@
 
         const { data: inv, error: invErr } = await client().from(INVOICES_TABLE).insert({
             project_id: project.id,
-            vendor_id: vendor.id,
+            vendor_id: isHardware ? null : vendor.id,
             vendor_name: vendor.name,
+            is_hardware_store: !!isHardware,
+            description: isHardware ? (description || null) : null,
             invoice_number: invoiceNumber,
             total_due: totalDue,
             invoice_date: invoiceDate || null,
@@ -307,8 +311,10 @@
 
     async function updateInvoice(invoice, project, changes) {
         const { data, error } = await client().from(INVOICES_TABLE).update({
-            vendor_id: changes.vendor.id,
+            vendor_id: changes.isHardware ? null : changes.vendor.id,
             vendor_name: changes.vendor.name,
+            is_hardware_store: !!changes.isHardware,
+            description: changes.isHardware ? (changes.description || null) : null,
             invoice_number: changes.invoiceNumber,
             total_due: changes.totalDue,
             invoice_date: changes.invoiceDate || null,
@@ -422,7 +428,10 @@
             mode: inv ? "edit" : "add",
             view: "form",
             pages: [],
-            vendor: inv ? { id: inv.vendor_id, name: inv.vendor_name } : null,
+            vendor: inv && !inv.is_hardware_store ? { id: inv.vendor_id, name: inv.vendor_name } : null,
+            isHardware: !!(inv && inv.is_hardware_store),
+            storeName: inv && inv.is_hardware_store ? (inv.vendor_name || "") : "",
+            description: inv ? (inv.description || "") : "",
             invoiceNumber: inv ? inv.invoice_number : "",
             totalDue: inv ? String(inv.total_due.toFixed ? inv.total_due.toFixed(2) : inv.total_due) : "",
             invoiceDate: inv ? (inv.invoice_date || "") : todayIso(),
@@ -470,7 +479,8 @@
     }
 
     function currentFileName() {
-        return fileNameFor(form.opts.project.name, form.vendor ? form.vendor.name : "Vendor", form.invoiceNumber || "Invoice #");
+        const who = form.isHardware ? (form.storeName.trim() || "Store name") : (form.vendor ? form.vendor.name : "Vendor");
+        return fileNameFor(form.opts.project.name, who, form.invoiceNumber || (form.isHardware ? "Receipt #" : "Invoice #"));
     }
 
     function renderForm() {
@@ -501,14 +511,24 @@
             </div>
             <div class="inv-body">
                 ${pagesHtml}
+                <label class="inv-check">
+                    <input type="checkbox" data-inv-field="isHardware"${form.isHardware ? " checked" : ""}>
+                    <span><strong>Hardware store</strong><small>Home Depot, Lowe's, etc. — no approved vendor needed</small></span>
+                </label>
+                ${form.isHardware ? `
+                <label class="inv-field"><span class="inv-label">Name of hardware store</span>
+                    <input type="text" class="inv-input" data-inv-field="storeName" value="${esc(form.storeName)}" placeholder="e.g. Home Depot" autocomplete="off" maxlength="80"></label>
+                <label class="inv-field"><span class="inv-label">Description</span>
+                    <textarea class="inv-input inv-textarea" data-inv-field="description" rows="3" maxlength="500" placeholder="What was bought and what it's for">${esc(form.description)}</textarea></label>
+                ` : `
                 <div class="inv-field">
                     <span class="inv-label">Vendor</span>
                     <button type="button" class="inv-select${form.vendor ? "" : " is-empty"}" data-inv-action="pick-vendor">
                         <span>${form.vendor ? esc(form.vendor.name) : "Choose an approved vendor"}</span>${ICON.chevron}
                     </button>
-                </div>
+                </div>`}
                 <div class="inv-grid">
-                    <label class="inv-field"><span class="inv-label">Invoice number</span>
+                    <label class="inv-field"><span class="inv-label">${form.isHardware ? "Receipt / invoice #" : "Invoice number"}</span>
                         <input type="text" class="inv-input" data-inv-field="invoiceNumber" value="${esc(form.invoiceNumber)}" autocomplete="off" maxlength="60"></label>
                     <label class="inv-field"><span class="inv-label">Total due</span>
                         <input type="text" class="inv-input" data-inv-field="totalDue" value="${esc(form.totalDue)}" inputmode="decimal" placeholder="0.00" autocomplete="off"></label>
@@ -562,6 +582,13 @@
         const el = e.target.closest("[data-inv-field]");
         if (!el || !form) return;
         const key = el.dataset.invField;
+        if (key === "isHardware") {
+            form.isHardware = el.checked;
+            form.error = "";
+            renderForm();
+            if (form.isHardware && !isPhone()) document.querySelector('#invoiceFormOverlay [data-inv-field="storeName"]')?.focus();
+            return;
+        }
         form[key] = el.value;
         if (key === "vendorQuery") {
             const list = document.querySelector("#invoiceFormOverlay .inv-vendor-list");
@@ -570,7 +597,7 @@
             const input = document.querySelector('#invoiceFormOverlay [data-inv-field="vendorQuery"]');
             if (input) { input.focus(); try { input.setSelectionRange(pos, pos); } catch (err) { /* ignore */ } }
             void list;
-        } else if (key === "invoiceNumber") {
+        } else if (key === "invoiceNumber" || key === "storeName") {
             const prev = document.getElementById("invFileNamePreview");
             if (prev) prev.textContent = currentFileName();
         }
@@ -611,8 +638,9 @@
         const number = String(form.invoiceNumber || "").trim();
         let problem = "";
         if (isAdd && !form.pages.length) problem = "Add at least one photo or PDF of the invoice.";
-        else if (!form.vendor) problem = "Choose the vendor.";
-        else if (!number) problem = "Enter the invoice number.";
+        else if (form.isHardware && !form.storeName.trim()) problem = "Enter the name of the hardware store.";
+        else if (!form.isHardware && !form.vendor) problem = "Choose the vendor.";
+        else if (!number) problem = form.isHardware ? "Enter the receipt or invoice number." : "Enter the invoice number.";
         else if (!Number.isFinite(total)) problem = "Enter the total due as a number, like 1250.00.";
         else if (!form.invoiceDate) problem = "Enter the invoice date.";
         if (problem) { form.error = problem; renderForm(); return; }
@@ -621,17 +649,19 @@
         form.saving = true;
         renderForm();
         const f = form;
+        const vendor = f.isHardware ? { id: null, name: f.storeName.trim() } : f.vendor;
+        const description = f.isHardware ? f.description.trim() : "";
         try {
             let saved;
             if (isAdd) {
                 saved = await createInvoice({
-                    project: f.opts.project, vendor: f.vendor, invoiceNumber: number,
+                    project: f.opts.project, vendor, invoiceNumber: number, isHardware: f.isHardware, description,
                     totalDue: total, invoiceDate: f.invoiceDate, paid: f.paid,
                     files: f.pages.map(p => p.file)
                 });
             } else {
                 saved = await updateInvoice(f.opts.invoice, f.opts.project, {
-                    vendor: f.vendor, invoiceNumber: number, totalDue: total, invoiceDate: f.invoiceDate, paid: f.paid
+                    vendor, isHardware: f.isHardware, description, invoiceNumber: number, totalDue: total, invoiceDate: f.invoiceDate, paid: f.paid
                 });
             }
             const onSaved = f.opts.onSaved;

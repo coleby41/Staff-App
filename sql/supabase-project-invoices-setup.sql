@@ -65,6 +65,12 @@ create table if not exists public.project_invoices (
   updated_at timestamptz not null default now()
 );
 
+-- Hardware-store purchases (Home Depot, Lowe's …): no approved vendor —
+-- vendor_name holds the store's name, plus a free-text description.
+alter table public.project_invoices
+  add column if not exists is_hardware_store boolean not null default false,
+  add column if not exists description text;
+
 create index if not exists project_invoices_project_id_idx on public.project_invoices (project_id);
 create index if not exists project_invoices_project_file_id_idx on public.project_invoices (project_file_id);
 

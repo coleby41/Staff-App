@@ -16860,3 +16860,49 @@ body.inv-form-open { overflow: hidden; }
 
 /* room for the 3D shadow on the page tiles (the strip scrolls sideways) */
 .inv-pages { padding: 2px 2px 8px; }
+
+/* Invoice form: "Hardware store" switch + description (js/project-invoices.js) */
+.inv-check {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.inv-check input { width: 20px; height: 20px; flex: none; accent-color: var(--accent); margin: 0; }
+.inv-check strong { display: block; font-size: 15px; color: var(--text); }
+.inv-check small { display: block; margin-top: 1px; font-size: 12px; color: var(--text-soft); }
+.inv-check:has(input:checked) { background: var(--warning-soft); border-color: #f0d3ae; }
+
+.inv-textarea { height: auto; min-height: 84px; padding: 10px 12px; resize: vertical; line-height: 1.4; }
+
+/* Accounting table/cards: hardware-store tag + description under the name */
+.acct-tag {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--warning-soft);
+  color: #8a5212;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  vertical-align: 1px;
+}
+
+.acct-desc {
+  display: block;
+  margin-top: 3px;
+  max-width: 320px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-soft);
+  white-space: pre-line;
+}
+
+/* Long forms scroll inside .inv-body; never squash a row to fit. */
+.inv-body > * { flex-shrink: 0; }
