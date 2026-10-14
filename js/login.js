@@ -1,3 +1,14 @@
+// Pre-tick "Remember this device" with this device's last choice. The
+// installed home-screen app defaults to ticked (it's someone's own phone).
+(function () {
+  const remember = document.getElementById('rememberMe');
+  if (!remember) return;
+  let saved = null;
+  try { saved = localStorage.getItem('rememberDevice'); } catch (e) { /* ignore */ }
+  const standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  remember.checked = saved === '1' || (saved === null && standalone);
+})();
+
 const loginStep = document.getElementById('loginStep');
 const resetStep = document.getElementById('resetStep');
 const form = document.getElementById('loginForm');
@@ -108,6 +119,15 @@ if (form) {
       showErrorPopup(errorText || 'Unable to sign in. Try again.');
       return;
     }
+
+    // "Remember this device": stay signed in on this device (js/timeout.js
+    // skips the 5-minute idle sign-out). Unticked = the idle timeout applies.
+    try {
+      const remember = document.getElementById('rememberMe');
+      if (remember && remember.checked) localStorage.setItem('rememberDevice', '1');
+      else localStorage.setItem('rememberDevice', '0');
+      localStorage.setItem('lastActivityAt', String(Date.now())); // fresh sign-in counts as activity
+    } catch (e) { /* storage blocked — falls back to the idle timeout */ }
 
     if (await goToResetIfNeeded(matchedUser)) {
       hideLoadingPopup();
